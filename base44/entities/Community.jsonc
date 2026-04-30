@@ -1,0 +1,34 @@
+{
+  "name": "Community",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "cover_url": {
+      "type": "string"
+    },
+    "members_count": {
+      "type": "number",
+      "default": 0
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "manga",
+        "general",
+        "theories",
+        "reviews",
+        "news"
+      ],
+      "default": "general"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

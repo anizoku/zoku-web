@@ -1,0 +1,34 @@
+{
+  "name": "Comment",
+  "type": "object",
+  "properties": {
+    "post_id": {
+      "type": "string",
+      "description": "ID of the parent post"
+    },
+    "content": {
+      "type": "string"
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "author_avatar": {
+      "type": "string"
+    },
+    "likes_count": {
+      "type": "number",
+      "default": 0
+    },
+    "liked_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "post_id",
+    "content"
+  ]
+}

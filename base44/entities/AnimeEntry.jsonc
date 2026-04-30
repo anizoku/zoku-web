@@ -1,0 +1,60 @@
+{
+  "name": "AnimeEntry",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "manga"
+      ],
+      "default": "anime"
+    },
+    "cover_url": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "watching",
+        "reading",
+        "completed",
+        "planned",
+        "dropped",
+        "on_hold"
+      ],
+      "default": "planned"
+    },
+    "current_episode": {
+      "type": "number",
+      "default": 0
+    },
+    "total_episodes": {
+      "type": "number"
+    },
+    "current_chapter": {
+      "type": "number",
+      "default": 0
+    },
+    "total_chapters": {
+      "type": "number"
+    },
+    "rating": {
+      "type": "number",
+      "description": "User rating 1-10"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "genre": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "type"
+  ]
+}

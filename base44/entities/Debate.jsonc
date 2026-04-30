@@ -1,0 +1,36 @@
+{
+  "name": "Debate",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "anime_title": {
+      "type": "string"
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "replies_count": {
+      "type": "number",
+      "default": 0
+    },
+    "is_hot": {
+      "type": "boolean",
+      "default": false
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "title"
+  ]
+}

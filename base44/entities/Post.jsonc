@@ -1,0 +1,53 @@
+{
+  "name": "Post",
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string",
+      "description": "Post text content"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Optional image URL"
+    },
+    "anime_title": {
+      "type": "string",
+      "description": "Related anime/manga title"
+    },
+    "post_type": {
+      "type": "string",
+      "enum": [
+        "discussion",
+        "review",
+        "reaction",
+        "theory",
+        "general"
+      ],
+      "default": "general"
+    },
+    "likes_count": {
+      "type": "number",
+      "default": 0
+    },
+    "comments_count": {
+      "type": "number",
+      "default": 0
+    },
+    "liked_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "author_avatar": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "content"
+  ]
+}
