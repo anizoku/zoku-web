@@ -45,6 +45,11 @@
     },
     "author_avatar": {
       "type": "string"
+    },
+    "author_level": {
+      "type": "number",
+      "default": 1,
+      "description": "Author's level at time of posting"
     }
   },
   "required": [

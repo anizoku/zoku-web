@@ -4,13 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Send, ImagePlus } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { computeStats, computeTotalXp, getXpProgress } from "@/lib/xpSystem";
 
 export default function CreatePostCard({ user }) {
   const [content, setContent] = useState("");
   const [postType, setPostType] = useState("general");
   const [isPosting, setIsPosting] = useState(false);
   const queryClient = useQueryClient();
+
+  const { data: entries } = useQuery({
+    queryKey: ["sidebar-entries"],
+    queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 200),
+    initialData: [],
+  });
+  const { data: posts } = useQuery({
+    queryKey: ["sidebar-posts"],
+    queryFn: () => base44.entities.Post.list("-created_date", 50),
+    initialData: [],
+  });
+  const myEntries = user ? entries.filter((e) => e.created_by === user.email) : [];
+  const myPosts = user ? posts.filter((p) => p.created_by === user.email) : [];
+  const stats = computeStats(myEntries, myPosts);
+  const totalXp = computeTotalXp(stats);
+  const { level } = getXpProgress(totalXp);
 
   const handlePost = async () => {
     if (!content.trim()) return;
@@ -20,6 +37,7 @@ export default function CreatePostCard({ user }) {
       post_type: postType,
       author_name: user?.full_name || "Anônimo",
       author_avatar: user?.avatar_url || "",
+      author_level: level,
       likes_count: 0,
       comments_count: 0,
       liked_by: [],

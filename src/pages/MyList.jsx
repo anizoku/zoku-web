@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { List, Plus, Tv, BookOpen, Star, Minus, ChevronDown } from "lucide-react";
+import { List, Plus, Tv, BookOpen, Star, Minus, Zap } from "lucide-react";
+import { XP_REWARDS } from "@/lib/xpSystem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -139,15 +140,27 @@ function EntryCard({ entry, onUpdate }) {
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={decrement}>
               <Minus className="w-3 h-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={increment}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 hover:text-primary hover:bg-primary/10"
+              onClick={increment}
+              title={`+${isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read} XP`}
+            >
               <Plus className="w-3 h-3" />
             </Button>
           </div>
-          {entry.rating > 0 && (
-            <div className="flex items-center gap-1 text-xs text-chart-4">
-              <Star className="w-3 h-3 fill-chart-4" /> {entry.rating}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-primary/70 flex items-center gap-0.5 font-medium">
+              <Zap className="w-2.5 h-2.5" />
+              +{isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read} XP
+            </span>
+            {entry.rating > 0 && (
+              <div className="flex items-center gap-1 text-xs text-chart-4">
+                <Star className="w-3 h-3 fill-chart-4" /> {entry.rating}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

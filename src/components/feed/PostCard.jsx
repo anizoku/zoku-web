@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import LevelBadge from "@/components/profile/LevelBadge";
 
 const typeLabels = {
   general: null,
@@ -58,8 +59,9 @@ export default function PostCard({ post, userEmail }) {
             </span>
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm text-foreground">{post.author_name || "Anônimo"}</span>
+              {post.author_level > 0 && <LevelBadge level={post.author_level} size="sm" />}
               {typeLabels[post.post_type] && (
                 <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${typeColors[post.post_type] || ""}`}>
                   {typeLabels[post.post_type]}
