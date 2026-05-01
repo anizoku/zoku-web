@@ -14,6 +14,7 @@ import Mangas from '@/pages/Mangas';
 import Communities from '@/pages/Communities';
 import MyList from '@/pages/MyList';
 import Profile from '@/pages/Profile';
+import Films from '@/pages/Films';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -46,6 +47,7 @@ const AuthenticatedApp = () => {
         <Route path="/animes" element={<Animes />} />
         <Route path="/mangas" element={<Mangas />} />
         <Route path="/communities" element={<Communities />} />
+        <Route path="/films" element={<Films />} />
         <Route path="/my-list" element={<MyList />} />
         <Route path="/profile" element={<Profile />} />
       </Route>

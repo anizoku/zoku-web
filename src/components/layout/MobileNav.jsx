@@ -1,12 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, TrendingUp, Users, List, User } from "lucide-react";
+import { Home, TrendingUp, Tv, Film, BookOpen, List, User } from "lucide-react";
 
 const mobileItems = [
   { icon: Home, label: "Home", path: "/" },
-  { icon: TrendingUp, label: "Trending", path: "/trending" },
-  { icon: Users, label: "Social", path: "/communities" },
+  { icon: Tv, label: "Animes", path: "/animes" },
+  { icon: Film, label: "Filmes", path: "/films" },
+  { icon: BookOpen, label: "Mangás", path: "/mangas" },
   { icon: List, label: "Lista", path: "/my-list" },
-  { icon: User, label: "Perfil", path: "/profile" },
 ];
 
 export default function MobileNav() {

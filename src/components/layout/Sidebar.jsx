@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, TrendingUp, Tv, BookOpen, Users, List, User, Flame } from "lucide-react";
+import { Home, TrendingUp, Tv, BookOpen, Users, List, User, Flame, Film } from "lucide-react";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { computeStats, computeTotalXp, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
@@ -9,6 +9,7 @@ const navItems = [
   { icon: Home, label: "Home", path: "/" },
   { icon: TrendingUp, label: "Trending", path: "/trending" },
   { icon: Tv, label: "Animes", path: "/animes" },
+  { icon: Film, label: "Filmes", path: "/films" },
   { icon: BookOpen, label: "Mangás", path: "/mangas" },
   { icon: Users, label: "Comunidades", path: "/communities" },
   { icon: List, label: "Minha Lista", path: "/my-list" },
