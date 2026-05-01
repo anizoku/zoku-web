@@ -1,0 +1,43 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "recipient_email": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "friend_request",
+        "friend_accepted",
+        "post_liked",
+        "post_commented",
+        "event_invite",
+        "event_reminder",
+        "list_update"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "from_name": {
+      "type": "string"
+    },
+    "from_email": {
+      "type": "string"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "ID of related entity"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "recipient_email",
+    "type",
+    "message"
+  ]
+}

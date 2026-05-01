@@ -1,0 +1,72 @@
+{
+  "name": "UserProfile",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Linked user email (unique)"
+    },
+    "username": {
+      "type": "string",
+      "description": "@username handle"
+    },
+    "bio": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "banner_url": {
+      "type": "string"
+    },
+    "links": {
+      "type": "object",
+      "properties": {
+        "twitter": {
+          "type": "string"
+        },
+        "instagram": {
+          "type": "string"
+        },
+        "website": {
+          "type": "string"
+        }
+      }
+    },
+    "favorite_animes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "favorite_mangas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "list_visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "friends",
+        "private"
+      ],
+      "default": "public"
+    },
+    "profile_visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "friends",
+        "private"
+      ],
+      "default": "public"
+    }
+  },
+  "required": [
+    "user_email"
+  ]
+}

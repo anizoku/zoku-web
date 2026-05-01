@@ -1,0 +1,85 @@
+{
+  "name": "SocialEvent",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "media_title": {
+      "type": "string",
+      "description": "Related anime/manga title"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "watch_episode",
+        "watch_marathon",
+        "read_chapter",
+        "debate",
+        "theory_night",
+        "watch_party"
+      ],
+      "default": "watch_episode"
+    },
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "manga"
+      ],
+      "default": "anime"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "max_participants": {
+      "type": "number"
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "friends",
+        "private"
+      ],
+      "default": "public"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "happening",
+        "finished"
+      ],
+      "default": "scheduled"
+    },
+    "organizer_email": {
+      "type": "string"
+    },
+    "organizer_name": {
+      "type": "string"
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "participants_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "title",
+    "event_date"
+  ]
+}

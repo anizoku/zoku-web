@@ -1,17 +1,23 @@
-import { useState } from "react";
-import { Search, Bell, Flame } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Flame } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import NotificationBell from "@/components/social/NotificationBell";
 
 export default function TopBar() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [userEmail, setUserEmail] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then(u => setUserEmail(u.email)).catch(() => {});
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
       <div className="flex items-center gap-4 px-4 lg:px-6 h-14">
         {/* Mobile logo */}
-        <Link to="/" className="lg:hidden flex items-center gap-2">
+        <Link to="/" className="lg:hidden flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Flame className="w-4 h-4 text-primary-foreground" />
           </div>
@@ -33,12 +39,9 @@ export default function TopBar() {
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Notifications */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary" />
-          </Button>
+          <NotificationBell userEmail={userEmail} />
         </div>
       </div>
     </header>
