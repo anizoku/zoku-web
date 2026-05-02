@@ -14,7 +14,11 @@
         "post_commented",
         "event_invite",
         "event_reminder",
-        "list_update"
+        "list_update",
+        "watch_together_invite",
+        "watch_together_near_5",
+        "watch_together_near_1",
+        "direct_message"
       ]
     },
     "message": {

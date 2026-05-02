@@ -1,0 +1,42 @@
+{
+  "name": "ActivityFeed",
+  "type": "object",
+  "properties": {
+    "actor_email": {
+      "type": "string"
+    },
+    "actor_name": {
+      "type": "string"
+    },
+    "target_email": {
+      "type": "string"
+    },
+    "target_name": {
+      "type": "string"
+    },
+    "activity_type": {
+      "type": "string",
+      "enum": [
+        "watch_together_created",
+        "list_commented",
+        "event_invited",
+        "started_watching_together",
+        "friend_added"
+      ]
+    },
+    "media_title": {
+      "type": "string"
+    },
+    "media_episode": {
+      "type": "number"
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "actor_email",
+    "activity_type",
+    "description"
+  ]
+}

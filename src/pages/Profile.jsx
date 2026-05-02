@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { Tv, BookOpen, Star, Trophy, Zap, Flame, Link as LinkIcon, Heart, Twitter, Instagram, Globe } from "lucide-react";
+import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PostCard from "@/components/feed/PostCard";
@@ -11,11 +11,20 @@ import RankCard from "@/components/profile/RankCard";
 import LevelBadge from "@/components/profile/LevelBadge";
 import LevelUpToast from "@/components/profile/LevelUpToast";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
+import FriendsSection from "@/components/profile/FriendsSection";
+import ActivityFeedSection from "@/components/profile/ActivityFeedSection";
 import { computeStats, computeTotalXp, getUnlockedAchievements, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
+import { getMyFriends } from "@/lib/social";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const statusLabels = { watching: "Assistindo", reading: "Lendo", completed: "Concluído", planned: "Planejado", dropped: "Dropado", on_hold: "Pausado" };
-const statusColors = { watching: "bg-primary/15 text-primary", reading: "bg-chart-2/15 text-chart-2", completed: "bg-chart-4/15 text-chart-4", planned: "bg-secondary text-secondary-foreground", dropped: "bg-destructive/15 text-destructive", on_hold: "bg-chart-3/15 text-chart-3" };
+const statusColors = {
+  watching: "bg-primary/15 text-primary", reading: "bg-chart-2/15 text-chart-2",
+  completed: "bg-chart-4/15 text-chart-4", planned: "bg-secondary text-secondary-foreground",
+  dropped: "bg-destructive/15 text-destructive", on_hold: "bg-chart-3/15 text-chart-3"
+};
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -27,10 +36,14 @@ export default function Profile() {
   const { data: entries } = useQuery({ queryKey: ["profile-entries"], queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 200), initialData: [] });
   const { data: posts } = useQuery({ queryKey: ["profile-posts"], queryFn: () => base44.entities.Post.list("-created_date", 20), initialData: [] });
   const { data: profiles } = useQuery({ queryKey: ["user-profiles"], queryFn: () => base44.entities.UserProfile.list("-created_date", 100), initialData: [] });
+  const { data: friendships } = useQuery({ queryKey: ["friendships"], queryFn: () => base44.entities.Friendship.list("-created_date", 200), initialData: [] });
+  const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => base44.entities.SocialEvent.list("-event_date", 20), initialData: [] });
 
   const myEntries = entries.filter((e) => e.created_by === user?.email);
   const myPosts = posts.filter((p) => p.created_by === user?.email);
   const myProfile = profiles.find(p => p.user_email === user?.email);
+  const myFriends = user ? getMyFriends(friendships, user.email) : [];
+  const myEvents = events.filter(e => e.organizer_email === user?.email || e.participants?.includes(user?.email));
 
   const stats = computeStats(myEntries, myPosts);
   const totalXp = computeTotalXp(stats);
@@ -55,16 +68,13 @@ export default function Profile() {
     { icon: BookOpen, label: "Caps. Lidos", value: stats.totalChapters, color: "text-chart-2" },
   ];
 
-  const hasBanner = !!myProfile?.banner_url;
-  const hasAvatar = !!myProfile?.avatar_url;
-
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 space-y-6">
       {/* Profile Header */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         {/* Banner */}
-        <div className={`h-36 relative overflow-hidden`}>
-          {hasBanner ? (
+        <div className="h-36 relative overflow-hidden">
+          {myProfile?.banner_url ? (
             <img src={myProfile.banner_url} alt="banner" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-primary/30 via-chart-2/15 to-chart-3/10" />
@@ -76,29 +86,29 @@ export default function Profile() {
 
         <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
-            {/* Avatar */}
-            <div className={`w-24 h-24 rounded-2xl border-4 border-card flex items-center justify-center relative shrink-0 overflow-hidden ${rank.bg}`}>
-              {hasAvatar ? (
+            {/* Avatar circular */}
+            <div className="w-24 h-24 rounded-full border-4 border-card flex items-center justify-center relative shrink-0 overflow-hidden bg-secondary">
+              {myProfile?.avatar_url ? (
                 <img src={myProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
               ) : (
                 <span className={`font-bold text-3xl font-space ${rank.color}`}>
                   {(user?.full_name || "A")[0].toUpperCase()}
                 </span>
               )}
-              <div className="absolute -bottom-2 -right-2">
+              <div className="absolute -bottom-1 -right-1">
                 <LevelBadge level={level} size="sm" />
               </div>
             </div>
 
             <div className="flex-1 pt-2 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-0.5">
                 <h1 className="font-space font-bold text-xl text-foreground">{user?.full_name || "Carregando..."}</h1>
                 <span className={`text-sm font-semibold ${rank.color}`}>{rank.title}</span>
               </div>
               {myProfile?.username && (
                 <p className="text-sm text-primary/80 font-medium mb-0.5">@{myProfile.username}</p>
               )}
-              <p className="text-sm text-muted-foreground">{user?.email || ""}</p>
+              <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
               {myProfile?.bio && (
                 <p className="text-sm text-foreground/80 mt-2 leading-relaxed">{myProfile.bio}</p>
               )}
@@ -127,7 +137,6 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* XP bar */}
               <div className="max-w-sm mt-3">
                 <XpProgressBar totalXp={totalXp} />
               </div>
@@ -176,15 +185,32 @@ export default function Profile() {
       </div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="list">
+      <Tabs defaultValue="friends">
         <TabsList className="bg-secondary flex-wrap h-auto gap-1">
+          <TabsTrigger value="friends"><Users className="w-3.5 h-3.5 mr-1" />Amigos ({myFriends.length})</TabsTrigger>
+          <TabsTrigger value="activity"><Flame className="w-3.5 h-3.5 mr-1" />Atividades</TabsTrigger>
           <TabsTrigger value="list"><Tv className="w-3.5 h-3.5 mr-1" />Minha Lista</TabsTrigger>
+          <TabsTrigger value="events"><Calendar className="w-3.5 h-3.5 mr-1" />Eventos</TabsTrigger>
           <TabsTrigger value="achievements"><Trophy className="w-3.5 h-3.5 mr-1" />Conquistas</TabsTrigger>
           <TabsTrigger value="ranks"><Zap className="w-3.5 h-3.5 mr-1" />Ranks</TabsTrigger>
-          <TabsTrigger value="posts"><Flame className="w-3.5 h-3.5 mr-1" />Posts</TabsTrigger>
+          <TabsTrigger value="posts"><Star className="w-3.5 h-3.5 mr-1" />Posts</TabsTrigger>
         </TabsList>
 
-        {/* List tab */}
+        {/* Friends */}
+        <TabsContent value="friends" className="mt-4">
+          <FriendsSection currentUser={user} />
+        </TabsContent>
+
+        {/* Activity Feed */}
+        <TabsContent value="activity" className="mt-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Flame className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-sm text-foreground">Atividades com amigos</h2>
+          </div>
+          <ActivityFeedSection userEmail={user?.email} friends={myFriends} />
+        </TabsContent>
+
+        {/* List */}
         <TabsContent value="list" className="mt-4">
           {myEntries.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-8 text-center">
@@ -229,6 +255,41 @@ export default function Profile() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Events */}
+        <TabsContent value="events" className="mt-4">
+          {myEvents.length === 0 ? (
+            <div className="bg-card rounded-xl border border-border p-8 text-center">
+              <Calendar className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">Nenhum evento ainda</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {myEvents.map(event => (
+                <div key={event.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-chart-5/10 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4 text-chart-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground">{event.title}</p>
+                    {event.media_title && <p className="text-xs text-primary/70">📺 {event.media_title}</p>}
+                    {event.event_date && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {format(new Date(event.event_date), "d 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <Badge className={`text-[10px] border-none ${event.organizer_email === user?.email ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                        {event.organizer_email === user?.email ? "Organizador" : "Participante"}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{event.participants?.length || 0} participantes</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </TabsContent>

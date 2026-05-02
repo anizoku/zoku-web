@@ -1,18 +1,13 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Plus, Users, Clock, Film, BookOpen, Tv, Zap } from "lucide-react";
+import { Calendar, Users, Play, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import EventCard from "@/components/social/EventCard";
 import CreateEventDialog from "@/components/social/CreateEventDialog";
+import WatchTogetherCard from "@/components/social/WatchTogetherCard";
 
 export default function Events() {
   const [user, setUser] = useState(null);
@@ -23,6 +18,12 @@ export default function Events() {
   const { data: events } = useQuery({
     queryKey: ["events"],
     queryFn: () => base44.entities.SocialEvent.list("-event_date", 50),
+    initialData: [],
+  });
+
+  const { data: watchTogetherList } = useQuery({
+    queryKey: ["watch-together"],
+    queryFn: () => base44.entities.WatchTogether.list("-created_date", 50),
     initialData: [],
   });
 
@@ -40,9 +41,20 @@ export default function Events() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["events"] }),
   });
 
+  const respondWTMutation = useMutation({
+    mutationFn: ({ id, status }) => base44.entities.WatchTogether.update(id, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["watch-together"] }),
+  });
+
   const myEvents = events.filter(e => e.organizer_email === user?.email);
   const joined = events.filter(e => e.participants?.includes(user?.email) && e.organizer_email !== user?.email);
   const publicEvents = events.filter(e => e.visibility === "public" && e.organizer_email !== user?.email);
+
+  const myWT = watchTogetherList.filter(w =>
+    w.initiator_email === user?.email || w.friend_email === user?.email
+  );
+  const pendingWT = myWT.filter(w => w.status === "pending");
+  const activeWT = myWT.filter(w => w.status === "accepted");
 
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
@@ -53,17 +65,25 @@ export default function Events() {
           </div>
           <div>
             <h1 className="font-space font-bold text-2xl text-foreground">Eventos</h1>
-            <p className="text-sm text-muted-foreground">Watch parties e debates em grupo</p>
+            <p className="text-sm text-muted-foreground">Watch parties, debates e Assistir Juntos</p>
           </div>
         </div>
         {user && <CreateEventDialog user={user} onCreated={() => queryClient.invalidateQueries({ queryKey: ["events"] })} />}
       </div>
 
       <Tabs defaultValue="public">
-        <TabsList className="bg-secondary mb-6">
+        <TabsList className="bg-secondary mb-6 flex-wrap h-auto gap-1">
           <TabsTrigger value="public">Públicos</TabsTrigger>
           <TabsTrigger value="joined">Participando</TabsTrigger>
           <TabsTrigger value="mine">Meus Eventos</TabsTrigger>
+          <TabsTrigger value="watch-together">
+            Assistir Juntos
+            {pendingWT.length > 0 && (
+              <span className="ml-1.5 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.5 font-bold">
+                {pendingWT.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {[
@@ -80,17 +100,56 @@ export default function Events() {
             ) : (
               <div className="grid gap-4">
                 {data.map(event => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    user={user}
-                    onJoin={() => joinMutation.mutate({ event })}
-                  />
+                  <EventCard key={event.id} event={event} user={user} onJoin={() => joinMutation.mutate({ event })} />
                 ))}
               </div>
             )}
           </TabsContent>
         ))}
+
+        {/* Watch Together Tab */}
+        <TabsContent value="watch-together">
+          <div className="space-y-6">
+            {pendingWT.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  Convites Pendentes ({pendingWT.length})
+                </p>
+                <div className="grid gap-3">
+                  {pendingWT.map(wt => (
+                    <WatchTogetherCard
+                      key={wt.id}
+                      wt={wt}
+                      currentUser={user}
+                      onAccept={() => respondWTMutation.mutate({ id: wt.id, status: "accepted" })}
+                      onReject={() => respondWTMutation.mutate({ id: wt.id, status: "rejected" })}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeWT.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Ativos</p>
+                <div className="grid gap-3">
+                  {activeWT.map(wt => (
+                    <WatchTogetherCard key={wt.id} wt={wt} currentUser={user} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {myWT.length === 0 && (
+              <div className="bg-card rounded-xl border border-border p-12 text-center">
+                <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">Nenhum convite de Assistir Juntos</p>
+                <p className="text-xs text-muted-foreground mt-1">Vá no perfil de um amigo e clique em "Assistir Juntos"</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import NotificationBell from "@/components/social/NotificationBell";
+import UserMenuButton from "@/components/layout/UserMenuButton";
 
 export default function TopBar() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -15,7 +16,7 @@ export default function TopBar() {
 
   return (
     <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
-      <div className="flex items-center gap-4 px-4 lg:px-6 h-14">
+      <div className="flex items-center gap-3 px-4 lg:px-6 h-14">
         {/* Mobile logo */}
         <Link to="/" className="lg:hidden flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
@@ -39,9 +40,10 @@ export default function TopBar() {
           </div>
         </div>
 
-        {/* Notifications */}
-        <div className="flex items-center gap-2">
+        {/* Actions */}
+        <div className="flex items-center gap-1.5">
           <NotificationBell userEmail={userEmail} />
+          <UserMenuButton />
         </div>
       </div>
     </header>

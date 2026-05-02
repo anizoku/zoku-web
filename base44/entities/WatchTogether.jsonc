@@ -1,0 +1,86 @@
+{
+  "name": "WatchTogether",
+  "type": "object",
+  "properties": {
+    "initiator_email": {
+      "type": "string"
+    },
+    "initiator_name": {
+      "type": "string"
+    },
+    "friend_email": {
+      "type": "string"
+    },
+    "friend_name": {
+      "type": "string"
+    },
+    "media_title": {
+      "type": "string"
+    },
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "manga"
+      ],
+      "default": "anime"
+    },
+    "target_episode": {
+      "type": "number"
+    },
+    "target_chapter": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "rejected",
+        "completed"
+      ],
+      "default": "pending"
+    },
+    "notified_5": {
+      "type": "boolean",
+      "default": false
+    },
+    "notified_1": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "initiator_email",
+    "friend_email",
+    "media_title"
+  ],
+  "rls": {
+    "create": {
+      "data.initiator_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.initiator_email": "{{user.email}}"
+        },
+        {
+          "data.friend_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.initiator_email": "{{user.email}}"
+        },
+        {
+          "data.friend_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "data.initiator_email": "{{user.email}}"
+    }
+  }
+}
