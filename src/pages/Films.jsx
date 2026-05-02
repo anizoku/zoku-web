@@ -1,15 +1,15 @@
-import { Film, Star } from "lucide-react";
+import { Film } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getByCategory } from "@/lib/catalog";
 import CatalogCard from "@/components/catalog/CatalogCard";
-import MediaDrawer from "@/components/media/MediaDrawer";
 
 const films = getByCategory("movie");
 
 export default function Films() {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(null);
+  const navigate = useNavigate();
 
   const filtered = films.filter((f) =>
     f.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -45,17 +45,10 @@ export default function Films() {
             key={film.slug}
             item={film}
             filterCategory="movie"
-            onClick={setSelected}
+            onClick={(item) => navigate(`/obra/${item.slug}?tipo=movie`)}
           />
         ))}
       </div>
-
-      <MediaDrawer
-        media={selected}
-        type="movie"
-        open={!!selected}
-        onClose={() => setSelected(null)}
-      />
     </div>
   );
 }

@@ -1,9 +1,8 @@
 import { TrendingUp, Star, Eye, BookOpen, Tv, Film } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CATALOG } from "@/lib/catalog";
-import MediaDrawer from "@/components/media/MediaDrawer";
 
 // Top trending — sorted by rating, top 18
 const trending = [...CATALOG].sort((a, b) => b.rating - a.rating).slice(0, 18).map((item, i) => ({
@@ -17,7 +16,6 @@ const typeLabel = { anime: "Anime", manga: "Mangá", movie: "Filme" };
 const typeBg = { anime: "bg-chart-2/80", manga: "bg-chart-3/80", movie: "bg-chart-5/80" };
 
 function TrendingCard({ item, onClick }) {
-  const primaryCat = item.categories[0];
   return (
     <div
       onClick={() => onClick(item)}
@@ -54,11 +52,17 @@ function TrendingCard({ item, onClick }) {
 }
 
 export default function Trending() {
-  const [selected, setSelected] = useState(null);
+  const navigate = useNavigate();
 
   const animes = trending.filter(i => i.categories.includes("anime"));
   const mangas = trending.filter(i => i.categories.includes("manga"));
   const movies = trending.filter(i => i.categories.includes("movie"));
+
+  function handleClick(item) {
+    const tipo = item.categories.includes("anime") ? "anime"
+      : item.categories.includes("manga") ? "manga" : "movie";
+    navigate(`/obra/${item.slug}?tipo=${tipo}`);
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 lg:px-6 py-6">
@@ -89,21 +93,12 @@ export default function Trending() {
           <TabsContent key={key} value={key}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.map((item) => (
-                <TrendingCard key={item.slug} item={item} onClick={setSelected} />
+                <TrendingCard key={item.slug} item={item} onClick={handleClick} />
               ))}
             </div>
           </TabsContent>
         ))}
       </Tabs>
-
-      {selected && (
-        <MediaDrawer
-          media={selected}
-          type={selected.categories.includes("anime") ? "anime" : selected.categories.includes("manga") ? "manga" : "movie"}
-          open={!!selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
     </div>
   );
 }

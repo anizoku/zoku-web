@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { List, Plus, Tv, BookOpen, Star, Minus, Zap } from "lucide-react";
+import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film } from "lucide-react";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,7 +98,10 @@ function AddEntryDialog({ onAdd }) {
 }
 
 function EntryCard({ entry, onUpdate }) {
-  const isAnime = entry.type === "anime";
+  // Support __format: marker from ObraProfile
+  const formatFromGenre = entry.genre?.startsWith("__format:") ? entry.genre.replace("__format:", "") : null;
+  const isMovie = formatFromGenre === "movie";
+  const isAnime = isMovie ? false : (formatFromGenre === "anime" || entry.type === "anime");
   const current = isAnime ? entry.current_episode || 0 : entry.current_chapter || 0;
   const total = isAnime ? entry.total_episodes || 0 : entry.total_chapters || 0;
   const progress = total > 0 ? (current / total) * 100 : 0;
@@ -121,7 +124,7 @@ function EntryCard({ entry, onUpdate }) {
     <div className="bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-all">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          {isAnime ? <Tv className="w-4 h-4 text-chart-2" /> : <BookOpen className="w-4 h-4 text-chart-3" />}
+          {isMovie ? <Film className="w-4 h-4 text-chart-5" /> : isAnime ? <Tv className="w-4 h-4 text-chart-2" /> : <BookOpen className="w-4 h-4 text-chart-3" />}
           <h3 className="font-semibold text-sm text-foreground">{entry.title}</h3>
         </div>
         <Badge variant="outline" className={`text-[10px] ${statusColors[entry.status] || ""}`}>

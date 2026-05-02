@@ -1,15 +1,15 @@
 import { BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getByCategory } from "@/lib/catalog";
 import CatalogCard from "@/components/catalog/CatalogCard";
-import MediaDrawer from "@/components/media/MediaDrawer";
 
 const mangas = getByCategory("manga");
 
 export default function Mangas() {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(null);
+  const navigate = useNavigate();
 
   const filtered = mangas.filter((m) =>
     m.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -45,17 +45,10 @@ export default function Mangas() {
             key={manga.slug}
             item={manga}
             filterCategory="manga"
-            onClick={setSelected}
+            onClick={(item) => navigate(`/obra/${item.slug}?tipo=manga`)}
           />
         ))}
       </div>
-
-      <MediaDrawer
-        media={selected}
-        type="manga"
-        open={!!selected}
-        onClose={() => setSelected(null)}
-      />
     </div>
   );
 }

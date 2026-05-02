@@ -17,6 +17,7 @@ import Profile from '@/pages/Profile';
 import Films from '@/pages/Films';
 import Friends from '@/pages/Friends';
 import Events from '@/pages/Events';
+import ObraProfile from '@/pages/ObraProfile';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -54,6 +55,7 @@ const AuthenticatedApp = () => {
         <Route path="/events" element={<Events />} />
         <Route path="/my-list" element={<MyList />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/obra/:slug" element={<ObraProfile />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

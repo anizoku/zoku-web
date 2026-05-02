@@ -1,15 +1,15 @@
 import { Tv } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getByCategory } from "@/lib/catalog";
 import CatalogCard from "@/components/catalog/CatalogCard";
-import MediaDrawer from "@/components/media/MediaDrawer";
 
 const animes = getByCategory("anime");
 
 export default function Animes() {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(null);
+  const navigate = useNavigate();
 
   const filtered = animes.filter((a) =>
     a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -45,17 +45,10 @@ export default function Animes() {
             key={anime.slug}
             item={anime}
             filterCategory="anime"
-            onClick={setSelected}
+            onClick={(item) => navigate(`/obra/${item.slug}?tipo=anime`)}
           />
         ))}
       </div>
-
-      <MediaDrawer
-        media={selected}
-        type="anime"
-        open={!!selected}
-        onClose={() => setSelected(null)}
-      />
     </div>
   );
 }
