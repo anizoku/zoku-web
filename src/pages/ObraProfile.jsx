@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBySlug } from "@/lib/catalog";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Users } from "lucide-react";
+import ProgressInput from "@/components/media/ProgressInput";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -178,6 +179,24 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     updateMutation.mutate({ id: entry.id, data: { [field]: current - 1 } });
   }
 
+  function handleJumpTo(newVal) {
+    if (!entry) return;
+    const field = cfg.progressKey;
+    const prev = entry[field] || 0;
+    if (newVal === prev) return;
+    const totalVal = entry[cfg.totalKey] || 0;
+    const updates = { [field]: newVal };
+    if (totalVal > 0 && newVal >= totalVal) updates.status = "completed";
+    updateMutation.mutate({ id: entry.id, data: updates });
+    const diff = Math.max(0, newVal - prev);
+    const xp = XP_REWARDS[cfg.xpKey];
+    if (diff > 0) {
+      showToast(`Progresso → ${cfg.unit} ${newVal}! +${diff * xp} XP`, Zap, "bg-card border-primary/30 text-primary");
+    } else {
+      showToast(`Progresso atualizado para ${cfg.unit} ${newVal}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    }
+  }
+
   const current = entry ? (entry[cfg.progressKey] || 0) : 0;
   const total = entry ? (entry[cfg.totalKey] || 0) : catalogTotal;
   const progress = total > 0 ? Math.min((current / total) * 100, 100) : 0;
@@ -261,14 +280,20 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
                     </>
                   )}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <Button variant="outline" size="icon" className="h-8 w-8 border-border" onClick={handleDecrement} disabled={isMutating || current <= 0}>
                         <Minus className="w-3.5 h-3.5" />
                       </Button>
-                      <span className="text-xs text-muted-foreground w-14 text-center font-mono">{cfg.unit} {current}</span>
                       <Button size="icon" className={`h-8 w-8 ${cfg.bg} ${cfg.color} border ${cfg.border} hover:opacity-80`} onClick={handleIncrement} disabled={isMutating}>
                         {isMutating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                       </Button>
+                      <ProgressInput
+                        current={current}
+                        total={total}
+                        prefix={format === "manga" ? "CP" : "EP"}
+                        onConfirm={handleJumpTo}
+                        disabled={isMutating}
+                      />
                     </div>
                     <span className={`text-xs font-medium flex items-center gap-1 ${cfg.color}`}>
                       <Zap className="w-3 h-3" />+{XP_REWARDS[cfg.xpKey]} XP

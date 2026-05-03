@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Minus, Star, Zap, CheckCircle2, BookOpen, Tv, Film, ListPlus, Loader2, Clock } from "lucide-react";
+import ProgressInput from "@/components/media/ProgressInput";
 import { motion, AnimatePresence } from "framer-motion";
 import { XP_REWARDS } from "@/lib/xpSystem";
 
@@ -127,6 +128,24 @@ export default function MediaDrawer({ media, type, open, onClose }) {
     const current = isManga ? (myEntry.current_chapter || 0) : (myEntry.current_episode || 0);
     if (current <= 0) return;
     updateMutation.mutate({ id: myEntry.id, data: { [field]: current - 1 } });
+  }
+
+  function handleJumpTo(newVal) {
+    if (!myEntry) return;
+    const field = isManga ? "current_chapter" : "current_episode";
+    const prev = isManga ? (myEntry.current_chapter || 0) : (myEntry.current_episode || 0);
+    const totalVal = isManga ? (myEntry.total_chapters || 0) : (myEntry.total_episodes || 0);
+    const updates = { [field]: newVal };
+    if (totalVal > 0 && newVal >= totalVal) updates.status = "completed";
+    updateMutation.mutate({ id: myEntry.id, data: updates });
+    const diff = Math.max(0, newVal - prev);
+    const xp = isManga ? XP_REWARDS.chapter_read : XP_REWARDS.episode_watched;
+    const unit = isManga ? "Cap." : "Ep.";
+    if (diff > 0) {
+      showToast(`Progresso → ${unit} ${newVal}! +${diff * xp} XP`, Zap, "bg-card border-primary/30 text-primary");
+    } else {
+      showToast(`Progresso atualizado para ${unit} ${newVal}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    }
   }
 
   const current = myEntry ? (isManga ? myEntry.current_chapter || 0 : myEntry.current_episode || 0) : 0;
@@ -291,7 +310,7 @@ export default function MediaDrawer({ media, type, open, onClose }) {
                       </>
                     )}
                     <div className="flex items-center justify-between pt-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="icon"
@@ -309,6 +328,13 @@ export default function MediaDrawer({ media, type, open, onClose }) {
                         >
                           {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                         </Button>
+                        <ProgressInput
+                          current={current}
+                          total={total}
+                          prefix={isManga ? "CP" : "EP"}
+                          onConfirm={handleJumpTo}
+                          disabled={isMutating}
+                        />
                       </div>
                       <span className="text-xs text-primary font-medium flex items-center gap-1">
                         <Zap className="w-3 h-3" />

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film } from "lucide-react";
+import ProgressInput from "@/components/media/ProgressInput";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,6 +121,13 @@ function EntryCard({ entry, onUpdate }) {
     onUpdate(entry.id, { [field]: current - 1 });
   };
 
+  const jumpTo = (newVal) => {
+    const field = isAnime ? "current_episode" : "current_chapter";
+    const updates = { [field]: newVal };
+    if (total > 0 && newVal >= total) updates.status = "completed";
+    onUpdate(entry.id, updates);
+  };
+
   return (
     <div className="bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-all">
       <div className="flex items-start justify-between mb-3">
@@ -152,6 +160,14 @@ function EntryCard({ entry, onUpdate }) {
             >
               <Plus className="w-3 h-3" />
             </Button>
+            {!isMovie && (
+              <ProgressInput
+                current={current}
+                total={total}
+                prefix={isAnime ? "EP" : "CP"}
+                onConfirm={jumpTo}
+              />
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-primary/70 flex items-center gap-0.5 font-medium">
