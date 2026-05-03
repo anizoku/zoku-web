@@ -7,10 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import DirectChatDialog from "@/components/social/DirectChatDialog";
 import WatchTogetherButton from "@/components/social/WatchTogetherButton";
 import { getMyFriends } from "@/lib/social";
+import { useNavigate } from "react-router-dom";
+import WorkLink from "@/components/media/WorkLink";
 
 function FriendCard({ friend, currentUser, profiles, entries }) {
   const [chatOpen, setChatOpen] = useState(false);
   const profile = profiles.find(p => p.user_email === friend.email);
+  const navigate = useNavigate();
 
   // Find what this friend is currently watching/reading
   const friendEntries = entries.filter(e => e.created_by === friend.email);
@@ -40,11 +43,19 @@ function FriendCard({ friend, currentUser, profiles, entries }) {
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm text-foreground truncate">{friend.name}</p>
+            <button onClick={() => navigate(`/u/${friend.email}`)}
+              className="font-semibold text-sm text-foreground hover:text-primary transition-colors truncate block text-left w-full">
+              {friend.name}
+            </button>
             {profile?.username && (
               <p className="text-[10px] text-primary/70">@{profile.username}</p>
             )}
-            <p className="text-xs text-muted-foreground truncate mt-0.5">{statusLabel}</p>
+            {activeEntry
+              ? <span className="text-xs text-muted-foreground truncate mt-0.5">
+                  {activeEntry.status === "watching" ? "Assistindo" : "Lendo"} <WorkLink title={activeEntry.title} className="text-primary/80 hover:text-primary" />
+                </span>
+              : <p className="text-xs text-muted-foreground mt-0.5">Inativo</p>
+            }
           </div>
         </div>
 

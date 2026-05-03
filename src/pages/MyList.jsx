@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
+import WorkLink from "@/components/media/WorkLink";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,7 +134,7 @@ function EntryCard({ entry, onUpdate }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           {isMovie ? <Film className="w-4 h-4 text-chart-5" /> : isAnime ? <Tv className="w-4 h-4 text-chart-2" /> : <BookOpen className="w-4 h-4 text-chart-3" />}
-          <h3 className="font-semibold text-sm text-foreground">{entry.title}</h3>
+          <WorkLink title={entry.title} className="font-semibold text-sm text-foreground hover:text-primary transition-colors" />
         </div>
         <Badge variant="outline" className={`text-[10px] ${statusColors[entry.status] || ""}`}>
           {statusLabels[entry.status]}

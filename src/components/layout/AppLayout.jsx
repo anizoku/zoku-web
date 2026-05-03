@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
+import FloatingChat from "@/components/chat/FloatingChat";
 
 export default function AppLayout() {
   return (
@@ -14,6 +15,7 @@ export default function AppLayout() {
         </main>
       </div>
       <MobileNav />
+      <FloatingChat />
     </div>
   );
 }

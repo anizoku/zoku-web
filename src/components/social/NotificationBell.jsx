@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, UserPlus, Heart, MessageCircle, Calendar, List, CheckCircle } from "lucide-react";
+import { Bell, UserPlus, Heart, MessageCircle, Calendar, List, CheckCircle, Tv, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover, PopoverContent, PopoverTrigger
@@ -15,6 +15,10 @@ const typeIcons = {
   event_invite: Calendar,
   event_reminder: Calendar,
   list_update: List,
+  watch_together_invite: Tv,
+  watch_together_near_5: Tv,
+  watch_together_near_1: Tv,
+  direct_message: MessageCircle,
 };
 
 const typeColors = {
@@ -25,6 +29,10 @@ const typeColors = {
   event_invite: "text-chart-5",
   event_reminder: "text-chart-4",
   list_update: "text-chart-2",
+  watch_together_invite: "text-primary",
+  watch_together_near_5: "text-chart-4",
+  watch_together_near_1: "text-destructive",
+  direct_message: "text-chart-3",
 };
 
 export default function NotificationBell({ userEmail }) {

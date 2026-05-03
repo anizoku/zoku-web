@@ -7,6 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import LevelBadge from "@/components/profile/LevelBadge";
+import WorkLink from "@/components/media/WorkLink";
+import { useNavigate } from "react-router-dom";
 
 const typeLabels = {
   general: null,
@@ -26,6 +28,7 @@ const typeColors = {
 export default function PostCard({ post, userEmail }) {
   const [isLiking, setIsLiking] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const isLiked = (post.liked_by || []).includes(userEmail);
   const timeAgo = post.created_date
@@ -53,14 +56,16 @@ export default function PostCard({ post, userEmail }) {
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-primary font-bold text-sm">
-              {(post.author_name || "A")[0].toUpperCase()}
-            </span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm text-foreground">{post.author_name || "Anônimo"}</span>
+        <button onClick={() => post.created_by && navigate(`/u/${post.created_by}`)}
+          className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center hover:opacity-80 transition-opacity">
+          <span className="text-primary font-bold text-sm">
+            {(post.author_name || "A")[0].toUpperCase()}
+          </span>
+        </button>
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => post.created_by && navigate(`/u/${post.created_by}`)}
+              className="font-semibold text-sm text-foreground hover:text-primary transition-colors">{post.author_name || "Anônimo"}</button>
               {post.author_level > 0 && <LevelBadge level={post.author_level} size="sm" />}
               {typeLabels[post.post_type] && (
                 <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${typeColors[post.post_type] || ""}`}>
@@ -81,7 +86,7 @@ export default function PostCard({ post, userEmail }) {
 
       {post.anime_title && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-secondary/50 border border-border text-xs text-muted-foreground">
-          🎬 Sobre: <span className="text-foreground font-medium">{post.anime_title}</span>
+          🎬 Sobre: <WorkLink title={post.anime_title} className="text-foreground font-medium hover:text-primary transition-colors" />
         </div>
       )}
 

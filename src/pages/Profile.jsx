@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users } from "lucide-react";
+import WorkLink from "@/components/media/WorkLink";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PostCard from "@/components/feed/PostCard";
@@ -30,6 +32,7 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [levelUpNotif, setLevelUpNotif] = useState(null);
   const prevLevelRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
 
@@ -108,7 +111,7 @@ export default function Profile() {
               {myProfile?.username && (
                 <p className="text-sm text-primary/80 font-medium mb-0.5">@{myProfile.username}</p>
               )}
-              <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
+
               {myProfile?.bio && (
                 <p className="text-sm text-foreground/80 mt-2 leading-relaxed">{myProfile.bio}</p>
               )}
@@ -238,7 +241,7 @@ export default function Profile() {
                               {isAnime ? <Tv className="w-4 h-4 text-chart-2" /> : <BookOpen className="w-4 h-4 text-chart-3" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground truncate">{entry.title}</p>
+                              <WorkLink title={entry.title} className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate block" />
                               <p className="text-xs text-muted-foreground">
                                 {isAnime ? `Ep. ${current}` : `Cap. ${current}`}{total > 0 ? ` / ${total}` : ""}
                               </p>
@@ -275,7 +278,7 @@ export default function Profile() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-foreground">{event.title}</p>
-                    {event.media_title && <p className="text-xs text-primary/70">📺 {event.media_title}</p>}
+                    {event.media_title && <WorkLink title={event.media_title} className="text-xs text-primary/70 hover:text-primary" prefix="📺 " />}
                     {event.event_date && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {format(new Date(event.event_date), "d 'de' MMM 'às' HH:mm", { locale: ptBR })}
