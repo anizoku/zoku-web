@@ -43,5 +43,26 @@
     "recipient_email",
     "type",
     "message"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "data.recipient_email": "{{user.email}}"
+    },
+    "update": {
+      "data.recipient_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.recipient_email": "{{user.email}}",
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
 }
