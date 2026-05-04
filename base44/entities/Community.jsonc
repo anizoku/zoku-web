@@ -26,6 +26,13 @@
         "news"
       ],
       "default": "general"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
     }
   },
   "required": [

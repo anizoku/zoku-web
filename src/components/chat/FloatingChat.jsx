@@ -49,14 +49,14 @@ export default function FloatingChat() {
   const friends = currentUser ? getMyFriends(friendships, currentUser.email) : [];
 
   // Unread count per friend (conversations, not messages)
-  const unreadByFriend = {};
+  const unreadCountByFriend = {};
   allMessages.forEach(m => {
     if (m.receiver_email === currentUser?.email && !m.is_read) {
-      unreadByFriend[m.sender_email] = true; // just mark as having unread
+      unreadCountByFriend[m.sender_email] = (unreadCountByFriend[m.sender_email] || 0) + 1;
     }
   });
   // totalUnread = number of conversations with unread messages
-  const totalUnread = Object.keys(unreadByFriend).length;
+  const totalUnread = Object.keys(unreadCountByFriend).length;
 
   // Active conversation messages
   const conversation = activeChat
@@ -143,30 +143,30 @@ export default function FloatingChat() {
                     .filter(m => (m.sender_email === f.email && m.receiver_email === currentUser.email) ||
                                  (m.sender_email === currentUser.email && m.receiver_email === f.email))
                     .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
-                  const unread = unreadByFriend[f.email] || 0;
-                  return (
-                    <button
-                      key={f.email}
-                      onClick={() => setActiveChat({ email: f.email, name: f.name || f.email, avatar: fp?.avatar_url })}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors border-b border-border/50 text-left"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden relative">
-                        {fp?.avatar_url ? <img src={fp.avatar_url} className="w-full h-full object-cover" /> : initials(f.name)}
-                        {unreadByFriend[f.email] && (
-                          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-destructive rounded-full text-[9px] text-white font-bold flex items-center justify-center">
-                            !
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">{f.name || f.email}</p>
-                        {lastMsg && (
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {lastMsg.sender_email === currentUser.email ? "Você: " : ""}{lastMsg.content}
-                          </p>
-                        )}
-                      </div>
-                    </button>
+                  const unreadCount = unreadCountByFriend[f.email] || 0;
+                   return (
+                     <button
+                       key={f.email}
+                       onClick={() => setActiveChat({ email: f.email, name: f.name || f.email, avatar: fp?.avatar_url })}
+                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors border-b border-border/50 text-left"
+                     >
+                       <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden">
+                         {fp?.avatar_url ? <img src={fp.avatar_url} className="w-full h-full object-cover" /> : initials(f.name)}
+                       </div>
+                       <div className="flex-1 min-w-0">
+                         <div className="flex items-center gap-1.5">
+                           <p className="text-sm font-medium text-foreground">{f.name || f.email}</p>
+                           {unreadCount > 0 && (
+                             <span className="text-xs font-bold text-primary">({unreadCount})</span>
+                           )}
+                         </div>
+                         {lastMsg && (
+                           <p className={`text-[11px] truncate ${unreadCount > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                             {lastMsg.sender_email === currentUser.email ? "Você: " : ""}{lastMsg.content}
+                           </p>
+                         )}
+                       </div>
+                     </button>
                   );
                 })
               )}

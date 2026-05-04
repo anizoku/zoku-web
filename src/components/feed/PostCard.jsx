@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Heart, MessageCircle, Share2, MoreHorizontal } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -11,13 +15,9 @@ import WorkLink from "@/components/media/WorkLink";
 import { useNavigate } from "react-router-dom";
 
 const typeLabels = {
-  general: null,
-  review: "Review",
-  reaction: "Reação",
-  theory: "Teoria",
-  discussion: "Discussão",
+  general: null, review: "Review", reaction: "Reação",
+  theory: "Teoria", discussion: "Discussão",
 };
-
 const typeColors = {
   review: "bg-chart-2/15 text-chart-2 border-chart-2/20",
   reaction: "bg-chart-5/15 text-chart-5 border-chart-5/20",
@@ -25,12 +25,20 @@ const typeColors = {
   discussion: "bg-primary/15 text-primary border-primary/20",
 };
 
-export default function PostCard({ post, userEmail }) {
+export default function PostCard({ post, userEmail, userRole }) {
   const [isLiking, setIsLiking] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content);
+  const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState("");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const isLiked = (post.liked_by || []).includes(userEmail);
+  const isOwner = post.created_by === userEmail;
+  const isAdmin = userRole === "admin";
+  const canModify = isOwner || isAdmin;
+
   const timeAgo = post.created_date
     ? formatDistanceToNow(new Date(post.created_date), { addSuffix: true, locale: ptBR })
     : "";
@@ -39,16 +47,44 @@ export default function PostCard({ post, userEmail }) {
     if (isLiking) return;
     setIsLiking(true);
     const likedBy = post.liked_by || [];
-    const newLikedBy = isLiked
-      ? likedBy.filter((e) => e !== userEmail)
-      : [...likedBy, userEmail];
-
-    await base44.entities.Post.update(post.id, {
-      liked_by: newLikedBy,
-      likes_count: newLikedBy.length,
-    });
+    const newLikedBy = isLiked ? likedBy.filter(e => e !== userEmail) : [...likedBy, userEmail];
+    await base44.entities.Post.update(post.id, { liked_by: newLikedBy, likes_count: newLikedBy.length });
     queryClient.invalidateQueries({ queryKey: ["posts"] });
     setIsLiking(false);
+  };
+
+  const handleDelete = async () => {
+    await base44.entities.Post.delete(post.id);
+    queryClient.invalidateQueries({ queryKey: ["posts"] });
+  };
+
+  const handleEdit = async () => {
+    if (!editContent.trim()) return;
+    await base44.entities.Post.update(post.id, { content: editContent.trim() });
+    queryClient.invalidateQueries({ queryKey: ["posts"] });
+    setEditing(false);
+  };
+
+  const handleComment = async () => {
+    if (!commentText.trim()) return;
+    const me = await base44.auth.me();
+    await base44.entities.Comment.create({
+      post_id: post.id,
+      content: commentText.trim(),
+      author_name: me.full_name || me.email,
+    });
+    await base44.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
+    queryClient.invalidateQueries({ queryKey: ["posts"] });
+    setCommentText("");
+    setShowComments(false);
+  };
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/?post=${post.id}`;
+    navigator.clipboard.writeText(url).catch(() => {});
+    if (navigator.share) {
+      navigator.share({ title: "OtakuHub", text: post.content, url }).catch(() => {});
+    }
   };
 
   return (
@@ -56,16 +92,19 @@ export default function PostCard({ post, userEmail }) {
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-        <button onClick={() => post.created_by && navigate(`/u/${post.created_by}`)}
-          className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center hover:opacity-80 transition-opacity">
-          <span className="text-primary font-bold text-sm">
-            {(post.author_name || "A")[0].toUpperCase()}
-          </span>
-        </button>
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => post.created_by && navigate(`/u/${post.created_by}`)}
-              className="font-semibold text-sm text-foreground hover:text-primary transition-colors">{post.author_name || "Anônimo"}</button>
+          <button onClick={() => post.created_by && navigate(`/u/${post.created_by}`)}
+            className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center hover:opacity-80 transition-opacity shrink-0">
+            {post.author_avatar
+              ? <img src={post.author_avatar} className="w-full h-full rounded-full object-cover" />
+              : <span className="text-primary font-bold text-sm">{(post.author_name || "A")[0].toUpperCase()}</span>
+            }
+          </button>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={() => post.created_by && navigate(`/u/${post.created_by}`)}
+                className="font-semibold text-sm text-foreground hover:text-primary transition-colors">
+                {post.author_name || "Anônimo"}
+              </button>
               {post.author_level > 0 && <LevelBadge level={post.author_level} size="sm" />}
               {typeLabels[post.post_type] && (
                 <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${typeColors[post.post_type] || ""}`}>
@@ -76,13 +115,47 @@ export default function PostCard({ post, userEmail }) {
             <span className="text-xs text-muted-foreground">{timeAgo}</span>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-          <MoreHorizontal className="w-4 h-4" />
-        </Button>
+
+        {canModify && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-card border-border">
+              <DropdownMenuItem onClick={() => { setEditing(true); setEditContent(post.content); }} className="gap-2 text-sm cursor-pointer">
+                <Pencil className="w-4 h-4" /> Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDelete} className="gap-2 text-sm text-destructive cursor-pointer focus:text-destructive">
+                <Trash2 className="w-4 h-4" /> Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Content */}
-      <p className="text-sm text-foreground/90 leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
+      {editing ? (
+        <div className="mb-3 space-y-2">
+          <Textarea
+            value={editContent}
+            onChange={e => setEditContent(e.target.value)}
+            className="bg-secondary border-none text-sm resize-none"
+            rows={3}
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleEdit} className="h-7 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1">
+              <Check className="w-3 h-3" /> Salvar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="h-7 text-xs gap-1">
+              <X className="w-3 h-3" /> Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-foreground/90 leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
+      )}
 
       {post.anime_title && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-secondary/50 border border-border text-xs text-muted-foreground">
@@ -92,23 +165,39 @@ export default function PostCard({ post, userEmail }) {
 
       {/* Actions */}
       <div className="flex items-center gap-1 pt-2 border-t border-border/50">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLike}
-          className={`gap-1.5 text-xs h-8 ${isLiked ? "text-destructive" : "text-muted-foreground"}`}
-        >
+        <Button variant="ghost" size="sm" onClick={handleLike}
+          className={`gap-1.5 text-xs h-8 ${isLiked ? "text-destructive" : "text-muted-foreground"}`}>
           <Heart className={`w-4 h-4 ${isLiked ? "fill-destructive" : ""}`} />
           {post.likes_count || 0}
         </Button>
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={() => setShowComments(!showComments)}
+          className="gap-1.5 text-xs h-8 text-muted-foreground">
           <MessageCircle className="w-4 h-4" />
           {post.comments_count || 0}
         </Button>
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={handleShare}
+          className="gap-1.5 text-xs h-8 text-muted-foreground">
           <Share2 className="w-4 h-4" />
         </Button>
       </div>
+
+      {/* Comment box */}
+      {showComments && (
+        <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+          <Textarea
+            placeholder="Escreva um comentário..."
+            value={commentText}
+            onChange={e => setCommentText(e.target.value)}
+            className="bg-secondary border-none text-sm resize-none h-16"
+          />
+          <div className="flex justify-end">
+            <Button size="sm" onClick={handleComment} disabled={!commentText.trim()}
+              className="h-7 text-xs bg-primary text-primary-foreground hover:bg-primary/90">
+              Comentar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

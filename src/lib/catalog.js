@@ -276,7 +276,7 @@ export const CATALOG = [
 
 // Filtrar por categoria
 export function getByCategory(category) {
-  return CATALOG.filter(item => item.categories.includes(category));
+  return CATALOG.filter(item => item.categories.includes(category)).sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 }
 
 // Buscar por slug
@@ -290,5 +290,5 @@ export function searchCatalog(query) {
   return CATALOG.filter(item =>
     item.title.toLowerCase().includes(q) ||
     item.genres.some(g => g.toLowerCase().includes(q))
-  );
+  ).sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 }

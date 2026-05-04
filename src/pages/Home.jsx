@@ -50,7 +50,7 @@ export default function Home() {
             </div>
           ) : (
             posts.map((post) => (
-              <PostCard key={post.id} post={post} userEmail={user?.email} />
+              <PostCard key={post.id} post={post} userEmail={user?.email} userRole={user?.role} />
             ))
           )}
         </div>

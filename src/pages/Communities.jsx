@@ -1,8 +1,17 @@
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
-import { Users, MessageSquare, Flame, Plus } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Users, Plus, Tag, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const fallbackCommunities = [
   { id: "1", name: "Shonen Lovers", description: "Discussões sobre os melhores shonens de todos os tempos", members_count: 12400, category: "anime" },
@@ -23,12 +32,8 @@ const categoryColors = {
 };
 
 const categoryLabels = {
-  anime: "Anime",
-  manga: "Mangá",
-  theories: "Teorias",
-  news: "Notícias",
-  reviews: "Reviews",
-  general: "Geral",
+  anime: "Anime", manga: "Mangá", theories: "Teorias",
+  news: "Notícias", reviews: "Reviews", general: "Geral",
 };
 
 function formatNumber(n) {
@@ -36,11 +41,101 @@ function formatNumber(n) {
   return n;
 }
 
+function CreateCommunityDialog({ onCreate }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("general");
+  const [tagInput, setTagInput] = useState("");
+  const [tags, setTags] = useState([]);
+
+  const addTag = () => {
+    const t = tagInput.trim();
+    if (t && !tags.includes(t)) setTags([...tags, t]);
+    setTagInput("");
+  };
+
+  const removeTag = (t) => setTags(tags.filter(x => x !== t));
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onCreate({ name: name.trim(), description, category, tags, members_count: 1 });
+    setName(""); setDescription(""); setCategory("general"); setTags([]); setTagInput("");
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
+          <Plus className="w-4 h-4" /> Criar
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-card border-border max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-space">Criar Comunidade</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <Input placeholder="Título da comunidade" value={name} onChange={e => setName(e.target.value)} className="bg-secondary border-none" />
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="bg-secondary border-none"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(categoryLabels).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Textarea
+            placeholder="Descrição da comunidade..."
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            className="bg-secondary border-none resize-none h-24"
+          />
+          <div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Adicionar tag..."
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addTag())}
+                className="bg-secondary border-none"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={addTag} className="border-primary/20 text-primary hover:bg-primary/10 shrink-0">
+                <Tag className="w-4 h-4" />
+              </Button>
+            </div>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {tags.map(t => (
+                  <span key={t} className="flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5">
+                    {t}
+                    <button onClick={() => removeTag(t)}><X className="w-2.5 h-2.5" /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <Button onClick={handleSubmit} disabled={!name.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+            Criar Comunidade
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Communities() {
+  const queryClient = useQueryClient();
+
   const { data: communities } = useQuery({
     queryKey: ["communities"],
-    queryFn: () => base44.entities.Community.list("-members_count", 20),
+    queryFn: () => base44.entities.Community.list("-members_count", 50),
     initialData: [],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.Community.create(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["communities"] }),
   });
 
   const displayCommunities = communities.length > 0 ? communities : fallbackCommunities;
@@ -57,9 +152,7 @@ export default function Communities() {
             <p className="text-sm text-muted-foreground">Participe de debates e discussões</p>
           </div>
         </div>
-        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
-          <Plus className="w-4 h-4" /> Criar
-        </Button>
+        <CreateCommunityDialog onCreate={createMutation.mutate} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -81,9 +174,16 @@ export default function Communities() {
             <h3 className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
               {community.name}
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+            <p className="text-xs text-muted-foreground leading-relaxed mb-2">
               {community.description}
             </p>
+            {community.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-3">
+                {community.tags.map(t => (
+                  <span key={t} className="text-[10px] bg-secondary text-muted-foreground rounded-full px-2 py-0.5">#{t}</span>
+                ))}
+              </div>
+            )}
             <div className="flex items-center justify-between pt-3 border-t border-border/50">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Users className="w-3 h-3" /> {formatNumber(community.members_count)} membros
