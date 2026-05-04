@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film } from "lucide-react";
+import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film, CheckCircle2, RefreshCw } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
 import WorkLink from "@/components/media/WorkLink";
 import { XP_REWARDS } from "@/lib/xpSystem";
+import { CATALOG } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -31,17 +32,31 @@ const statusColors = {
   on_hold: "bg-chart-3/15 text-chart-3 border-chart-3/20",
 };
 
-function AddEntryDialog({ onAdd }) {
+function getMediaReleaseStatus(title, type) {
+  const entry = CATALOG.find(c => c.title.toLowerCase() === title.toLowerCase());
+  if (!entry) return null;
+  if (type === "anime" || type === "movie") {
+    return entry.animeStatus === "Em exibição" ? "airing" : "finished";
+  }
+  if (type === "manga") {
+    return entry.mangaStatus === "Em publicação" || entry.mangaStatus === "Hiato" ? "airing" : "finished";
+  }
+  return null;
+}
+
+function AddEntryDialog({ onAdd, existingTitles = [] }) {
   const [title, setTitle] = useState("");
   const [type, setType] = useState("anime");
   const [status, setStatus] = useState("watching");
   const [totalEpisodes, setTotalEpisodes] = useState("");
   const [open, setOpen] = useState(false);
 
+  const isDuplicate = title.trim() && existingTitles.some(t => t.toLowerCase() === title.trim().toLowerCase());
+
   const handleSubmit = () => {
-    if (!title.trim()) return;
+    if (!title.trim() || isDuplicate) return;
     onAdd({
-      title,
+      title: title.trim(),
       type,
       status,
       total_episodes: type === "anime" ? parseInt(totalEpisodes) || 0 : 0,
@@ -67,13 +82,17 @@ function AddEntryDialog({ onAdd }) {
           <DialogTitle className="font-space">Adicionar à Lista</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
-          <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary border-none" />
+          <div>
+            <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary border-none" />
+            {isDuplicate && <p className="text-xs text-destructive mt-1">Esta obra já está na sua lista.</p>}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Select value={type} onValueChange={setType}>
               <SelectTrigger className="bg-secondary border-none"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="anime">Anime</SelectItem>
                 <SelectItem value="manga">Mangá</SelectItem>
+                <SelectItem value="movie">Filme</SelectItem>
               </SelectContent>
             </Select>
             <Select value={status} onValueChange={setStatus}>
@@ -92,7 +111,7 @@ function AddEntryDialog({ onAdd }) {
             onChange={(e) => setTotalEpisodes(e.target.value)}
             className="bg-secondary border-none"
           />
-          <Button onClick={handleSubmit} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={isDuplicate || !title.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">Adicionar</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -102,11 +121,15 @@ function AddEntryDialog({ onAdd }) {
 function EntryCard({ entry, onUpdate }) {
   // Support __format: marker from ObraProfile
   const formatFromGenre = entry.genre?.startsWith("__format:") ? entry.genre.replace("__format:", "") : null;
-  const isMovie = formatFromGenre === "movie";
+  const isMovie = formatFromGenre === "movie" || entry.type === "movie";
   const isAnime = isMovie ? false : (formatFromGenre === "anime" || entry.type === "anime");
   const current = isAnime ? entry.current_episode || 0 : entry.current_chapter || 0;
   const total = isAnime ? entry.total_episodes || 0 : entry.total_chapters || 0;
   const progress = total > 0 ? (current / total) * 100 : 0;
+
+  const releaseStatus = getMediaReleaseStatus(entry.title, isMovie ? "movie" : isAnime ? "anime" : "manga");
+  const isAiring = releaseStatus === "airing";
+  const isFinished = isMovie || releaseStatus === "finished";
 
   const increment = () => {
     const field = isAnime ? "current_episode" : "current_chapter";
@@ -132,13 +155,25 @@ function EntryCard({ entry, onUpdate }) {
   return (
     <div className="bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-all">
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          {isMovie ? <Film className="w-4 h-4 text-chart-5" /> : isAnime ? <Tv className="w-4 h-4 text-chart-2" /> : <BookOpen className="w-4 h-4 text-chart-3" />}
-          <WorkLink title={entry.title} className="font-semibold text-sm text-foreground hover:text-primary transition-colors" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {isMovie ? <Film className="w-4 h-4 text-chart-5 shrink-0" /> : isAnime ? <Tv className="w-4 h-4 text-chart-2 shrink-0" /> : <BookOpen className="w-4 h-4 text-chart-3 shrink-0" />}
+          <WorkLink title={entry.title} className="font-semibold text-sm text-foreground hover:text-primary transition-colors truncate" />
         </div>
-        <Badge variant="outline" className={`text-[10px] ${statusColors[entry.status] || ""}`}>
-          {statusLabels[entry.status]}
-        </Badge>
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {isAiring && (
+            <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-1.5 py-0.5">
+              <RefreshCw className="w-2.5 h-2.5" /> Atualizado
+            </span>
+          )}
+          {isFinished && !isAiring && (
+            <span className="flex items-center gap-0.5 text-[9px] font-semibold text-chart-4 bg-chart-4/10 border border-chart-4/20 rounded-full px-1.5 py-0.5">
+              <CheckCircle2 className="w-2.5 h-2.5" /> Concluído
+            </span>
+          )}
+          <Badge variant="outline" className={`text-[10px] ${statusColors[entry.status] || ""}`}>
+            {statusLabels[entry.status]}
+          </Badge>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -197,7 +232,7 @@ export default function MyList() {
 
   const { data: entries, isLoading } = useQuery({
     queryKey: ["anime-entries"],
-    queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 100),
+    queryFn: () => base44.entities.AnimeEntry.list("title", 100),
     initialData: [],
   });
 
@@ -211,7 +246,11 @@ export default function MyList() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["anime-entries"] }),
   });
 
-  const myEntries = entries.filter((e) => e.created_by === user?.email);
+  const myEntries = entries
+    .filter((e) => e.created_by === user?.email)
+    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+
+  const existingTitles = myEntries.map(e => e.title);
 
   const getFiltered = (status) => {
     if (status === "all") return myEntries;
@@ -230,7 +269,7 @@ export default function MyList() {
             <p className="text-sm text-muted-foreground">{myEntries.length} títulos</p>
           </div>
         </div>
-        <AddEntryDialog onAdd={createMutation.mutate} />
+        <AddEntryDialog onAdd={createMutation.mutate} existingTitles={existingTitles} />
       </div>
 
       <Tabs defaultValue="all">

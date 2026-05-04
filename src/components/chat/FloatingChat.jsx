@@ -48,14 +48,15 @@ export default function FloatingChat() {
 
   const friends = currentUser ? getMyFriends(friendships, currentUser.email) : [];
 
-  // Unread count per friend
+  // Unread count per friend (conversations, not messages)
   const unreadByFriend = {};
   allMessages.forEach(m => {
     if (m.receiver_email === currentUser?.email && !m.is_read) {
-      unreadByFriend[m.sender_email] = (unreadByFriend[m.sender_email] || 0) + 1;
+      unreadByFriend[m.sender_email] = true; // just mark as having unread
     }
   });
-  const totalUnread = Object.values(unreadByFriend).reduce((a, b) => a + b, 0);
+  // totalUnread = number of conversations with unread messages
+  const totalUnread = Object.keys(unreadByFriend).length;
 
   // Active conversation messages
   const conversation = activeChat
@@ -151,9 +152,9 @@ export default function FloatingChat() {
                     >
                       <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden relative">
                         {fp?.avatar_url ? <img src={fp.avatar_url} className="w-full h-full object-cover" /> : initials(f.name)}
-                        {unread > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary rounded-full text-[9px] text-primary-foreground font-bold flex items-center justify-center">
-                            {unread}
+                        {unreadByFriend[f.email] && (
+                          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-destructive rounded-full text-[9px] text-white font-bold flex items-center justify-center">
+                            !
                           </span>
                         )}
                       </div>
@@ -189,7 +190,7 @@ export default function FloatingChat() {
                           {msg.content}
                         </div>
                         <span className="text-[10px] text-muted-foreground mt-0.5">
-                          {msg.created_date ? format(new Date(msg.created_date), "HH:mm", { locale: ptBR }) : ""}
+                          {msg.created_date ? new Date(msg.created_date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
                         </span>
                       </div>
                     </div>
