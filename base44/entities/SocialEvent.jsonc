@@ -81,5 +81,53 @@
   "required": [
     "title",
     "event_date"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}",
+      "data.organizer_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.visibility": "public"
+        },
+        {
+          "data.organizer_email": "{{user.email}}"
+        },
+        {
+          "data.participants": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.organizer_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.organizer_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
 }
