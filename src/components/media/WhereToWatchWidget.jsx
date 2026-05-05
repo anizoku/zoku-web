@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Loader2, Tv, ExternalLink } from "lucide-react";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
-const TOKEN = import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN;
+const TOKEN = import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN || "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4MTZmODg0N2U2ZDU5MTNiMDU4ODc0MDhiNjkyY2Q0YyIsIm5iZiI6MTc3Nzk4Nzc3Ni45OTYsInN1YiI6IjY5ZjlmMGMwNjJkMjIyYmQ5YTU1ZjVkYSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.4efs6BG9Eadk5bqpUDdlGkxjAfqtECGqYofB62Fhaz4";
 
 async function tmdbFetch(path) {
   const res = await fetch(`${TMDB_BASE}${path}`, {
