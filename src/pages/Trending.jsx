@@ -1,58 +1,27 @@
-import { TrendingUp, Star, Eye, BookOpen, Tv, Film } from "lucide-react";
+import { TrendingUp, Star, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { CATALOG } from "@/lib/catalog";
+import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
+import CatalogCardList from "@/components/catalog/CatalogCardList";
+import ViewToggle from "@/components/catalog/ViewToggle";
+import { useState } from "react";
 
 // Top trending — sorted by rating, top 18
-const trending = [...CATALOG].sort((a, b) => b.rating - a.rating).slice(0, 18).map((item, i) => ({
-  ...item,
-  rank: i + 1,
-  viewers: `${(Math.random() * 3 + 0.5).toFixed(1)}M`,
-}));
-
-const typeIcon = { anime: <Tv className="w-3 h-3" />, manga: <BookOpen className="w-3 h-3" />, movie: <Film className="w-3 h-3" /> };
-const typeLabel = { anime: "Anime", manga: "Mangá", movie: "Filme" };
-const typeBg = { anime: "bg-chart-2/80", manga: "bg-chart-3/80", movie: "bg-chart-5/80" };
-
-function TrendingCard({ item, onClick }) {
-  return (
-    <div
-      onClick={() => onClick(item)}
-      className="bg-card rounded-xl border border-border overflow-hidden hover:border-primary/30 transition-all group cursor-pointer"
-    >
-      <div className="relative h-48 overflow-hidden">
-        <img src={item.cover} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
-        <div className="absolute top-3 left-3">
-          <span className="font-space font-bold text-2xl text-white/80 drop-shadow">#{item.rank}</span>
-        </div>
-        <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-          {item.categories.map(cat => (
-            <Badge key={cat} className={`${typeBg[cat]} text-white border-none text-[9px] flex items-center gap-1`}>
-              {typeIcon[cat]} {typeLabel[cat]}
-            </Badge>
-          ))}
-        </div>
-      </div>
-      <div className="p-4">
-        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors text-sm leading-tight">{item.title}</h3>
-        <p className="text-xs text-muted-foreground mt-1">{item.genres.slice(0, 2).join(" / ")}</p>
-        <div className="flex items-center gap-4 mt-3">
-          <div className="flex items-center gap-1 text-xs text-chart-4">
-            <Star className="w-3.5 h-3.5 fill-chart-4" /> {item.rating}
-          </div>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Eye className="w-3.5 h-3.5" /> {item.viewers}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+const trending = [...CATALOG]
+  .sort((a, b) => b.rating - a.rating)
+  .slice(0, 18)
+  .map((item, i) => ({ ...item, rank: i + 1 }));
 
 export default function Trending() {
   const navigate = useNavigate();
+  const [view, setView] = useState(() => localStorage.getItem("trendingViewMode") || "grid");
+
+  function handleViewChange(v) {
+    setView(v);
+    localStorage.setItem("trendingViewMode", v);
+  }
 
   const animes = trending.filter(i => i.categories.includes("anime"));
   const mangas = trending.filter(i => i.categories.includes("manga"));
@@ -64,16 +33,55 @@ export default function Trending() {
     navigate(`/obra/${item.slug}?tipo=${tipo}`);
   }
 
+  function getFilterCategory(item) {
+    if (item.categories.includes("anime")) return "anime";
+    if (item.categories.includes("movie")) return "movie";
+    return "manga";
+  }
+
+  function renderGrid(data) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {data.map((item) => (
+          <CatalogCardGrid
+            key={item.slug}
+            item={item}
+            filterCategory={getFilterCategory(item)}
+            onClick={handleClick}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  function renderList(data) {
+    return (
+      <div className="flex flex-col gap-2">
+        {data.map((item) => (
+          <CatalogCardList
+            key={item.slug}
+            item={item}
+            filterCategory={getFilterCategory(item)}
+            onClick={handleClick}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 lg:px-6 py-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <TrendingUp className="w-5 h-5 text-primary" />
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <TrendingUp className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-space font-bold text-2xl text-foreground">Trending</h1>
+            <p className="text-sm text-muted-foreground">Os mais populares do catálogo</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-space font-bold text-2xl text-foreground">Trending</h1>
-          <p className="text-sm text-muted-foreground">Os mais populares do catálogo</p>
-        </div>
+        <ViewToggle view={view} onChange={handleViewChange} />
       </div>
 
       <Tabs defaultValue="all">
@@ -91,11 +99,7 @@ export default function Trending() {
           { key: "movie", data: movies },
         ].map(({ key, data }) => (
           <TabsContent key={key} value={key}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.map((item) => (
-                <TrendingCard key={item.slug} item={item} onClick={handleClick} />
-              ))}
-            </div>
+            {view === "grid" ? renderGrid(data) : renderList(data)}
           </TabsContent>
         ))}
       </Tabs>
