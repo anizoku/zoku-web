@@ -17,6 +17,23 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getMyFriends } from "@/lib/social";
 
 const FORMAT_CONFIG = {
+  series: {
+    label: "Série",
+    icon: Film,
+    color: "text-chart-1",
+    bg: "bg-chart-1/10",
+    border: "border-chart-1/30",
+    statusKey: "seriesStatus",
+    progressKey: "current_episode",
+    totalKey: "total_episodes",
+    catalogTotalKey: "seriesSeasons",
+    catalogStatusKey: "seriesStatus",
+    unit: "Temp.",
+    unitLong: "Temporada",
+    defaultStatus: "planned",
+    statusOptions: ["planned", "watching", "completed", "on_hold", "dropped"],
+    xpKey: "episode_watched",
+  },
   anime: {
     label: "Anime",
     icon: Tv,
