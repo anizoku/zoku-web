@@ -66,8 +66,44 @@ function extractTrailer(videos) {
   return null;
 }
 
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+function cacheKey(title, type) {
+  return `tmdb_cache__${type}__${title.toLowerCase().trim()}`;
+}
+
+function getFromCache(title, type) {
+  try {
+    const raw = localStorage.getItem(cacheKey(title, type));
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) {
+      localStorage.removeItem(cacheKey(title, type));
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function saveToCache(title, type, data) {
+  try {
+    localStorage.setItem(cacheKey(title, type), JSON.stringify({ data, ts: Date.now() }));
+  } catch {}
+}
+
+export function invalidateTMDBCache(title, type) {
+  try {
+    localStorage.removeItem(cacheKey(title, type));
+  } catch {}
+}
+
 export async function getTMDBWorkDetails(title, type) {
   if (!TOKEN) return { found: false, error: "Token TMDB não configurado." };
+
+  const cached = getFromCache(title, type);
+  if (cached) return cached;
 
   // 1. Search
   const searchData = await tmdbFetch(`/search/${type}?query=${encodeURIComponent(title)}`);
@@ -134,7 +170,7 @@ export async function getTMDBWorkDetails(title, type) {
       }
     : null;
 
-  return {
+  const result = {
     found: true,
     source: "TMDB",
     tmdbId: id,
@@ -160,4 +196,7 @@ export async function getTMDBWorkDetails(title, type) {
     externalIds: details.external_ids || {},
     watchProviders,
   };
+
+  saveToCache(title, type, result);
+  return result;
 }

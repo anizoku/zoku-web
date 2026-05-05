@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBySlug } from "@/lib/catalog";
 import { XP_REWARDS } from "@/lib/xpSystem";
-import { getTMDBWorkDetails } from "@/lib/tmdb";
+import { getTMDBWorkDetails, invalidateTMDBCache } from "@/lib/tmdb";
 import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Users } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
 import TMDBDetails, { OverviewSection, InfoSection, TrailerSection, WatchSection, CastSection, SeasonsSection, TMDBUpdateButton } from "@/components/media/TMDBDetails";
@@ -437,6 +437,7 @@ export default function ObraProfile() {
   function handleTMDBRefresh() {
     if (!media) return;
     const type = media.categories.includes("movie") && !media.categories.includes("anime") ? "movie" : "tv";
+    invalidateTMDBCache(media.title, type);
     setTmdbLoading(true);
     setTmdbError(null);
     getTMDBWorkDetails(media.title, type)
@@ -641,13 +642,6 @@ export default function ObraProfile() {
         {/* 4. Onde Assistir */}
         {tmdbData?.watchProviders && <WatchSection watchProviders={tmdbData.watchProviders} />}
 
-        {/* TMDB loading */}
-        {tmdbLoading && (
-          <div className="flex items-center gap-2 py-4 justify-center">
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Buscando dados no TMDB...</span>
-          </div>
-        )}
         {tmdbError && !tmdbLoading && (
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-destructive">{tmdbError}</p>
