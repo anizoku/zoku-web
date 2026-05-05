@@ -92,7 +92,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   return (
     <aside
-      className={`hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0 ${
+      className={`hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 fixed top-0 left-0 h-screen z-40 ${
         collapsed ? "w-16" : "w-56"
       }`}
     >

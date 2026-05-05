@@ -8,12 +8,14 @@ import FloatingChat from "@/components/chat/FloatingChat";
 export default function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const sidebarWidth = sidebarCollapsed ? "lg:pl-16" : "lg:pl-56";
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex bg-background min-h-screen">
       <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((v) => !v)} />
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+      <div className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ${sidebarWidth}`}>
         <TopBar sidebarCollapsed={sidebarCollapsed} />
-        <main className="flex-1 pb-20 lg:pb-0">
+        <main className="flex-1 pb-20 lg:pb-0 overflow-y-auto">
           <Outlet />
         </main>
       </div>
