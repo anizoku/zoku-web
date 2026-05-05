@@ -27,7 +27,7 @@
     "update": {
       "$or": [
         {
-          "created_by": "{{user.email}}"
+          "data.author_email": "{{user.email}}"
         },
         {
           "user_condition": {
@@ -39,7 +39,7 @@
     "delete": {
       "$or": [
         {
-          "created_by": "{{user.email}}"
+          "data.author_email": "{{user.email}}"
         },
         {
           "user_condition": {
