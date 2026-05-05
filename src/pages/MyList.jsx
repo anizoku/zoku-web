@@ -52,9 +52,10 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
   const [open, setOpen] = useState(false);
 
   const isDuplicate = title.trim() && existingTitles.some(t => t.toLowerCase() === title.trim().toLowerCase());
+  // If duplicate, we'll update instead of block (show info message)
 
   const handleSubmit = () => {
-    if (!title.trim() || isDuplicate) return;
+    if (!title.trim()) return;
     onAdd({
       title: title.trim(),
       type,
@@ -84,7 +85,7 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
         <div className="space-y-4 pt-2">
           <div>
             <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary border-none" />
-            {isDuplicate && <p className="text-xs text-destructive mt-1">Esta obra já está na sua lista.</p>}
+            {isDuplicate && <p className="text-xs text-yellow-400 mt-1">Esta obra já está na lista — o status será atualizado.</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Select value={type} onValueChange={setType}>
@@ -111,7 +112,9 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
             onChange={(e) => setTotalEpisodes(e.target.value)}
             className="bg-secondary border-none"
           />
-          <Button onClick={handleSubmit} disabled={isDuplicate || !title.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={!title.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+            {isDuplicate ? "Atualizar Status" : "Adicionar"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -249,9 +252,43 @@ export default function MyList() {
     },
   });
 
-  const myEntries = entries
-    .filter((e) => e.created_by === user?.email)
-    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  // Deduplicate: keep only the most recently updated entry per title+genre combo
+  const myEntriesRaw = entries.filter((e) => e.created_by === user?.email);
+
+  const deduped = Object.values(
+    myEntriesRaw.reduce((acc, entry) => {
+      // Key: title + genre (to allow same title as anime AND manga via ObraProfile)
+      const key = `${entry.title}__${entry.genre || ""}`;
+      const existing = acc[key];
+      if (!existing || new Date(entry.updated_date) > new Date(existing.updated_date)) {
+        acc[key] = entry;
+      }
+      return acc;
+    }, {})
+  );
+
+  const myEntries = deduped.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+
+  // Clean up duplicate entries in background (keep best, delete the rest)
+  useEffect(() => {
+    if (!user?.email || myEntriesRaw.length === 0) return;
+    const groups = myEntriesRaw.reduce((acc, entry) => {
+      const key = `${entry.title}__${entry.genre || ""}`;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(entry);
+      return acc;
+    }, {});
+    Object.values(groups).forEach((group) => {
+      if (group.length <= 1) return;
+      // Sort by updated_date desc, keep first, delete the rest
+      const sorted = [...group].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
+      sorted.slice(1).forEach((dup) => {
+        base44.entities.AnimeEntry.delete(dup.id).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+        }).catch(() => {});
+      });
+    });
+  }, [user?.email, myEntriesRaw.length]);
 
   const existingTitles = myEntries.map(e => e.title);
 
@@ -272,7 +309,20 @@ export default function MyList() {
             <p className="text-sm text-muted-foreground">{myEntries.length} títulos</p>
           </div>
         </div>
-        <AddEntryDialog onAdd={createMutation.mutate} existingTitles={existingTitles} />
+        <AddEntryDialog
+          onAdd={(data) => {
+            // Upsert: find existing entry for this title (without format marker)
+            const existing = myEntriesRaw.find(
+              (e) => e.title.toLowerCase() === data.title.toLowerCase() && !e.genre?.startsWith("__format:")
+            );
+            if (existing) {
+              updateMutation.mutate({ id: existing.id, data: { status: data.status } });
+            } else {
+              createMutation.mutate(data);
+            }
+          }}
+          existingTitles={existingTitles}
+        />
       </div>
 
       <Tabs defaultValue="all">

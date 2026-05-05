@@ -91,9 +91,15 @@ export default function MediaDrawer({ media, type, open, onClose }) {
 
   function handleAddToList(status = "planned") {
     if (!user || !media) return;
+    // Upsert: if already exists, just update status instead of creating a new entry
+    if (myEntry) {
+      updateMutation.mutate({ id: myEntry.id, data: { status } });
+      showToast(`Status: ${statusLabels[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      return;
+    }
     createMutation.mutate({
       title: media.title,
-      type: isMovie ? "anime" : type, // store movies as anime type with 1 episode
+      type: isMovie ? "anime" : type,
       status,
       total_episodes: isAnime ? (media.totalEpisodes || 0) : isMovie ? 1 : 0,
       total_chapters: isManga ? (media.totalChapters || 0) : 0,

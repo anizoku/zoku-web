@@ -140,6 +140,21 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
 
   function handleAdd(status) {
     if (!user) return;
+    // Upsert: if an entry already exists for this title+format, update instead of creating
+    if (entry) {
+      updateMutation.mutate({ id: entry.id, data: { status } });
+      showToast(`Status: ${STATUS_LABELS[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      return;
+    }
+    // Also check for entries without the format marker (created via MyList or MediaDrawer)
+    const genericEntry = user ? entries.find(
+      (e) => e.created_by === user.email && e.title === media.title && !e.genre?.startsWith("__format:")
+    ) : null;
+    if (genericEntry) {
+      updateMutation.mutate({ id: genericEntry.id, data: { status, genre: formatMarker } });
+      showToast(`Status: ${STATUS_LABELS[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      return;
+    }
     createMutation.mutate({
       title: media.title,
       type: entryType,
