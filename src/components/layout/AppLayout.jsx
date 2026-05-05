@@ -4,8 +4,10 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
 import FloatingChat from "@/components/chat/FloatingChat";
+import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
 
 export default function AppLayout() {
+  useAutoImageRefresh();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const sidebarWidth = sidebarCollapsed ? "lg:pl-16" : "lg:pl-56";

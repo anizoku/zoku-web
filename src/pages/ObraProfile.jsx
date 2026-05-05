@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBySlug } from "@/lib/catalog";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { getTMDBWorkDetails, invalidateTMDBCache } from "@/lib/tmdb";
+import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
 import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Users } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
 import TMDBDetails, { OverviewSection, InfoSection, TrailerSection, WatchSection, CastSection, SeasonsSection, TMDBUpdateButton } from "@/components/media/TMDBDetails";
@@ -399,6 +400,8 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
 }
 
 export default function ObraProfile() {
+  useAutoImageRefresh();
+  
   const { slug } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
