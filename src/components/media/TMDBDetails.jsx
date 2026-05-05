@@ -165,95 +165,93 @@ export function TMDBUpdateButton({ onUpdate, loading }) {
   );
 }
 
-// ── Main TMDB Info Block ──────────────────────────────────────────────────────
-export default function TMDBDetails({ data, onUpdate, updating }) {
-  if (!data || !data.found) return null;
-
+// ── Sinopse ───────────────────────────────────────────────────────────────────
+export function OverviewSection({ data }) {
+  if (!data?.overview) return null;
   return (
-    <div className="space-y-4">
-      {/* Overview */}
-      {data.overview && (
-        <div className="bg-card rounded-xl border border-border p-4">
-          <h3 className="font-semibold text-sm mb-2">Sinopse</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">{data.overview}</p>
-          {data.originalTitle && data.originalTitle !== data.title && (
-            <p className="text-[11px] text-muted-foreground/60 mt-2">Título original: {data.originalTitle}</p>
-          )}
+    <div className="bg-card rounded-xl border border-border p-4">
+      <h3 className="font-semibold text-sm mb-2">Sinopse</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed">{data.overview}</p>
+      {data.originalTitle && data.originalTitle !== data.title && (
+        <p className="text-[11px] text-muted-foreground/60 mt-2">Título original: {data.originalTitle}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Info Block ────────────────────────────────────────────────────────────────
+export function InfoSection({ data }) {
+  if (!data) return null;
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+      {data.genres && data.genres.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {data.genres.map((g) => (
+            <Badge key={g} variant="outline" className="text-[10px] border-border text-muted-foreground">{g}</Badge>
+          ))}
         </div>
       )}
-
-      {/* Meta info row */}
-      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-        {/* Genres */}
-        {data.genres && data.genres.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {data.genres.map((g) => (
-              <Badge key={g} variant="outline" className="text-[10px] border-border text-muted-foreground">{g}</Badge>
-            ))}
+      <div className="flex flex-wrap gap-4 text-xs">
+        {data.rating > 0 && (
+          <div className="flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 fill-chart-4 text-chart-4" />
+            <span className="font-bold text-foreground">{data.rating}</span>
+            {data.voteCount > 0 && <span className="text-muted-foreground">({data.voteCount.toLocaleString()} votos)</span>}
           </div>
         )}
-
-        <div className="flex flex-wrap gap-4 text-xs">
-          {/* Rating */}
-          {data.rating > 0 && (
-            <div className="flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 fill-chart-4 text-chart-4" />
-              <span className="font-bold text-foreground">{data.rating}</span>
-              {data.voteCount > 0 && <span className="text-muted-foreground">({data.voteCount.toLocaleString()} votos)</span>}
-            </div>
-          )}
-          {/* Year */}
-          {data.year && <span className="text-muted-foreground">{data.year}</span>}
-          {/* Status */}
-          {data.status && (
-            <span className={`font-medium ${
-              data.status === "Em exibição" || data.status === "Lançado" ? "text-primary" :
-              data.status === "Finalizado" ? "text-muted-foreground" :
-              data.status === "Cancelado" ? "text-destructive" : "text-chart-4"
-            }`}>{data.status}</span>
-          )}
-          {/* Seasons/Episodes */}
-          {data.numberOfSeasons && (
-            <span className="text-muted-foreground">{data.numberOfSeasons} temporada{data.numberOfSeasons !== 1 ? "s" : ""}</span>
-          )}
-          {data.numberOfEpisodes && (
-            <span className="text-muted-foreground">{data.numberOfEpisodes} eps no total</span>
-          )}
-        </div>
-
-        {/* Creators */}
-        {data.creators && data.creators.length > 0 && (
-          <div className="text-xs">
-            <span className="text-muted-foreground">{data.creators[0].role}: </span>
-            <span className="text-foreground">{data.creators.map((c) => c.name).join(", ")}</span>
-          </div>
+        {data.year && <span className="text-muted-foreground">{data.year}</span>}
+        {data.status && (
+          <span className={`font-medium ${
+            data.status === "Em exibição" || data.status === "Lançado" ? "text-primary" :
+            data.status === "Finalizado" ? "text-muted-foreground" :
+            data.status === "Cancelado" ? "text-destructive" : "text-chart-4"
+          }`}>{data.status}</span>
+        )}
+        {data.numberOfSeasons && (
+          <span className="text-muted-foreground">{data.numberOfSeasons} temporada{data.numberOfSeasons !== 1 ? "s" : ""}</span>
+        )}
+        {data.numberOfEpisodes && (
+          <span className="text-muted-foreground">{data.numberOfEpisodes} eps no total</span>
         )}
       </div>
-
-      {/* Trailer */}
-      {data.trailerUrl && (
-        <a href={data.trailerUrl} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 bg-card rounded-xl border border-border p-4 hover:border-primary/50 transition-colors group">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-            <Play className="w-4 h-4 text-primary fill-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">Ver trailer</p>
-            <p className="text-[10px] text-muted-foreground">YouTube</p>
-          </div>
-        </a>
+      {data.creators && data.creators.length > 0 && (
+        <div className="text-xs">
+          <span className="text-muted-foreground">{data.creators[0].role}: </span>
+          <span className="text-foreground">{data.creators.map((c) => c.name).join(", ")}</span>
+        </div>
       )}
+    </div>
+  );
+}
 
-      {/* Cast */}
+// ── Trailer Button ────────────────────────────────────────────────────────────
+export function TrailerSection({ trailerUrl }) {
+  if (!trailerUrl) return null;
+  return (
+    <a href={trailerUrl} target="_blank" rel="noopener noreferrer"
+      className="flex items-center gap-2 bg-card rounded-xl border border-border p-4 hover:border-primary/50 transition-colors group">
+      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+        <Play className="w-4 h-4 text-primary fill-primary" />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-foreground">Ver trailer</p>
+        <p className="text-[10px] text-muted-foreground">YouTube</p>
+      </div>
+    </a>
+  );
+}
+
+// ── Main TMDB Info Block (legacy export kept for compatibility) ────────────────
+export default function TMDBDetails({ data, onUpdate, updating }) {
+  if (!data || !data.found) return null;
+  return (
+    <div className="space-y-4">
+      <OverviewSection data={data} />
+      <InfoSection data={data} />
+      <TrailerSection trailerUrl={data.trailerUrl} />
       <CastSection cast={data.cast} />
-
-      {/* Seasons */}
       <SeasonsSection seasons={data.seasons} />
-
-      {/* Watch providers */}
       <WatchSection watchProviders={data.watchProviders} />
-
-      {/* Update button */}
       <div className="flex justify-end">
         <TMDBUpdateButton onUpdate={onUpdate} loading={updating} />
       </div>

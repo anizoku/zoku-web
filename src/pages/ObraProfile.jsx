@@ -5,9 +5,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBySlug } from "@/lib/catalog";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { getTMDBWorkDetails } from "@/lib/tmdb";
-import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Users, Trash2 } from "lucide-react";
+import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Users } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
-import TMDBDetails from "@/components/media/TMDBDetails";
+import TMDBDetails, { OverviewSection, InfoSection, TrailerSection, WatchSection, CastSection, SeasonsSection, TMDBUpdateButton } from "@/components/media/TMDBDetails";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -18,7 +18,7 @@ import { getMyFriends } from "@/lib/social";
 
 const FORMAT_CONFIG = {
   liveaction: {
-    label: "Live Action",
+    label: "Live-Action",
     icon: Film,
     color: "text-chart-1",
     bg: "bg-chart-1/10",
@@ -272,6 +272,13 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
               <span className="font-bold text-foreground">{catalogTotal}</span>
             </div>
           )}
+          {/* Live-action series: show episode count if available */}
+          {format === "liveaction" && !media.liveActionIsMovie && media.liveActionEpisodes && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Total de Episódios</span>
+              <span className="font-bold text-foreground">{media.liveActionEpisodes}</span>
+            </div>
+          )}
           {isMovie && media.movieDuration && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Duração</span>
@@ -502,8 +509,15 @@ export default function ObraProfile() {
     if (f === "anime") return { label: "Anime", icon: Tv, color: "text-chart-2" };
     if (f === "manga") return { label: "Mangá", icon: BookOpen, color: "text-chart-3" };
     if (f === "movie") return { label: "Filme", icon: Film, color: "text-chart-5" };
+    if (f === "liveaction") return { label: "Live-Action", icon: Film, color: "text-chart-1" };
     return { label: f, icon: Tv, color: "text-foreground" };
   };
+
+  // Determine which format blocks to show — skip liveaction if not in catalog
+  const visibleFormats = formats.filter(f => {
+    if (f !== "liveaction") return true;
+    return !!(media.liveActionTitle || media.liveActionStatus);
+  });
 
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6">
@@ -535,7 +549,7 @@ export default function ObraProfile() {
               {/* Format chips */}
               <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                 {formats.map(f => {
-                  const { label, icon: FIcon, color } = formatTabLabel(f);
+                  const { label, icon: FmtIcon, color } = formatTabLabel(f);
                   return (
                     <button
                       key={f}
@@ -546,7 +560,7 @@ export default function ObraProfile() {
                           : "bg-card/40 border-transparent text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <FIcon className="w-3 h-3" /> {label}
+                      <FmtIcon className="w-3 h-3" /> {label}
                     </button>
                   );
                 })}
@@ -556,6 +570,30 @@ export default function ObraProfile() {
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{tmdbData.originalTitle}</p>
               )}
             </div>
+
+            {/* Friends watching — compact avatar icons in header */}
+            {friendsWithWork.length > 0 && (
+              <div className="flex items-center shrink-0 self-end mb-0.5">
+                <div className="flex -space-x-2">
+                  {friendsWithWork.slice(0, 5).map(f => (
+                    <div
+                      key={f.email}
+                      title={`${f.name || f.email} · ${STATUS_LABELS[f.entry?.status] || f.entry?.status}`}
+                      className="w-7 h-7 rounded-full bg-primary/10 border-2 border-card flex items-center justify-center text-[10px] font-bold overflow-hidden"
+                    >
+                      {f.profile?.avatar_url
+                        ? <img src={f.profile.avatar_url} alt={f.name} className="w-full h-full object-cover" />
+                        : <span className="text-primary">{(f.name || "A")[0].toUpperCase()}</span>
+                      }
+                    </div>
+                  ))}
+                </div>
+                {friendsWithWork.length > 5 && (
+                  <span className="text-[10px] text-muted-foreground ml-1.5">+{friendsWithWork.length - 5}</span>
+                )}
+                <Users className="w-3 h-3 text-muted-foreground ml-1.5" />
+              </div>
+            )}
           </div>
         </div>
 
@@ -589,75 +627,60 @@ export default function ObraProfile() {
         </div>
       </div>
 
-      {/* Format blocks */}
-      <div className="grid gap-4 sm:grid-cols-2 mb-6">
-        {formats.map(f => (
-          <FormatBlock
-            key={f}
-            format={f}
-            media={media}
-            entries={entries}
-            user={user}
-            onMutate={refetch}
-          />
-        ))}
+      {/* ── Content in new order ── */}
+      <div className="space-y-4 mb-6">
+        {/* 1. Sinopse */}
+        {tmdbData && <OverviewSection data={tmdbData} />}
+
+        {/* 2. Informações */}
+        {tmdbData && <InfoSection data={tmdbData} />}
+
+        {/* 3. Trailer */}
+        {tmdbData?.trailerUrl && <TrailerSection trailerUrl={tmdbData.trailerUrl} />}
+
+        {/* 4. Onde Assistir */}
+        {tmdbData?.watchProviders && <WatchSection watchProviders={tmdbData.watchProviders} />}
+
+        {/* TMDB loading */}
+        {tmdbLoading && (
+          <div className="flex items-center gap-2 py-4 justify-center">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Buscando dados no TMDB...</span>
+          </div>
+        )}
+        {tmdbError && !tmdbLoading && (
+          <div className="bg-card rounded-xl border border-border p-4">
+            <p className="text-xs text-destructive">{tmdbError}</p>
+          </div>
+        )}
+
+        {/* 5. Format blocks (anime, manga, movie, liveaction — skip liveaction if absent) */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {visibleFormats.map(f => (
+            <FormatBlock
+              key={f}
+              format={f}
+              media={media}
+              entries={entries}
+              user={user}
+              onMutate={refetch}
+            />
+          ))}
+        </div>
+
+        {/* 6. Elenco */}
+        {tmdbData?.cast?.length > 0 && <CastSection cast={tmdbData.cast} />}
+
+        {/* 7. Temporadas no final */}
+        {tmdbData?.seasons?.length > 0 && <SeasonsSection seasons={tmdbData.seasons} />}
+
+        {/* Update button */}
+        {tmdbData && (
+          <div className="flex justify-end">
+            <TMDBUpdateButton onUpdate={handleTMDBRefresh} loading={tmdbLoading} />
+          </div>
+        )}
       </div>
-
-      {/* TMDB Details: overview, cast, seasons, trailer, where to watch */}
-      {tmdbLoading && (
-        <div className="flex items-center gap-2 py-6 justify-center mb-6">
-          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Buscando dados no TMDB...</span>
-        </div>
-      )}
-      {tmdbError && !tmdbLoading && (
-        <div className="bg-card rounded-xl border border-border p-4 mb-6">
-          <p className="text-xs text-destructive">{tmdbError}</p>
-        </div>
-      )}
-      {!tmdbLoading && tmdbData && (
-        <div className="mb-6">
-          <TMDBDetails
-            data={tmdbData}
-            onUpdate={handleTMDBRefresh}
-            updating={tmdbLoading}
-          />
-        </div>
-      )}
-
-      {/* Friends watching */}
-      {friendsWithWork.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-sm text-foreground">Amigos acompanhando</h2>
-          </div>
-          <div className="space-y-2">
-            {friendsWithWork.map(f => {
-              const isAnimeEntry = f.entry?.type === "anime";
-              const current = isAnimeEntry ? f.entry?.current_episode : f.entry?.current_chapter;
-              const total = isAnimeEntry ? f.entry?.total_episodes : f.entry?.total_chapters;
-              return (
-                <div key={f.email} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
-                    {f.profile?.avatar_url
-                      ? <img src={f.profile.avatar_url} alt={f.name} className="w-full h-full object-cover" />
-                      : <span className="text-primary">{(f.name || "A")[0].toUpperCase()}</span>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-foreground">{f.name || f.email}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {STATUS_LABELS[f.entry?.status] || f.entry?.status}
-                      {current > 0 && ` · ${isAnimeEntry ? "Ep." : "Cap."} ${current}${total > 0 ? `/${total}` : ""}`}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
