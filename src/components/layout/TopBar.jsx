@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { Search, Flame } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import NotificationBell from "@/components/social/NotificationBell";
 import UserMenuButton from "@/components/layout/UserMenuButton";
+
+const LOGO_ICON = "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/deb2fc23d_LOGOAZ.png";
+const LOGO_HORIZONTAL = "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/c61581414_aniZoku.png";
 
 export default function TopBar() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,12 +22,8 @@ export default function TopBar() {
       <div className="flex items-center gap-3 px-4 lg:px-6 h-14">
         {/* Mobile logo */}
         <Link to="/" className="lg:hidden flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Flame className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <span className="font-space font-bold text-lg">
-            Otaku<span className="text-primary">Hub</span>
-          </span>
+          <img src={LOGO_ICON} alt="AniZoku" className="w-8 h-8 rounded-lg object-contain" />
+          <img src={LOGO_HORIZONTAL} alt="AniZoku" className="h-6 object-contain" />
         </Link>
 
         {/* Search */}

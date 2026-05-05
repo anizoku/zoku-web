@@ -22,10 +22,10 @@ export default function Home() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6">
+    <div className="w-full px-4 lg:px-6 py-6 max-w-[1400px] mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Main Feed */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-8 space-y-4">
           <CreatePostCard user={user} />
           
           {isLoading ? (
@@ -56,7 +56,7 @@ export default function Home() {
         </div>
 
         {/* Right Sidebar */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className="lg:col-span-4 space-y-4">
           <TrendingSection />
           <RecentEpisodesSection />
           <ActiveDebatesSection />
