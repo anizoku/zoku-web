@@ -1,4 +1,4 @@
-import { Monitor } from "lucide-react";
+import { Clapperboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +7,7 @@ import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
 import CatalogCardList from "@/components/catalog/CatalogCardList";
 import ViewToggle from "@/components/catalog/ViewToggle";
 
-const series = getByCategory("series");
+const liveActionItems = getByCategory("liveaction");
 
 function useViewMode(key, defaultValue = "grid") {
   const [view, setView] = useState(() => localStorage.getItem(key) || defaultValue);
@@ -20,12 +20,12 @@ function useViewMode(key, defaultValue = "grid") {
 
 export default function Series() {
   const [search, setSearch] = useState("");
-  const [view, setView] = useViewMode("seriesViewMode", "grid");
+  const [view, setView] = useViewMode("liveactionViewMode", "grid");
   const navigate = useNavigate();
 
-  const filtered = series.filter((s) =>
+  const filtered = liveActionItems.filter((s) =>
     s.title.toLowerCase().includes(search.toLowerCase()) ||
-    (s.seriesTitle || "").toLowerCase().includes(search.toLowerCase()) ||
+    (s.liveActionTitle || "").toLowerCase().includes(search.toLowerCase()) ||
     s.genres.some((g) => g.toLowerCase().includes(search.toLowerCase()))
   );
 
@@ -34,11 +34,11 @@ export default function Series() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-chart-1/10 flex items-center justify-center">
-            <Monitor className="w-5 h-5 text-chart-1" />
+            <Clapperboard className="w-5 h-5 text-chart-1" />
           </div>
           <div>
-            <h1 className="font-space font-bold text-2xl text-foreground">Séries</h1>
-            <p className="text-sm text-muted-foreground">{series.length} adaptações no catálogo</p>
+            <h1 className="font-space font-bold text-2xl text-foreground">Live Action</h1>
+            <p className="text-sm text-muted-foreground">{liveActionItems.length} adaptações no catálogo</p>
           </div>
         </div>
       </div>
@@ -59,8 +59,8 @@ export default function Series() {
             <CatalogCardGrid
               key={item.slug}
               item={item}
-              filterCategory="series"
-              onClick={(i) => navigate(`/obra/${i.slug}?tipo=series`)}
+              filterCategory="liveaction"
+              onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)}
             />
           ))}
         </div>
@@ -70,8 +70,8 @@ export default function Series() {
             <CatalogCardList
               key={item.slug}
               item={item}
-              filterCategory="series"
-              onClick={(i) => navigate(`/obra/${i.slug}?tipo=series`)}
+              filterCategory="liveaction"
+              onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)}
             />
           ))}
         </div>
@@ -79,7 +79,7 @@ export default function Series() {
 
       {filtered.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
-          <p className="text-sm">Nenhuma série encontrada para "{search}"</p>
+          <p className="text-sm">Nenhuma adaptação encontrada para "{search}"</p>
         </div>
       )}
     </div>

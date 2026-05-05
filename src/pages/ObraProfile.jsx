@@ -17,17 +17,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getMyFriends } from "@/lib/social";
 
 const FORMAT_CONFIG = {
-  series: {
-    label: "Série",
+  liveaction: {
+    label: "Live Action",
     icon: Film,
     color: "text-chart-1",
     bg: "bg-chart-1/10",
     border: "border-chart-1/30",
-    statusKey: "seriesStatus",
+    statusKey: "liveActionStatus",
     progressKey: "current_episode",
     totalKey: "total_episodes",
-    catalogTotalKey: "seriesSeasons",
-    catalogStatusKey: "seriesStatus",
+    catalogTotalKey: "liveActionSeasons",
+    catalogStatusKey: "liveActionStatus",
     unit: "Temp.",
     unitLong: "Temporada",
     defaultStatus: "planned",

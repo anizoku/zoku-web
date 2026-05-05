@@ -35,7 +35,7 @@ async function fetchPoster(title, type) {
  */
 export function useTMDBPoster(item) {
   const isMangaOnly = item.categories.length === 1 && item.categories[0] === "manga";
-  const tmdbType = item.categories.includes("movie") && !item.categories.includes("anime") && !item.categories.includes("series") ? "movie" : "tv";
+  const tmdbType = item.categories.includes("movie") && !item.categories.includes("anime") && !item.categories.includes("liveaction") ? "movie" : "tv";
 
   const [posterUrl, setPosterUrl] = useState(item.posterUrl || item.cover || null);
   const [loading, setLoading] = useState(false);
