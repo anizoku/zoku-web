@@ -89,17 +89,13 @@
     "read": {
       "$or": [
         {
-          "data.visibility": "public"
-        },
-        {
           "data.organizer_email": "{{user.email}}"
         },
         {
-          "data.participants": {
-            "$in": [
-              "{{user.email}}"
-            ]
-          }
+          "data.participants": "{{user.email}}"
+        },
+        {
+          "data.visibility": "public"
         },
         {
           "user_condition": {
