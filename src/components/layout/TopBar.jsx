@@ -27,8 +27,8 @@ export default function TopBar() {
         </Link>
 
         {/* Search */}
-        <div className="flex-1 max-w-xl mx-auto lg:mx-0">
-          <div className="relative">
+        <div className="flex-1 min-w-0">
+          <div className="relative max-w-xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar animes, mangás, discussões..."
@@ -39,8 +39,8 @@ export default function TopBar() {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5">
+        {/* Actions — fixed to the right */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           <NotificationBell userEmail={userEmail} />
           <UserMenuButton />
         </div>
