@@ -1,82 +1,40 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { Loader2, Tv, ExternalLink } from "lucide-react";
 
-const CATEGORY_LABELS = {
-  streaming: "Streaming",
-  rent: "Aluguel",
-  buy: "Compra",
-};
+const TMDB_BASE = "https://api.themoviedb.org/3";
+const TOKEN = import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN;
 
-const CATEGORY_COLORS = {
-  streaming: "text-primary",
-  rent: "text-chart-4",
-  buy: "text-chart-2",
-};
-
-async function getWatchProviders(title, type) {
-  const tmdbToken = import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN;
-  const TMDB_BASE = "https://api.themoviedb.org/3";
-
-  // Search for the title
-  const searchRes = await base44.integrations.Core.InvokeLLM({
-    prompt: `Make an HTTP GET request to this URL and return the raw JSON response exactly as-is, without any modification or commentary:
-${TMDB_BASE}/search/${type}?query=${encodeURIComponent(title)}&language=pt-BR
-
-Use this Bearer token for authorization: ${tmdbToken}
-
-Return only valid JSON matching the TMDB search response structure with "results" array containing items with "id", "title" or "name", "release_date" or "first_air_date" fields.`,
-    response_json_schema: {
-      type: "object",
-      properties: {
-        results: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "number" },
-              title: { type: "string" },
-              name: { type: "string" },
-            },
-          },
-        },
-      },
+async function tmdbFetch(path) {
+  const res = await fetch(`${TMDB_BASE}${path}`, {
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      Accept: "application/json",
     },
   });
+  if (!res.ok) throw new Error(`Erro TMDB: ${res.status}`);
+  return res.json();
+}
 
-  const results = searchRes?.results || [];
-  if (!results.length) {
-    return { found: false };
-  }
+export async function getWatchProviders(title, type) {
+  if (!TOKEN) throw new Error("Token TMDB não configurado.");
+
+  const searchData = await tmdbFetch(
+    `/search/${type}?query=${encodeURIComponent(title)}&language=pt-BR`
+  );
+
+  const results = searchData.results || [];
+  if (!results.length) return { found: false };
 
   const normalizedTitle = title.toLowerCase().trim();
   const best =
-    results.find(
-      (r) => (r.title || r.name || "").toLowerCase() === normalizedTitle
-    ) || results[0];
+    results.find((r) => (r.title || r.name || "").toLowerCase() === normalizedTitle) ||
+    results[0];
 
   const tmdbId = best.id;
   const foundTitle = best.title || best.name || title;
 
-  // Get watch providers
-  const providersRes = await base44.integrations.Core.InvokeLLM({
-    prompt: `Make an HTTP GET request to this URL and return the raw JSON response exactly as-is:
-${TMDB_BASE}/${type}/${tmdbId}/watch/providers
-
-Use this Bearer token for authorization: ${tmdbToken}
-
-Return only valid JSON matching the TMDB watch providers response structure with a "results" object containing country codes as keys, each with optional "flatrate", "rent", "buy" arrays and a "link" string.`,
-    response_json_schema: {
-      type: "object",
-      properties: {
-        results: {
-          type: "object",
-        },
-      },
-    },
-  });
-
-  const br = providersRes?.results?.BR;
+  const providersData = await tmdbFetch(`/${type}/${tmdbId}/watch/providers`);
+  const br = providersData.results?.BR;
 
   return {
     found: true,
@@ -188,19 +146,19 @@ export default function WhereToWatchWidget({ title, type }) {
       {!loading && !error && data?.found && !data.noData && (
         <div className="space-y-4">
           <ProviderCategory
-            label={CATEGORY_LABELS.streaming}
+            label="Streaming"
             providers={data.streaming}
-            colorClass={CATEGORY_COLORS.streaming}
+            colorClass="text-primary"
           />
           <ProviderCategory
-            label={CATEGORY_LABELS.rent}
+            label="Aluguel"
             providers={data.rent}
-            colorClass={CATEGORY_COLORS.rent}
+            colorClass="text-chart-4"
           />
           <ProviderCategory
-            label={CATEGORY_LABELS.buy}
+            label="Compra"
             providers={data.buy}
-            colorClass={CATEGORY_COLORS.buy}
+            colorClass="text-chart-2"
           />
         </div>
       )}
