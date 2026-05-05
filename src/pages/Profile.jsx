@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users, Settings } from "lucide-react";
-import AdminMediaManager from "@/components/admin/AdminMediaManager";
-import AdminImageEditor from "@/components/admin/AdminImageEditor";
+import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users } from "lucide-react";
 import WorkLink from "@/components/media/WorkLink";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -199,7 +197,6 @@ export default function Profile() {
           <TabsTrigger value="achievements"><Trophy className="w-3.5 h-3.5 mr-1" />Conquistas</TabsTrigger>
           <TabsTrigger value="ranks"><Zap className="w-3.5 h-3.5 mr-1" />Ranks</TabsTrigger>
           <TabsTrigger value="posts"><Star className="w-3.5 h-3.5 mr-1" />Posts</TabsTrigger>
-          {user?.role === "admin" && <TabsTrigger value="admin"><Settings className="w-3.5 h-3.5 mr-1" />Admin</TabsTrigger>}
         </TabsList>
 
         {/* Friends */}
@@ -315,13 +312,6 @@ export default function Profile() {
             myPosts.map(post => <PostCard key={post.id} post={post} userEmail={user?.email} />)
           )}
         </TabsContent>
-
-        {user?.role === "admin" && (
-          <TabsContent value="admin" className="mt-4 space-y-4">
-            <AdminImageEditor userProfile={myProfile} user={user} />
-            <AdminMediaManager />
-          </TabsContent>
-        )}
       </Tabs>
 
       <LevelUpToast level={levelUpNotif} onClose={() => setLevelUpNotif(null)} />

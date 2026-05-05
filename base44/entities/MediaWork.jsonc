@@ -1,0 +1,63 @@
+{
+  "name": "MediaWork",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo da obra"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "manga",
+        "movie",
+        "liveaction"
+      ],
+      "description": "Categoria da obra"
+    },
+    "cover_url": {
+      "type": "string",
+      "description": "URL da foto/poster da obra"
+    },
+    "banner_url": {
+      "type": "string",
+      "description": "URL do banner da obra"
+    },
+    "genres": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "G\u00eaneros da obra"
+    },
+    "rating": {
+      "type": "number",
+      "default": 0,
+      "description": "Avalia\u00e7\u00e3o da obra"
+    }
+  },
+  "required": [
+    "title",
+    "category"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

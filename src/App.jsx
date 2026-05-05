@@ -21,6 +21,7 @@ import ObraProfile from '@/pages/ObraProfile';
 import PublicProfile from '@/pages/PublicProfile';
 import CommunityPage from '@/pages/CommunityPage';
 import Series from '@/pages/Series';
+import Admin from '@/pages/Admin';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -62,6 +63,7 @@ const AuthenticatedApp = () => {
         <Route path="/obra/:slug" element={<ObraProfile />} />
         <Route path="/u/:userEmail" element={<PublicProfile />} />
         <Route path="/communities/:communityId" element={<CommunityPage />} />
+        <Route path="/admin" element={<Admin />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
