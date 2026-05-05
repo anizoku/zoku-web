@@ -55,8 +55,10 @@
       "data.recipient_email": "{{user.email}}"
     },
     "delete": {
-      "data.recipient_email": "{{user.email}}",
       "$or": [
+        {
+          "data.recipient_email": "{{user.email}}"
+        },
         {
           "user_condition": {
             "role": "admin"
