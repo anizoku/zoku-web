@@ -20,6 +20,7 @@ import Events from '@/pages/Events';
 import ObraProfile from '@/pages/ObraProfile';
 import PublicProfile from '@/pages/PublicProfile';
 import CommunityPage from '@/pages/CommunityPage';
+import Series from '@/pages/Series';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -53,6 +54,7 @@ const AuthenticatedApp = () => {
         <Route path="/mangas" element={<Mangas />} />
         <Route path="/communities" element={<Communities />} />
         <Route path="/films" element={<Films />} />
+        <Route path="/series" element={<Series />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/events" element={<Events />} />
         <Route path="/my-list" element={<MyList />} />

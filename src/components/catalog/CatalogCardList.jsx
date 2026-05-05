@@ -1,10 +1,10 @@
-import { Star, Tv, BookOpen, Film, ImageOff, ChevronRight } from "lucide-react";
+import { Star, Tv, BookOpen, Film, ImageOff, ChevronRight, Monitor } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTMDBPoster } from "./useTMDBPoster";
 
-const categoryIcons = { anime: <Tv className="w-3 h-3" />, manga: <BookOpen className="w-3 h-3" />, movie: <Film className="w-3 h-3" /> };
-const categoryLabels = { anime: "Anime", manga: "Mangá", movie: "Filme" };
-const categoryColors = { anime: "bg-chart-2/80 text-white border-none", manga: "bg-chart-3/80 text-white border-none", movie: "bg-chart-5/80 text-white border-none" };
+const categoryIcons = { anime: <Tv className="w-3 h-3" />, manga: <BookOpen className="w-3 h-3" />, movie: <Film className="w-3 h-3" />, series: <Monitor className="w-3 h-3" /> };
+const categoryLabels = { anime: "Anime", manga: "Mangá", movie: "Filme", series: "Série" };
+const categoryColors = { anime: "bg-chart-2/80 text-white border-none", manga: "bg-chart-3/80 text-white border-none", movie: "bg-chart-5/80 text-white border-none", series: "bg-chart-1/80 text-white border-none" };
 
 function statusBadgeClass(status) {
   if (!status) return "bg-secondary/80 text-secondary-foreground border-none";
@@ -16,12 +16,14 @@ function statusBadgeClass(status) {
 function getDisplayStatus(item, filterCategory) {
   if (filterCategory === "movie") return item.movieStatus || "Lançado";
   if (filterCategory === "manga") return item.mangaStatus;
+  if (filterCategory === "series") return item.seriesStatus || "Lançado";
   return item.animeStatus || item.movieStatus || item.mangaStatus;
 }
 
 function getDisplayCount(item, filterCategory) {
   if (filterCategory === "movie") return item.movieDuration || "";
   if (filterCategory === "manga") return item.totalChapters ? `${item.totalChapters} capítulos` : "";
+  if (filterCategory === "series") return item.seriesSeasons ? `${item.seriesSeasons} temporada${item.seriesSeasons !== 1 ? "s" : ""}` : "";
   return item.totalEpisodes ? `${item.totalEpisodes} episódios` : "";
 }
 

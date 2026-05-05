@@ -26,6 +26,7 @@ export default function Trending() {
   const animes = trending.filter(i => i.categories.includes("anime"));
   const mangas = trending.filter(i => i.categories.includes("manga"));
   const movies = trending.filter(i => i.categories.includes("movie"));
+  const series = trending.filter(i => i.categories.includes("series"));
 
   function handleClick(item) {
     const tipo = item.categories.includes("anime") ? "anime"
@@ -36,6 +37,7 @@ export default function Trending() {
   function getFilterCategory(item) {
     if (item.categories.includes("anime")) return "anime";
     if (item.categories.includes("movie")) return "movie";
+    if (item.categories.includes("series")) return "series";
     return "manga";
   }
 
@@ -90,6 +92,7 @@ export default function Trending() {
           <TabsTrigger value="anime">Animes</TabsTrigger>
           <TabsTrigger value="manga">Mangás</TabsTrigger>
           <TabsTrigger value="movie">Filmes</TabsTrigger>
+          <TabsTrigger value="series">Séries</TabsTrigger>
         </TabsList>
 
         {[
@@ -97,6 +100,7 @@ export default function Trending() {
           { key: "anime", data: animes },
           { key: "manga", data: mangas },
           { key: "movie", data: movies },
+          { key: "series", data: series },
         ].map(({ key, data }) => (
           <TabsContent key={key} value={key}>
             {view === "grid" ? renderGrid(data) : renderList(data)}
