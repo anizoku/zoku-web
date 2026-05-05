@@ -84,7 +84,7 @@
   ],
   "rls": {
     "create": {
-      "data.organizer_email": "{{user.email}}"
+      "created_by": "{{user.email}}"
     },
     "read": {
       "$or": [
@@ -95,7 +95,11 @@
           "data.organizer_email": "{{user.email}}"
         },
         {
-          "data.participants": "{{user.email}}"
+          "data.participants": {
+            "$in": [
+              "{{user.email}}"
+            ]
+          }
         },
         {
           "user_condition": {
@@ -108,9 +112,6 @@
       "$or": [
         {
           "data.organizer_email": "{{user.email}}"
-        },
-        {
-          "data.participants": "{{user.email}}"
         },
         {
           "user_condition": {
