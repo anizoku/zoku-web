@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, ArrowLeft, Plus } from "lucide-react";
+import { Users, ArrowLeft, Plus, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -23,12 +24,12 @@ const categoryLabels = {
   anime: "Anime", manga: "Mangá", theories: "Teorias",
   news: "Notícias", reviews: "Reviews", general: "Geral",
 };
-
 const postTypeLabels = {
   general: "Geral", discussion: "Discussão", review: "Review",
   reaction: "Reação", theory: "Teoria",
 };
 
+// ── Create post form ──────────────────────────────────────────
 function CreateCommunityPost({ communityId, user, onCreated }) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
@@ -107,10 +108,88 @@ function CreateCommunityPost({ communityId, user, onCreated }) {
   );
 }
 
+// ── Edit community panel (creator + admin only) ───────────────
+function EditCommunityPanel({ community, onClose, onSaved }) {
+  const queryClient = useQueryClient();
+  const [name, setName]               = useState(community.name);
+  const [description, setDescription] = useState(community.description || "");
+  const [category, setCategory]       = useState(community.category || "general");
+  const [cover_url, setCoverUrl]      = useState(community.cover_url || "");
+  const [tags, setTags]               = useState((community.tags || []).join(", "));
+
+  const updateMutation = useMutation({
+    mutationFn: () => base44.entities.Community.update(community.id, {
+      name: name.trim(),
+      description: description.trim(),
+      category,
+      cover_url: cover_url.trim(),
+      tags: tags.split(",").map(t => t.trim()).filter(Boolean),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["communities"] });
+      onSaved();
+      onClose();
+    },
+  });
+
+  return (
+    <div className="bg-card border border-primary/30 rounded-xl p-4 mb-5 space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-sm font-semibold text-foreground">Editar comunidade</h3>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Nome</label>
+          <Input value={name} onChange={e => setName(e.target.value)} className="h-8 text-sm bg-secondary border-none" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Categoria</label>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="h-8 text-sm bg-secondary border-none"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(categoryLabels).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <label className="text-xs text-muted-foreground">Descrição</label>
+          <Textarea value={description} onChange={e => setDescription(e.target.value)} className="bg-secondary border-none text-sm resize-none h-16" />
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <label className="text-xs text-muted-foreground">URL da imagem de capa</label>
+          <Input value={cover_url} onChange={e => setCoverUrl(e.target.value)} className="h-8 text-sm bg-secondary border-none" placeholder="https://..." />
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <label className="text-xs text-muted-foreground">Tags (separadas por vírgula)</label>
+          <Input value={tags} onChange={e => setTags(e.target.value)} className="h-8 text-sm bg-secondary border-none" placeholder="shonen, ação, clássico" />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-1">
+        <Button size="sm" variant="ghost" onClick={onClose} className="h-8 text-xs">Cancelar</Button>
+        <Button
+          size="sm"
+          disabled={!name.trim() || updateMutation.isPending}
+          onClick={() => updateMutation.mutate()}
+          className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
+        >
+          <Check className="w-3 h-3" /> Salvar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────
 export default function CommunityPage() {
   const { communityId } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [editingCommunity, setEditingCommunity] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
@@ -130,13 +209,17 @@ export default function CommunityPage() {
 
   const community = communities.find(c => c.id === communityId);
 
+  // Creator email: prefer explicit field, fall back to created_by
+  const creatorEmail = community?.creator_email || community?.created_by;
+  const isAdmin      = user?.role === "admin";
+  const isCreator    = user?.email && creatorEmail && user.email === creatorEmail;
+  const canManage    = isAdmin || isCreator;
+
   if (!community && communities.length > 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
         <p className="text-muted-foreground">Comunidade não encontrada.</p>
-        <Button variant="ghost" className="mt-4" onClick={() => navigate("/communities")}>
-          Voltar
-        </Button>
+        <Button variant="ghost" className="mt-4" onClick={() => navigate("/communities")}>Voltar</Button>
       </div>
     );
   }
@@ -154,6 +237,11 @@ export default function CommunityPage() {
       {/* Community header */}
       {community && (
         <div className="bg-card rounded-xl border border-border p-5 mb-6">
+          {community.cover_url && (
+            <div className="w-full h-28 rounded-lg overflow-hidden mb-4">
+              <img src={community.cover_url} alt={community.name} className="w-full h-full object-cover" />
+            </div>
+          )}
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <span className="font-space font-bold text-2xl text-primary">{community.name[0]}</span>
@@ -164,24 +252,49 @@ export default function CommunityPage() {
                 <Badge variant="outline" className={`text-[10px] ${categoryColors[community.category] || ""}`}>
                   {categoryLabels[community.category] || community.category}
                 </Badge>
+                {isCreator && !isAdmin && (
+                  <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">Criador</Badge>
+                )}
+                {isAdmin && (
+                  <Badge variant="outline" className="text-[10px] bg-chart-4/15 text-chart-4 border-chart-4/20">Admin</Badge>
+                )}
               </div>
               {community.description && (
                 <p className="text-sm text-muted-foreground leading-relaxed mb-2">{community.description}</p>
               )}
               {community.tags?.length > 0 && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 mb-2">
                   {community.tags.map(t => (
                     <span key={t} className="text-[10px] bg-secondary text-muted-foreground rounded-full px-2 py-0.5">#{t}</span>
                   ))}
                 </div>
               )}
-              <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                <Users className="w-3.5 h-3.5" />
-                <span>{community.members_count || 0} membros</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{community.members_count || 0} membros</span>
+                </div>
+                {canManage && !editingCommunity && (
+                  <button
+                    onClick={() => setEditingCommunity(true)}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" /> Editar comunidade
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit community panel */}
+      {editingCommunity && community && (
+        <EditCommunityPanel
+          community={community}
+          onClose={() => setEditingCommunity(false)}
+          onSaved={() => setEditingCommunity(false)}
+        />
       )}
 
       {/* Create post */}
@@ -215,6 +328,7 @@ export default function CommunityPage() {
               post={post}
               userEmail={user?.email}
               userRole={user?.role}
+              communityCreatorEmail={creatorEmail}
             />
           ))}
         </div>

@@ -42,7 +42,7 @@ function formatNumber(n) {
   return n;
 }
 
-function CreateCommunityDialog({ onCreate }) {
+function CreateCommunityDialog({ onCreate, userEmail }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -60,7 +60,7 @@ function CreateCommunityDialog({ onCreate }) {
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onCreate({ name: name.trim(), description, category, tags, members_count: 1 });
+    onCreate({ name: name.trim(), description, category, tags, members_count: 1, creator_email: userEmail || "" });
     setName(""); setDescription(""); setCategory("general"); setTags([]); setTagInput("");
     setOpen(false);
   };
@@ -128,6 +128,8 @@ function CreateCommunityDialog({ onCreate }) {
 export default function Communities() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
 
   const { data: communities } = useQuery({
     queryKey: ["communities"],
@@ -154,7 +156,7 @@ export default function Communities() {
             <p className="text-sm text-muted-foreground">Participe de debates e discussões</p>
           </div>
         </div>
-        <CreateCommunityDialog onCreate={createMutation.mutate} />
+        <CreateCommunityDialog onCreate={createMutation.mutate} userEmail={user?.email} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

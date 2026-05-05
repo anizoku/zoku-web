@@ -26,7 +26,7 @@ const typeColors = {
   discussion: "bg-primary/15 text-primary border-primary/20",
 };
 
-export default function PostCard({ post, userEmail, userRole }) {
+export default function PostCard({ post, userEmail, userRole, communityCreatorEmail }) {
   const [isLiking, setIsLiking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
@@ -37,11 +37,19 @@ export default function PostCard({ post, userEmail, userRole }) {
   const isLiked = (post.liked_by || []).includes(userEmail);
   const isOwner = post.created_by === userEmail;
   const isAdmin = userRole === "admin";
-  const canModify = isOwner || isAdmin;
+  const isCommunityCreator = communityCreatorEmail && communityCreatorEmail === userEmail;
+  const canModify = isOwner || isAdmin || isCommunityCreator;
 
   const timeAgo = post.created_date
     ? formatDistanceToNow(new Date(post.created_date), { addSuffix: true, locale: ptBR })
     : "";
+
+  const invalidatePosts = () => {
+    queryClient.invalidateQueries({ queryKey: ["posts"] });
+    if (post.community_id) {
+      queryClient.invalidateQueries({ queryKey: ["community-posts", post.community_id] });
+    }
+  };
 
   const handleLike = async () => {
     if (isLiking) return;
@@ -49,19 +57,19 @@ export default function PostCard({ post, userEmail, userRole }) {
     const likedBy = post.liked_by || [];
     const newLikedBy = isLiked ? likedBy.filter(e => e !== userEmail) : [...likedBy, userEmail];
     await base44.entities.Post.update(post.id, { liked_by: newLikedBy, likes_count: newLikedBy.length });
-    queryClient.invalidateQueries({ queryKey: ["posts"] });
+    invalidatePosts();
     setIsLiking(false);
   };
 
   const handleDelete = async () => {
     await base44.entities.Post.delete(post.id);
-    queryClient.invalidateQueries({ queryKey: ["posts"] });
+    invalidatePosts();
   };
 
   const handleEdit = async () => {
     if (!editContent.trim()) return;
     await base44.entities.Post.update(post.id, { content: editContent.trim() });
-    queryClient.invalidateQueries({ queryKey: ["posts"] });
+    invalidatePosts();
     setEditing(false);
   };
 
