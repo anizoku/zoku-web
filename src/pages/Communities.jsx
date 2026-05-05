@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Plus, Tag, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -126,6 +127,7 @@ function CreateCommunityDialog({ onCreate }) {
 
 export default function Communities() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: communities } = useQuery({
     queryKey: ["communities"],
@@ -159,6 +161,7 @@ export default function Communities() {
         {displayCommunities.map((community) => (
           <div
             key={community.id}
+            onClick={() => community.id && !community.id.startsWith("fallback") && navigate(`/communities/${community.id}`)}
             className="bg-card rounded-xl border border-border p-5 hover:border-primary/30 transition-all cursor-pointer group"
           >
             <div className="flex items-start justify-between mb-3">
@@ -188,7 +191,12 @@ export default function Communities() {
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Users className="w-3 h-3" /> {formatNumber(community.members_count)} membros
               </span>
-              <Button variant="outline" size="sm" className="h-7 text-xs border-primary/20 text-primary hover:bg-primary/10">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs border-primary/20 text-primary hover:bg-primary/10"
+                onClick={e => { e.stopPropagation(); if (community.id) navigate(`/communities/${community.id}`); }}
+              >
                 Entrar
               </Button>
             </div>

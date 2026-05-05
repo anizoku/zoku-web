@@ -24,6 +24,15 @@ export default function FloatingChat() {
 
   useEffect(() => { base44.auth.me().then(setCurrentUser).catch(() => {}); }, []);
 
+  // Real-time subscription for new messages
+  useEffect(() => {
+    if (!currentUser?.email) return;
+    const unsub = base44.entities.DirectMessage.subscribe(() => {
+      queryClient.invalidateQueries({ queryKey: ["dm-all", currentUser.email] });
+    });
+    return unsub;
+  }, [currentUser?.email]);
+
   const { data: friendships } = useQuery({
     queryKey: ["friendships"],
     queryFn: () => base44.entities.Friendship.list("-created_date", 200),
@@ -41,9 +50,9 @@ export default function FloatingChat() {
   const { data: allMessages } = useQuery({
     queryKey: ["dm-all", currentUser?.email],
     queryFn: () => base44.entities.DirectMessage.list("-created_date", 200),
-    enabled: !!currentUser?.email && open,
+    enabled: !!currentUser?.email,
     initialData: [],
-    refetchInterval: open ? 5000 : false,
+    refetchInterval: 8000,
   });
 
   const friends = currentUser ? getMyFriends(friendships, currentUser.email) : [];
@@ -223,7 +232,7 @@ export default function FloatingChat() {
         className="w-13 h-13 w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center relative"
       >
         <MessageCircle className="w-5 h-5" />
-        {totalUnread > 0 && !open && (
+        {totalUnread > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center px-1">
             {totalUnread > 9 ? "9+" : totalUnread}
           </span>

@@ -25,6 +25,10 @@
       ],
       "default": "general"
     },
+    "community_id": {
+      "type": "string",
+      "description": "ID of the community this post belongs to (null = general feed)"
+    },
     "likes_count": {
       "type": "number",
       "default": 0

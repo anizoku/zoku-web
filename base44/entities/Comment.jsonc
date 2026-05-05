@@ -6,6 +6,10 @@
       "type": "string",
       "description": "ID of the parent post"
     },
+    "parent_id": {
+      "type": "string",
+      "description": "ID of parent comment (for threaded replies)"
+    },
     "content": {
       "type": "string"
     },

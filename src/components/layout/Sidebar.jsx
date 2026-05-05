@@ -60,7 +60,9 @@ export default function Sidebar() {
   const { data: entries } = useQuery({
     queryKey: ["sidebar-entries"],
     queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 200),
-    initialData: []
+    initialData: [],
+    refetchInterval: 30000, // auto-refresh every 30s
+    staleTime: 0,
   });
   const { data: posts } = useQuery({
     queryKey: ["sidebar-posts"],

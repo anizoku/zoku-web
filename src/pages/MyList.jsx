@@ -243,7 +243,10 @@ export default function MyList() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.AnimeEntry.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["anime-entries"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-entries"] });
+    },
   });
 
   const myEntries = entries

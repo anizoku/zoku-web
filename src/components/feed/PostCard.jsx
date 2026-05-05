@@ -13,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import LevelBadge from "@/components/profile/LevelBadge";
 import WorkLink from "@/components/media/WorkLink";
 import { useNavigate } from "react-router-dom";
+import PostComments from "@/components/feed/PostComments";
 
 const typeLabels = {
   general: null, review: "Review", reaction: "Reação",
@@ -30,7 +31,6 @@ export default function PostCard({ post, userEmail, userRole }) {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
   const [showComments, setShowComments] = useState(false);
-  const [commentText, setCommentText] = useState("");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -63,20 +63,6 @@ export default function PostCard({ post, userEmail, userRole }) {
     await base44.entities.Post.update(post.id, { content: editContent.trim() });
     queryClient.invalidateQueries({ queryKey: ["posts"] });
     setEditing(false);
-  };
-
-  const handleComment = async () => {
-    if (!commentText.trim()) return;
-    const me = await base44.auth.me();
-    await base44.entities.Comment.create({
-      post_id: post.id,
-      content: commentText.trim(),
-      author_name: me.full_name || me.email,
-    });
-    await base44.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
-    queryClient.invalidateQueries({ queryKey: ["posts"] });
-    setCommentText("");
-    setShowComments(false);
   };
 
   const handleShare = () => {
@@ -181,22 +167,9 @@ export default function PostCard({ post, userEmail, userRole }) {
         </Button>
       </div>
 
-      {/* Comment box */}
+      {/* Comments section */}
       {showComments && (
-        <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-          <Textarea
-            placeholder="Escreva um comentário..."
-            value={commentText}
-            onChange={e => setCommentText(e.target.value)}
-            className="bg-secondary border-none text-sm resize-none h-16"
-          />
-          <div className="flex justify-end">
-            <Button size="sm" onClick={handleComment} disabled={!commentText.trim()}
-              className="h-7 text-xs bg-primary text-primary-foreground hover:bg-primary/90">
-              Comentar
-            </Button>
-          </div>
-        </div>
+        <PostComments postId={post.id} userEmail={userEmail} />
       )}
     </div>
   );

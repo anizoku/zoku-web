@@ -19,6 +19,7 @@ import Friends from '@/pages/Friends';
 import Events from '@/pages/Events';
 import ObraProfile from '@/pages/ObraProfile';
 import PublicProfile from '@/pages/PublicProfile';
+import CommunityPage from '@/pages/CommunityPage';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -58,6 +59,7 @@ const AuthenticatedApp = () => {
         <Route path="/profile" element={<Profile />} />
         <Route path="/obra/:slug" element={<ObraProfile />} />
         <Route path="/u/:userEmail" element={<PublicProfile />} />
+        <Route path="/communities/:communityId" element={<CommunityPage />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

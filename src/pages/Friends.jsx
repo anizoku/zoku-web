@@ -9,9 +9,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { sendFriendRequest, acceptFriendRequest, getMyFriends, getFriendshipStatus } from "@/lib/social";
 import DirectChatDialog from "@/components/social/DirectChatDialog";
 import WatchTogetherButton from "@/components/social/WatchTogetherButton";
+import { useNavigate } from "react-router-dom";
 
 function FriendCard({ friend, currentUser, profiles, entries, friendshipId, onRemove }) {
   const [chatOpen, setChatOpen] = useState(false);
+  const navigate = useNavigate();
   const profile = profiles.find(p => p.user_email === friend.email);
   const friendEntries = entries.filter(e => e.created_by === friend.email);
   const activeEntry = friendEntries.find(e => e.status === "watching" || e.status === "reading");
@@ -22,7 +24,7 @@ function FriendCard({ friend, currentUser, profiles, entries, friendshipId, onRe
   return (
     <>
       <div className="flex items-start gap-3 p-4 rounded-xl bg-card border border-border hover:border-primary/20 transition-colors">
-        <div className="relative shrink-0">
+        <button onClick={() => navigate(`/u/${friend.email}`)} className="relative shrink-0 hover:opacity-80 transition-opacity">
           <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary overflow-hidden">
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt={friend.name} className="w-full h-full object-cover" />
@@ -30,11 +32,13 @@ function FriendCard({ friend, currentUser, profiles, entries, friendshipId, onRe
             }
           </div>
           <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${activeEntry ? "bg-primary" : "bg-muted-foreground/30"}`} />
-        </div>
+        </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="font-semibold text-sm text-foreground">{friend.name || friend.email}</p>
+            <button onClick={() => navigate(`/u/${friend.email}`)} className="font-semibold text-sm text-foreground hover:text-primary transition-colors">
+              {friend.name || friend.email}
+            </button>
             {profile?.username && <span className="text-[10px] text-primary/70">@{profile.username}</span>}
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">{statusLabel}</p>

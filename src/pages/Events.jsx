@@ -46,6 +46,11 @@ export default function Events() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["watch-together"] }),
   });
 
+  const deleteWTMutation = useMutation({
+    mutationFn: (id) => base44.entities.WatchTogether.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["watch-together"] }),
+  });
+
   const myEvents = events.filter(e => e.organizer_email === user?.email);
   const joined = events.filter(e => e.participants?.includes(user?.email) && e.organizer_email !== user?.email);
   const publicEvents = events.filter(e => e.visibility === "public" && e.organizer_email !== user?.email);
@@ -124,6 +129,7 @@ export default function Events() {
                       currentUser={user}
                       onAccept={() => respondWTMutation.mutate({ id: wt.id, status: "accepted" })}
                       onReject={() => respondWTMutation.mutate({ id: wt.id, status: "rejected" })}
+                      onDelete={() => deleteWTMutation.mutate(wt.id)}
                     />
                   ))}
                 </div>
@@ -135,7 +141,12 @@ export default function Events() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Ativos</p>
                 <div className="grid gap-3">
                   {activeWT.map(wt => (
-                    <WatchTogetherCard key={wt.id} wt={wt} currentUser={user} />
+                    <WatchTogetherCard
+                      key={wt.id}
+                      wt={wt}
+                      currentUser={user}
+                      onDelete={() => deleteWTMutation.mutate(wt.id)}
+                    />
                   ))}
                 </div>
               </div>
