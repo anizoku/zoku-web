@@ -6,6 +6,7 @@ import { getBySlug } from "@/lib/catalog";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Users, Trash2 } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
+import WhereToWatchWidget from "@/components/media/WhereToWatchWidget";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -529,6 +530,14 @@ export default function ObraProfile() {
             onMutate={refetch}
           />
         ))}
+      </div>
+
+      {/* Where to watch */}
+      <div className="mb-6">
+        <WhereToWatchWidget
+          title={media.title}
+          type={activeFormat === "movie" ? "movie" : "tv"}
+        />
       </div>
 
       {/* Friends watching */}
