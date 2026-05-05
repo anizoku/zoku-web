@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4MTZmODg0N2U2ZDU5MTNiMDU4ODc0MDhiNjkyY2Q0YyIsIm5iZiI6MTc3Nzk4Nzc3Ni45OTYsInN1YiI6IjY5ZjlmMGMwNjJkMjIyYmQ5YTU1ZjVkYSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.4efs6BG9Eadk5bqpUDdlGkxjAfqtECGqYofB62Fhaz4";
 
-// Cache in-memory to avoid duplicate requests
 const posterCache = new Map();
 
 async function fetchPoster(title, type) {
@@ -30,34 +29,59 @@ async function fetchPoster(title, type) {
 
 /**
  * Returns the best poster URL for a catalog item.
- * Priority: item.posterUrl → TMDB fetch → item.cover → null
- * For manga-only items, skips TMDB and returns item.cover directly.
+ * 
+ * - liveaction items: search by liveActionTMDBSearch (or liveActionTitle), type=tv or movie
+ * - manga-only: skip TMDB, use cover
+ * - movie-only: search by title, type=movie
+ * - anime: search by title, type=tv
  */
-export function useTMDBPoster(item) {
-  const isMangaOnly = item.categories.length === 1 && item.categories[0] === "manga";
-  const tmdbType = item.categories.includes("movie") && !item.categories.includes("anime") && !item.categories.includes("liveaction") ? "movie" : "tv";
+export function useTMDBPoster(item, forceCategory) {
+  const cats = item.categories;
+  const isMangaOnly = cats.length === 1 && cats[0] === "manga";
+  const isLiveActionContext = forceCategory === "liveaction" || (cats.length === 1 && cats[0] === "liveaction");
+  const isMovieOnly = cats.length === 1 && cats[0] === "movie";
 
-  const [posterUrl, setPosterUrl] = useState(item.posterUrl || item.cover || null);
+  const [posterUrl, setPosterUrl] = useState(item.cover || null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Manga-only: use existing cover, no TMDB
+    // Manga-only: no TMDB
     if (isMangaOnly) {
       setPosterUrl(item.cover || null);
       return;
     }
-    // Already have a TMDB poster saved
-    if (item.posterUrl) {
-      setPosterUrl(item.posterUrl);
+
+    // Live-action context: search for the live-action title specifically
+    if (isLiveActionContext) {
+      const searchTitle = item.liveActionTMDBSearch || item.liveActionTitle || item.title;
+      // Detect if it's a movie live-action (single standalone film entry)
+      const isLiveActionMovie = item.liveActionIsMovie || false;
+      const tmdbType = isLiveActionMovie ? "movie" : "tv";
+      setLoading(true);
+      fetchPoster(searchTitle, tmdbType).then((url) => {
+        setPosterUrl(url || item.cover || null);
+        setLoading(false);
+      });
       return;
     }
-    // Fetch from TMDB
+
+    // Movie-only: search as movie
+    if (isMovieOnly) {
+      setLoading(true);
+      fetchPoster(item.title, "movie").then((url) => {
+        setPosterUrl(url || item.cover || null);
+        setLoading(false);
+      });
+      return;
+    }
+
+    // Anime (default): search as tv
     setLoading(true);
-    fetchPoster(item.title, tmdbType).then((url) => {
+    fetchPoster(item.title, "tv").then((url) => {
       setPosterUrl(url || item.cover || null);
       setLoading(false);
     });
-  }, [item.slug]);
+  }, [item.slug, isLiveActionContext]);
 
   return { posterUrl, loading };
 }

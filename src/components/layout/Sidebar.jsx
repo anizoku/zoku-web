@@ -12,7 +12,7 @@ const navItems = [
   { icon: TrendingUp, label: "Trending",    path: "/trending" },
   { icon: Tv,         label: "Animes",      path: "/animes" },
   { icon: Film,       label: "Filmes",      path: "/films" },
-  { icon: Clapperboard, label: "Live Action", path: "/series" },
+  { icon: Clapperboard, label: "Live-Action", path: "/series" },
   { icon: BookOpen,   label: "Mangás",      path: "/mangas" },
   { icon: List,       label: "Minha Lista", path: "/my-list" },
   { icon: Users,      label: "Comunidades", path: "/communities" },

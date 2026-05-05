@@ -37,7 +37,7 @@ export default function Series() {
             <Clapperboard className="w-5 h-5 text-chart-1" />
           </div>
           <div>
-            <h1 className="font-space font-bold text-2xl text-foreground">Live Action</h1>
+            <h1 className="font-space font-bold text-2xl text-foreground">Live-Action</h1>
             <p className="text-sm text-muted-foreground">{liveActionItems.length} adaptações no catálogo</p>
           </div>
         </div>
