@@ -4,9 +4,10 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBySlug } from "@/lib/catalog";
 import { XP_REWARDS } from "@/lib/xpSystem";
+import { getTMDBWorkDetails } from "@/lib/tmdb";
 import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Users, Trash2 } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
-import WhereToWatchWidget from "@/components/media/WhereToWatchWidget";
+import TMDBDetails from "@/components/media/TMDBDetails";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -378,6 +379,9 @@ export default function ObraProfile() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState(null);
+  const [tmdbData, setTmdbData] = useState(null);
+  const [tmdbLoading, setTmdbLoading] = useState(false);
+  const [tmdbError, setTmdbError] = useState(null);
 
   // Read ?tipo= from URL
   useEffect(() => {
@@ -391,6 +395,31 @@ export default function ObraProfile() {
   }, []);
 
   const media = getBySlug(slug);
+
+  // Fetch TMDB data — skip manga-only works
+  useEffect(() => {
+    if (!media) return;
+    const isMangaOnly = media.categories.length === 1 && media.categories[0] === "manga";
+    if (isMangaOnly) return;
+    const type = media.categories.includes("movie") && !media.categories.includes("anime") ? "movie" : "tv";
+    setTmdbLoading(true);
+    setTmdbError(null);
+    getTMDBWorkDetails(media.title, type)
+      .then(setTmdbData)
+      .catch((e) => setTmdbError(e.message))
+      .finally(() => setTmdbLoading(false));
+  }, [media?.slug]);
+
+  function handleTMDBRefresh() {
+    if (!media) return;
+    const type = media.categories.includes("movie") && !media.categories.includes("anime") ? "movie" : "tv";
+    setTmdbLoading(true);
+    setTmdbError(null);
+    getTMDBWorkDetails(media.title, type)
+      .then(setTmdbData)
+      .catch((e) => setTmdbError("Não foi possível atualizar os dados pelo TMDB agora. Tente novamente mais tarde."))
+      .finally(() => setTmdbLoading(false));
+  }
 
   const { data: entries, refetch } = useQuery({
     queryKey: ["anime-entries"],
@@ -470,29 +499,46 @@ export default function ObraProfile() {
       {/* Hero */}
       <div className="bg-card rounded-xl border border-border overflow-hidden mb-6">
         <div className="relative h-52 sm:h-64">
-          <img src={media.cover} alt={media.title} className="w-full h-full object-cover" />
+          <img
+            src={tmdbData?.backdropUrl || media.cover}
+            alt={media.title}
+            className="w-full h-full object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            {/* Format chips */}
-            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-              {formats.map(f => {
-                const { label, icon: FIcon, color } = formatTabLabel(f);
-                return (
-                  <button
-                    key={f}
-                    onClick={() => setActiveTab(f)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
-                      activeFormat === f
-                        ? `bg-card border-transparent ${color}`
-                        : "bg-card/40 border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <FIcon className="w-3 h-3" /> {label}
-                  </button>
-                );
-              })}
+          <div className="absolute bottom-0 left-0 right-0 p-5 flex gap-4 items-end">
+            {/* Poster */}
+            {tmdbData?.posterUrl && (
+              <img
+                src={tmdbData.posterUrl}
+                alt={media.title}
+                className="w-16 sm:w-20 rounded-lg border border-border shadow-lg shrink-0 object-cover aspect-[2/3] hidden sm:block"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              {/* Format chips */}
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                {formats.map(f => {
+                  const { label, icon: FIcon, color } = formatTabLabel(f);
+                  return (
+                    <button
+                      key={f}
+                      onClick={() => setActiveTab(f)}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                        activeFormat === f
+                          ? `bg-card border-transparent ${color}`
+                          : "bg-card/40 border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <FIcon className="w-3 h-3" /> {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <h1 className="font-space font-bold text-2xl sm:text-3xl text-foreground leading-tight">{media.title}</h1>
+              {tmdbData?.originalTitle && tmdbData.originalTitle !== media.title && (
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{tmdbData.originalTitle}</p>
+              )}
             </div>
-            <h1 className="font-space font-bold text-2xl sm:text-3xl text-foreground leading-tight">{media.title}</h1>
           </div>
         </div>
 
@@ -500,21 +546,29 @@ export default function ObraProfile() {
         <div className="px-5 py-3 flex items-center gap-3 flex-wrap border-t border-border">
           <div className="flex items-center gap-1.5">
             <Star className="w-4 h-4 fill-chart-4 text-chart-4" />
-            <span className="font-bold text-sm text-foreground">{media.rating}</span>
+            <span className="font-bold text-sm text-foreground">
+              {tmdbData?.rating || media.rating}
+            </span>
           </div>
-          {media.genres?.slice(0, 4).map(g => (
+          {(tmdbData?.genres || media.genres)?.slice(0, 4).map(g => (
             <Badge key={g} variant="outline" className="text-[10px] border-border text-muted-foreground px-1.5 py-0">{g}</Badge>
           ))}
-          {/* Status badges for each format */}
-          {formats.map(f => {
-            const cfg = FORMAT_CONFIG[f];
-            if (!cfg) return null;
-            const status = media[cfg.catalogStatusKey];
-            if (!status) return null;
-            return (
-              <Badge key={f} className={`text-[10px] border-none ${statusBadgeColor(status)}`}>{status}</Badge>
-            );
-          })}
+          {tmdbData?.status ? (
+            <Badge className={`text-[10px] border-none ${statusBadgeColor(tmdbData.status)}`}>{tmdbData.status}</Badge>
+          ) : (
+            formats.map(f => {
+              const cfg = FORMAT_CONFIG[f];
+              if (!cfg) return null;
+              const status = media[cfg.catalogStatusKey];
+              if (!status) return null;
+              return (
+                <Badge key={f} className={`text-[10px] border-none ${statusBadgeColor(status)}`}>{status}</Badge>
+              );
+            })
+          )}
+          {tmdbData?.year && (
+            <span className="text-xs text-muted-foreground">{tmdbData.year}</span>
+          )}
         </div>
       </div>
 
@@ -532,13 +586,27 @@ export default function ObraProfile() {
         ))}
       </div>
 
-      {/* Where to watch */}
-      <div className="mb-6">
-        <WhereToWatchWidget
-          title={media.title}
-          type={activeFormat === "movie" ? "movie" : "tv"}
-        />
-      </div>
+      {/* TMDB Details: overview, cast, seasons, trailer, where to watch */}
+      {tmdbLoading && (
+        <div className="flex items-center gap-2 py-6 justify-center mb-6">
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Buscando dados no TMDB...</span>
+        </div>
+      )}
+      {tmdbError && !tmdbLoading && (
+        <div className="bg-card rounded-xl border border-border p-4 mb-6">
+          <p className="text-xs text-destructive">{tmdbError}</p>
+        </div>
+      )}
+      {!tmdbLoading && tmdbData && (
+        <div className="mb-6">
+          <TMDBDetails
+            data={tmdbData}
+            onUpdate={handleTMDBRefresh}
+            updating={tmdbLoading}
+          />
+        </div>
+      )}
 
       {/* Friends watching */}
       {friendsWithWork.length > 0 && (
