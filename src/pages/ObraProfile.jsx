@@ -4,12 +4,13 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBySlug } from "@/lib/catalog";
 import { XP_REWARDS } from "@/lib/xpSystem";
-import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Users } from "lucide-react";
+import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Users, Trash2 } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { getMyFriends } from "@/lib/social";
 
@@ -116,12 +117,23 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       e.genre === formatMarker
   ) : null;
 
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.AnimeEntry.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
       onMutate?.();
       showToast(`${cfg.label} adicionado!`, ListPlus, "bg-card border-primary/40 text-primary");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.AnimeEntry.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+      onMutate?.();
+      showToast("Obra removida da sua lista.", Trash2, "bg-card border-destructive/30 text-destructive");
     },
   });
 
@@ -317,18 +329,41 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
                 </div>
               )}
 
-              {/* In list indicator */}
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                <span>
-                  {STATUS_LABELS[entry.status] || entry.status}
-                  {!isMovie && current > 0 && ` · ${cfg.unit} ${current}`}
-                </span>
+              {/* In list indicator + remove */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                  <span>
+                    {STATUS_LABELS[entry.status] || entry.status}
+                    {!isMovie && current > 0 && ` · ${cfg.unit} ${current}`}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmRemove(true)}
+                >
+                  <Trash2 className="w-3 h-3 mr-1" /> Remover
+                </Button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      <Dialog open={confirmRemove} onOpenChange={setConfirmRemove}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-space">Remover da lista?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Tem certeza que deseja remover esta obra da sua lista?</p>
+          <DialogFooter className="flex gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setConfirmRemove(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => { setConfirmRemove(false); deleteMutation.mutate(entry.id); }}>Remover</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AnimatePresence>
         {toast && <Toast {...toast} />}

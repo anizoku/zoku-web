@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film, CheckCircle2, RefreshCw } from "lucide-react";
+import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film, CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
 import WorkLink from "@/components/media/WorkLink";
 import { XP_REWARDS } from "@/lib/xpSystem";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 
 const statusLabels = {
@@ -121,7 +121,24 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
   );
 }
 
-function EntryCard({ entry, onUpdate }) {
+function RemoveConfirmDialog({ open, onOpenChange, onConfirm }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-card border-border max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-space">Remover da lista?</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Tem certeza que deseja remover esta obra da sua lista?</p>
+        <DialogFooter className="flex gap-2 pt-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="destructive" onClick={onConfirm}>Remover</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EntryCard({ entry, onUpdate, onRemove }) {
   // Support __format: marker from ObraProfile
   const formatFromGenre = entry.genre?.startsWith("__format:") ? entry.genre.replace("__format:", "") : null;
   const isMovie = formatFromGenre === "movie" || entry.type === "movie";
@@ -133,6 +150,8 @@ function EntryCard({ entry, onUpdate }) {
   const releaseStatus = getMediaReleaseStatus(entry.title, isMovie ? "movie" : isAnime ? "anime" : "manga");
   const isAiring = releaseStatus === "airing";
   const isFinished = isMovie || releaseStatus === "finished";
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const increment = () => {
     const field = isAnime ? "current_episode" : "current_chapter";
@@ -156,6 +175,12 @@ function EntryCard({ entry, onUpdate }) {
   };
 
   return (
+    <>
+    <RemoveConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      onConfirm={() => { setConfirmOpen(false); onRemove(entry.id); }}
+    />
     <div className="bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-all">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -176,6 +201,15 @@ function EntryCard({ entry, onUpdate }) {
           <Badge variant="outline" className={`text-[10px] ${statusColors[entry.status] || ""}`}>
             {statusLabels[entry.status]}
           </Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={() => setConfirmOpen(true)}
+            title="Remover da lista"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
         </div>
       </div>
 
@@ -222,6 +256,7 @@ function EntryCard({ entry, onUpdate }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -249,6 +284,17 @@ export default function MyList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-entries"] });
+    },
+  });
+
+  const [removedToast, setRemovedToast] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.AnimeEntry.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+      setRemovedToast(true);
+      setTimeout(() => setRemovedToast(false), 2500);
     },
   });
 
@@ -350,6 +396,7 @@ export default function MyList() {
                     key={entry.id}
                     entry={entry}
                     onUpdate={(id, data) => updateMutation.mutate({ id, data })}
+                    onRemove={(id) => deleteMutation.mutate(id)}
                   />
                 ))}
               </div>
@@ -357,6 +404,13 @@ export default function MyList() {
           </TabsContent>
         ))}
       </Tabs>
+
+      {removedToast && (
+        <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-2 px-4 py-3 rounded-xl border border-destructive/30 bg-card shadow-2xl text-sm font-medium text-destructive">
+          <Trash2 className="w-4 h-4 shrink-0" />
+          Obra removida da sua lista.
+        </div>
+      )}
     </div>
   );
 }
