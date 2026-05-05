@@ -106,7 +106,7 @@ export default function FloatingChat() {
   if (!currentUser) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+    <div className="hidden lg:flex fixed bottom-5 right-5 z-50 flex-col items-end gap-2">
       {/* Chat window */}
       {open && !minimized && (
         <div className="w-80 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ maxHeight: "480px" }}>
