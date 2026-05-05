@@ -11,6 +11,10 @@
     "cover_url": {
       "type": "string"
     },
+    "avatar_url": {
+      "type": "string",
+      "description": "Profile image URL for the community"
+    },
     "members_count": {
       "type": "number",
       "default": 0
@@ -37,6 +41,14 @@
     "creator_email": {
       "type": "string",
       "description": "Email of the community creator"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Array of member emails"
     }
   },
   "required": [

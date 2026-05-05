@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Plus, Tag, X } from "lucide-react";
+import { Users, Plus, Tag, X, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,14 +13,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import CommunityAvatar from "@/components/community/CommunityAvatar";
 
 const fallbackCommunities = [
-  { id: "1", name: "Shonen Lovers", description: "Discussões sobre os melhores shonens de todos os tempos", members_count: 12400, category: "anime" },
-  { id: "2", name: "Manga Readers", description: "Para quem prefere ler antes de assistir", members_count: 8700, category: "manga" },
-  { id: "3", name: "Teoria Central", description: "Teorias e especulações sobre as séries mais populares", members_count: 5300, category: "theories" },
-  { id: "4", name: "Anime News", description: "Fique por dentro das últimas novidades do mundo anime", members_count: 21000, category: "news" },
-  { id: "5", name: "Reviews & Críticas", description: "Compartilhe suas análises detalhadas", members_count: 3200, category: "reviews" },
-  { id: "6", name: "Otaku Geral", description: "Tudo sobre cultura otaku, cosplay, eventos e mais", members_count: 15600, category: "general" },
+  { id: "f1", name: "Shonen Lovers", description: "Discussões sobre os melhores shonens de todos os tempos", members_count: 12400, category: "anime" },
+  { id: "f2", name: "Manga Readers", description: "Para quem prefere ler antes de assistir", members_count: 8700, category: "manga" },
+  { id: "f3", name: "Teoria Central", description: "Teorias e especulações sobre as séries mais populares", members_count: 5300, category: "theories" },
+  { id: "f4", name: "Anime News", description: "Fique por dentro das últimas novidades do mundo anime", members_count: 21000, category: "news" },
+  { id: "f5", name: "Reviews & Críticas", description: "Compartilhe suas análises detalhadas", members_count: 3200, category: "reviews" },
+  { id: "f6", name: "Otaku Geral", description: "Tudo sobre cultura otaku, cosplay, eventos e mais", members_count: 15600, category: "general" },
 ];
 
 const categoryColors = {
@@ -49,6 +50,17 @@ function CreateCommunityDialog({ onCreate, userEmail }) {
   const [category, setCategory] = useState("general");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState([]);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setAvatarUrl(file_url);
+    setUploadingAvatar(false);
+  };
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -60,8 +72,17 @@ function CreateCommunityDialog({ onCreate, userEmail }) {
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onCreate({ name: name.trim(), description, category, tags, members_count: 1, creator_email: userEmail || "" });
-    setName(""); setDescription(""); setCategory("general"); setTags([]); setTagInput("");
+    onCreate({
+      name: name.trim(),
+      description,
+      category,
+      tags,
+      members_count: 1,
+      creator_email: userEmail || "",
+      avatar_url: avatarUrl,
+      members: userEmail ? [userEmail] : [],
+    });
+    setName(""); setDescription(""); setCategory("general"); setTags([]); setTagInput(""); setAvatarUrl("");
     setOpen(false);
   };
 
@@ -77,6 +98,31 @@ function CreateCommunityDialog({ onCreate, userEmail }) {
           <DialogTitle className="font-space">Criar Comunidade</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
+          {/* Avatar upload */}
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-primary/10 flex items-center justify-center">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-space font-bold text-2xl text-primary">{name ? name[0].toUpperCase() : "?"}</span>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="cursor-pointer">
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                <span className="flex items-center gap-1.5 text-xs text-primary border border-primary/30 rounded-md px-3 py-1.5 hover:bg-primary/10 transition-colors">
+                  <Upload className="w-3.5 h-3.5" />
+                  {uploadingAvatar ? "Enviando..." : "Foto da comunidade"}
+                </span>
+              </label>
+              {avatarUrl && (
+                <button onClick={() => setAvatarUrl("")} className="text-xs text-muted-foreground hover:text-destructive transition-colors text-left">
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+
           <Input placeholder="Título da comunidade" value={name} onChange={e => setName(e.target.value)} className="bg-secondary border-none" />
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="bg-secondary border-none"><SelectValue /></SelectTrigger>
@@ -116,7 +162,7 @@ function CreateCommunityDialog({ onCreate, userEmail }) {
               </div>
             )}
           </div>
-          <Button onClick={handleSubmit} disabled={!name.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button onClick={handleSubmit} disabled={!name.trim() || uploadingAvatar} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
             Criar Comunidade
           </Button>
         </div>
@@ -142,6 +188,7 @@ export default function Communities() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["communities"] }),
   });
 
+  const isFallback = (id) => id?.startsWith("f");
   const displayCommunities = communities.length > 0 ? communities : fallbackCommunities;
 
   return (
@@ -163,15 +210,11 @@ export default function Communities() {
         {displayCommunities.map((community) => (
           <div
             key={community.id}
-            onClick={() => community.id && !community.id.startsWith("fallback") && navigate(`/communities/${community.id}`)}
-            className="bg-card rounded-xl border border-border p-5 hover:border-primary/30 transition-all cursor-pointer group"
+            onClick={() => !isFallback(community.id) && navigate(`/communities/${community.id}`)}
+            className={`bg-card rounded-xl border border-border p-5 hover:border-primary/30 transition-all group ${!isFallback(community.id) ? "cursor-pointer" : "cursor-default"}`}
           >
             <div className="flex items-start justify-between mb-3">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <span className="font-space font-bold text-lg text-primary">
-                  {community.name[0]}
-                </span>
-              </div>
+              <CommunityAvatar community={community} size="sm" />
               <Badge variant="outline" className={`text-[10px] ${categoryColors[community.category] || ""}`}>
                 {categoryLabels[community.category] || community.category}
               </Badge>
@@ -193,14 +236,16 @@ export default function Communities() {
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Users className="w-3 h-3" /> {formatNumber(community.members_count)} membros
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs border-primary/20 text-primary hover:bg-primary/10"
-                onClick={e => { e.stopPropagation(); if (community.id) navigate(`/communities/${community.id}`); }}
-              >
-                Entrar
-              </Button>
+              {!isFallback(community.id) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs border-primary/20 text-primary hover:bg-primary/10"
+                  onClick={e => { e.stopPropagation(); navigate(`/communities/${community.id}`); }}
+                >
+                  Entrar
+                </Button>
+              )}
             </div>
           </div>
         ))}
