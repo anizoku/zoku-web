@@ -135,7 +135,7 @@ export default function ProfileSetup() {
       // Mark on user entity too
       await base44.auth.updateMe({ profile_setup_completed: true });
       toast.success("Perfil criado com sucesso!");
-      navigate("/", { replace: true });
+      window.location.replace("/");
     } catch (err) {
       toast.error("Erro ao salvar o perfil. Tente novamente.");
     } finally {
@@ -294,7 +294,7 @@ export default function ProfileSetup() {
             {submitting ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Criando perfil...</>
             ) : (
-              <><Sparkles className="w-4 h-4" /> Entrar no AniNexus</>
+              <><Sparkles className="w-4 h-4" /> Entrar no anizoku</>
             )}
           </Button>
 
