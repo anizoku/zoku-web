@@ -6,7 +6,9 @@ import { CATALOG } from "@/lib/catalog";
 import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
 import CatalogCardList from "@/components/catalog/CatalogCardList";
 import ViewToggle from "@/components/catalog/ViewToggle";
-import { useState } from "react";
+import AdminEditableCard from "@/components/admin/AdminEditableCard";
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 
 // Top trending — sorted by rating, top 18
 const trending = [...CATALOG]
@@ -17,6 +19,11 @@ const trending = [...CATALOG]
 export default function Trending() {
   const navigate = useNavigate();
   const [view, setView] = useState(() => localStorage.getItem("trendingViewMode") || "grid");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+  }, []);
 
   function handleViewChange(v) {
     setView(v);
@@ -45,12 +52,9 @@ export default function Trending() {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {data.map((item) => (
-          <CatalogCardGrid
-            key={item.slug}
-            item={item}
-            filterCategory={getFilterCategory(item)}
-            onClick={handleClick}
-          />
+          <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin}>
+            <CatalogCardGrid item={item} filterCategory={getFilterCategory(item)} onClick={handleClick} />
+          </AdminEditableCard>
         ))}
       </div>
     );
@@ -60,12 +64,9 @@ export default function Trending() {
     return (
       <div className="flex flex-col gap-2">
         {data.map((item) => (
-          <CatalogCardList
-            key={item.slug}
-            item={item}
-            filterCategory={getFilterCategory(item)}
-            onClick={handleClick}
-          />
+          <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin}>
+            <CatalogCardList item={item} filterCategory={getFilterCategory(item)} onClick={handleClick} />
+          </AdminEditableCard>
         ))}
       </div>
     );

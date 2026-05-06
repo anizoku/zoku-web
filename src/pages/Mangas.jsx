@@ -1,11 +1,13 @@
 import { BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getByCategory } from "@/lib/catalog";
 import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
 import CatalogCardList from "@/components/catalog/CatalogCardList";
 import ViewToggle from "@/components/catalog/ViewToggle";
+import AdminEditableCard from "@/components/admin/AdminEditableCard";
+import { base44 } from "@/api/base44Client";
 
 const mangas = getByCategory("manga");
 
@@ -21,7 +23,12 @@ function useViewMode(key, defaultValue = "grid") {
 export default function Mangas() {
   const [search, setSearch] = useState("");
   const [view, setView] = useViewMode("mangasViewMode", "grid");
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+  }, []);
 
   const filtered = mangas.filter((m) =>
     m.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -55,23 +62,17 @@ export default function Mangas() {
       {view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map((manga) => (
-            <CatalogCardGrid
-              key={manga.slug}
-              item={manga}
-              filterCategory="manga"
-              onClick={(item) => navigate(`/obra/${item.slug}?tipo=manga`)}
-            />
+            <AdminEditableCard key={manga.slug} item={manga} isAdmin={isAdmin}>
+              <CatalogCardGrid item={manga} filterCategory="manga" onClick={(item) => navigate(`/obra/${item.slug}?tipo=manga`)} />
+            </AdminEditableCard>
           ))}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((manga) => (
-            <CatalogCardList
-              key={manga.slug}
-              item={manga}
-              filterCategory="manga"
-              onClick={(item) => navigate(`/obra/${item.slug}?tipo=manga`)}
-            />
+            <AdminEditableCard key={manga.slug} item={manga} isAdmin={isAdmin}>
+              <CatalogCardList item={manga} filterCategory="manga" onClick={(item) => navigate(`/obra/${item.slug}?tipo=manga`)} />
+            </AdminEditableCard>
           ))}
         </div>
       )}

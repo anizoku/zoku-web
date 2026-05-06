@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import AppLayout from '@/components/layout/AppLayout';
+import { CardOverridesProvider } from '@/context/CardOverridesContext';
 import Home from '@/pages/Home';
 import Trending from '@/pages/Trending';
 import Animes from '@/pages/Animes';
@@ -75,7 +76,9 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <AuthenticatedApp />
+          <CardOverridesProvider>
+            <AuthenticatedApp />
+          </CardOverridesProvider>
         </Router>
         <Toaster />
       </QueryClientProvider>

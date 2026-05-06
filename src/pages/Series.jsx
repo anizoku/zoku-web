@@ -1,11 +1,13 @@
 import { Clapperboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getByCategory } from "@/lib/catalog";
 import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
 import CatalogCardList from "@/components/catalog/CatalogCardList";
 import ViewToggle from "@/components/catalog/ViewToggle";
+import AdminEditableCard from "@/components/admin/AdminEditableCard";
+import { base44 } from "@/api/base44Client";
 
 const liveActionItems = getByCategory("liveaction");
 
@@ -21,7 +23,12 @@ function useViewMode(key, defaultValue = "grid") {
 export default function Series() {
   const [search, setSearch] = useState("");
   const [view, setView] = useViewMode("liveactionViewMode", "grid");
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+  }, []);
 
   const filtered = liveActionItems.filter((s) =>
     s.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -56,23 +63,17 @@ export default function Series() {
       {view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map((item) => (
-            <CatalogCardGrid
-              key={item.slug}
-              item={item}
-              filterCategory="liveaction"
-              onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)}
-            />
+            <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin}>
+              <CatalogCardGrid item={item} filterCategory="liveaction" onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)} />
+            </AdminEditableCard>
           ))}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((item) => (
-            <CatalogCardList
-              key={item.slug}
-              item={item}
-              filterCategory="liveaction"
-              onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)}
-            />
+            <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin}>
+              <CatalogCardList item={item} filterCategory="liveaction" onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)} />
+            </AdminEditableCard>
           ))}
         </div>
       )}

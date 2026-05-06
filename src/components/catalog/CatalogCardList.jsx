@@ -1,6 +1,8 @@
 import { Star, Tv, BookOpen, Film, ImageOff, ChevronRight, Clapperboard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTMDBPoster } from "./useTMDBPoster";
+import { useOverrideMap } from "@/context/CardOverridesContext";
+import { useCardDisplayData } from "@/hooks/useCardOverrides";
 
 const categoryIcons = { anime: <Tv className="w-3 h-3" />, manga: <BookOpen className="w-3 h-3" />, movie: <Film className="w-3 h-3" />, liveaction: <Clapperboard className="w-3 h-3" /> };
 const categoryLabels = { anime: "Anime", manga: "Mangá", movie: "Filme", liveaction: "Live Action" };
@@ -28,9 +30,12 @@ function getDisplayCount(item, filterCategory) {
 }
 
 export default function CatalogCardList({ item, onClick, filterCategory }) {
+  const overrideMap = useOverrideMap();
+  const { displayTitle, displayImage } = useCardDisplayData(item, overrideMap);
   const { posterUrl, loading } = useTMDBPoster(item, filterCategory);
   const status = getDisplayStatus(item, filterCategory);
   const count = getDisplayCount(item, filterCategory);
+  const finalImage = displayImage || posterUrl;
 
   return (
     <div
@@ -39,18 +44,18 @@ export default function CatalogCardList({ item, onClick, filterCategory }) {
     >
       {/* Thumbnail */}
       <div className="relative w-16 sm:w-20 shrink-0 bg-secondary overflow-hidden">
-        {loading && <div className="absolute inset-0 animate-pulse bg-secondary" />}
-        {posterUrl ? (
+        {loading && !displayImage && <div className="absolute inset-0 animate-pulse bg-secondary" />}
+        {finalImage ? (
           <img
-            src={posterUrl}
-            alt={item.title}
+            src={finalImage}
+            alt={displayTitle}
             className="w-full h-full object-cover"
             onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
           />
         ) : null}
         <div
           className="absolute inset-0 flex items-center justify-center bg-secondary text-muted-foreground"
-          style={{ display: posterUrl ? "none" : "flex" }}
+          style={{ display: finalImage ? "none" : "flex" }}
         >
           <ImageOff className="w-5 h-5 opacity-40" />
         </div>
@@ -61,7 +66,7 @@ export default function CatalogCardList({ item, onClick, filterCategory }) {
         <div>
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors leading-tight line-clamp-1">
-              {item.title}
+              {displayTitle}
             </h3>
             <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
           </div>

@@ -1,0 +1,70 @@
+{
+  "name": "CardOverride",
+  "type": "object",
+  "properties": {
+    "card_slug": {
+      "type": "string",
+      "description": "Slug \u00fanico da obra no cat\u00e1logo"
+    },
+    "override_title": {
+      "type": "string",
+      "description": "T\u00edtulo substitu\u00eddo pelo admin"
+    },
+    "override_description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o substitu\u00edda pelo admin"
+    },
+    "override_image_url": {
+      "type": "string",
+      "description": "URL da imagem substitu\u00edda pelo admin"
+    },
+    "is_manual_override": {
+      "type": "boolean",
+      "default": true
+    },
+    "sync_disabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "edited_by": {
+      "type": "string",
+      "description": "Email do admin que editou"
+    },
+    "edited_by_name": {
+      "type": "string",
+      "description": "Nome do admin que editou"
+    },
+    "edited_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "original_snapshot": {
+      "type": "object",
+      "description": "Snapshot dos dados originais no momento da primeira edi\u00e7\u00e3o"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "card_slug"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

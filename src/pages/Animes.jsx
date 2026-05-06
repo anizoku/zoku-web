@@ -1,11 +1,13 @@
 import { Tv } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getByCategory } from "@/lib/catalog";
 import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
 import CatalogCardList from "@/components/catalog/CatalogCardList";
 import ViewToggle from "@/components/catalog/ViewToggle";
+import AdminEditableCard from "@/components/admin/AdminEditableCard";
+import { base44 } from "@/api/base44Client";
 
 const animes = getByCategory("anime");
 
@@ -21,7 +23,12 @@ function useViewMode(key, defaultValue = "grid") {
 export default function Animes() {
   const [search, setSearch] = useState("");
   const [view, setView] = useViewMode("animesViewMode", "grid");
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+  }, []);
 
   const filtered = animes.filter((a) =>
     a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -55,23 +62,25 @@ export default function Animes() {
       {view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map((anime) => (
-            <CatalogCardGrid
-              key={anime.slug}
-              item={anime}
-              filterCategory="anime"
-              onClick={(item) => navigate(`/obra/${item.slug}?tipo=anime`)}
-            />
+            <AdminEditableCard key={anime.slug} item={anime} isAdmin={isAdmin}>
+              <CatalogCardGrid
+                item={anime}
+                filterCategory="anime"
+                onClick={(item) => navigate(`/obra/${item.slug}?tipo=anime`)}
+              />
+            </AdminEditableCard>
           ))}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((anime) => (
-            <CatalogCardList
-              key={anime.slug}
-              item={anime}
-              filterCategory="anime"
-              onClick={(item) => navigate(`/obra/${item.slug}?tipo=anime`)}
-            />
+            <AdminEditableCard key={anime.slug} item={anime} isAdmin={isAdmin}>
+              <CatalogCardList
+                item={anime}
+                filterCategory="anime"
+                onClick={(item) => navigate(`/obra/${item.slug}?tipo=anime`)}
+              />
+            </AdminEditableCard>
           ))}
         </div>
       )}
