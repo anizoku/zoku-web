@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useOverrideMap } from "@/context/CardOverridesContext";
 
 export const SORT_OPTIONS = [
-  { value: "default", label: "Padrão" },
   { value: "az", label: "A–Z" },
   { value: "za", label: "Z–A" },
   { value: "rating_desc", label: "Melhor avaliados" },

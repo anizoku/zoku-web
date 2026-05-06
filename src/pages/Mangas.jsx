@@ -26,7 +26,7 @@ function useViewMode(key, defaultValue = "grid") {
 
 export default function Mangas() {
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("default");
+  const [sort, setSort] = useState("az");
   const [view, setView] = useViewMode("mangasViewMode", "grid");
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();

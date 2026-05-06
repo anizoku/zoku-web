@@ -26,7 +26,7 @@ function useViewMode(key, defaultValue = "grid") {
 
 export default function Films() {
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("default");
+  const [sort, setSort] = useState("az");
   const [view, setView] = useViewMode("filmesViewMode", "grid");
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
