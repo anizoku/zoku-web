@@ -9,9 +9,11 @@ import ViewToggle from "@/components/catalog/ViewToggle";
 import AdminEditableCard from "@/components/admin/AdminEditableCard";
 import SortControl from "@/components/catalog/SortControl";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
+import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
+import { CATALOG } from "@/lib/catalog";
 
-const mangas = getByCategory("manga");
+const allMangas = CATALOG.filter(item => item.categories?.includes("manga"));
 
 function useViewMode(key, defaultValue = "grid") {
   const [view, setView] = useState(() => localStorage.getItem(key) || defaultValue);
@@ -28,12 +30,13 @@ export default function Mangas() {
   const [view, setView] = useViewMode("mangasViewMode", "grid");
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+  const filterVisible = useVisibilityFilter("manga");
 
   useEffect(() => {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
 
-  const filtered = mangas.filter((m) =>
+  const filtered = allMangas.filter(filterVisible).filter((m) =>
     m.title.toLowerCase().includes(search.toLowerCase()) ||
     m.genres.some((g) => g.toLowerCase().includes(search.toLowerCase()))
   );
@@ -48,7 +51,7 @@ export default function Mangas() {
           </div>
           <div>
             <h1 className="font-space font-bold text-2xl text-foreground">Mangás</h1>
-            <p className="text-sm text-muted-foreground">{mangas.length} obras no catálogo</p>
+            <p className="text-sm text-muted-foreground">{filtered.length} obras</p>
           </div>
         </div>
       </div>

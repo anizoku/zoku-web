@@ -4,10 +4,12 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { base44 } from '@/api/base44Client';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import AppLayout from '@/components/layout/AppLayout';
 import { CardOverridesProvider } from '@/context/CardOverridesContext';
+import ProfileSetup from '@/pages/ProfileSetup';
 import Home from '@/pages/Home';
 import Trending from '@/pages/Trending';
 import Animes from '@/pages/Animes';
@@ -23,11 +25,38 @@ import PublicProfile from '@/pages/PublicProfile';
 import CommunityPage from '@/pages/CommunityPage';
 import Series from '@/pages/Series';
 import Admin from '@/pages/Admin';
+import { useState, useEffect } from 'react';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const [profileChecked, setProfileChecked] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
-  if (isLoadingPublicSettings || isLoadingAuth) {
+  useEffect(() => {
+    if (isLoadingAuth || isLoadingPublicSettings) return;
+    if (authError) { setProfileChecked(true); return; }
+    // Check if current user needs profile setup
+    base44.auth.me().then(async (u) => {
+      if (!u) { setProfileChecked(true); return; }
+      // Consider setup complete if flag is set OR if they already have username+avatar
+      if (u.profile_setup_completed) { setProfileChecked(true); setNeedsSetup(false); return; }
+      try {
+        const profiles = await base44.entities.UserProfile.filter({ user_email: u.email });
+        const p = profiles[0];
+        const isComplete = p?.profile_setup_completed === true || (p?.username && p?.avatar_url);
+        if (isComplete && !p?.profile_setup_completed) {
+          // Backfill the flag for existing complete profiles
+          await base44.entities.UserProfile.update(p.id, { profile_setup_completed: true });
+        }
+        setNeedsSetup(!isComplete);
+      } catch {
+        setNeedsSetup(false);
+      }
+      setProfileChecked(true);
+    }).catch(() => { setProfileChecked(true); });
+  }, [isLoadingAuth, isLoadingPublicSettings, authError]);
+
+  if (isLoadingPublicSettings || isLoadingAuth || !profileChecked) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -47,8 +76,20 @@ const AuthenticatedApp = () => {
     }
   }
 
+  // Redirect to setup if needed (but not if already on setup page)
+  const currentPath = window.location.pathname;
+  if (needsSetup && currentPath !== "/profile-setup") {
+    return <ProfileSetup />;
+  }
+  // If setup done and user visits /profile-setup, redirect to home
+  if (!needsSetup && currentPath === "/profile-setup") {
+    window.location.replace("/");
+    return null;
+  }
+
   return (
     <Routes>
+      <Route path="/profile-setup" element={<ProfileSetup />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/trending" element={<Trending />} />

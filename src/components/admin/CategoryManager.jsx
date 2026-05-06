@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Search, Save, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const CATS = [
@@ -16,63 +18,133 @@ const CATS = [
 export default function CategoryManager() {
   const [search, setSearch] = useState("");
   const [user, setUser] = useState(null);
+  const [localChanges, setLocalChanges] = useState({}); // slug -> { show_in_animes, ... }
+  const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const { data: visibilityRecords } = useQuery({
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const hasChanges = Object.keys(localChanges).length > 0;
+    const handler = (e) => {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = "Você possui alterações não salvas. Deseja sair mesmo assim?";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [localChanges]);
+
+  const { data: visibilityRecords, refetch } = useQuery({
     queryKey: ["work-category-visibility"],
     queryFn: () => base44.entities.WorkCategoryVisibility.list("-updated_date", 500),
     initialData: [],
   });
 
-  // Build a map: slug -> visibility record
+  // Build a map: slug -> saved visibility record
   const visibilityMap = useMemo(() => {
     const m = new Map();
     for (const r of visibilityRecords) m.set(r.work_slug, r);
     return m;
   }, [visibilityRecords]);
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ slug, title, catKey, value }) => {
-      const existing = visibilityMap.get(slug);
-      if (existing) {
-        return base44.entities.WorkCategoryVisibility.update(existing.id, {
-          [catKey]: value,
-          updated_by: user?.email,
-        });
-      } else {
-        // Create new record with current catalog defaults first
-        const item = CATALOG.find(c => c.slug === slug);
-        const defaults = {};
-        for (const cat of CATS) {
-          defaults[cat.key] = item?.categories?.includes(cat.catalogKey) ?? false;
-        }
-        return base44.entities.WorkCategoryVisibility.create({
-          work_slug: slug,
-          work_title: title,
-          ...defaults,
-          [catKey]: value,
-          updated_by: user?.email,
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["work-category-visibility"] });
-      toast.success("Visibilidade atualizada");
-    },
-    onError: () => toast.error("Erro ao salvar"),
-  });
-
-  function isVisible(slug, catKey, catalogKey) {
+  // Get the "committed" value (saved to DB) for a slug+cat
+  function getSavedValue(slug, catKey, catalogKey) {
     const record = visibilityMap.get(slug);
     if (record) return record[catKey] ?? true;
-    // Default: use catalog categories
     const item = CATALOG.find(c => c.slug === slug);
     return item?.categories?.includes(catalogKey) ?? false;
   }
+
+  // Get current display value (local change takes priority)
+  function getCurrentValue(slug, catKey, catalogKey) {
+    if (localChanges[slug] && catKey in localChanges[slug]) {
+      return localChanges[slug][catKey];
+    }
+    return getSavedValue(slug, catKey, catalogKey);
+  }
+
+  function handleCheckboxChange(slug, title, catKey, catalogKey, newValue) {
+    const savedValue = getSavedValue(slug, catKey, catalogKey);
+    setLocalChanges(prev => {
+      const existing = prev[slug] || {};
+      const updated = { ...existing, [catKey]: newValue };
+      // Also store defaults for all other cats so we can create a full record if needed
+      if (!visibilityMap.has(slug)) {
+        const item = CATALOG.find(c => c.slug === slug);
+        CATS.forEach(cat => {
+          if (!(cat.key in updated)) {
+            updated[cat.key] = item?.categories?.includes(cat.catalogKey) ?? false;
+          }
+        });
+        updated._title = title;
+      }
+      // If value reverted to saved, remove this key from local changes
+      const finalUpdated = { ...updated };
+      // Check if all values match saved — if so, remove slug from changes
+      const allMatchSaved = CATS.every(cat => {
+        const local = finalUpdated[cat.key];
+        const saved = getSavedValue(slug, cat.key, cat.catalogKey);
+        return local === undefined || local === saved;
+      });
+      if (allMatchSaved) {
+        const next = { ...prev };
+        delete next[slug];
+        return next;
+      }
+      return { ...prev, [slug]: finalUpdated };
+    });
+  }
+
+  async function handleSave() {
+    const slugsToSave = Object.keys(localChanges);
+    if (slugsToSave.length === 0) return;
+
+    setIsSaving(true);
+    try {
+      await Promise.all(slugsToSave.map(async (slug) => {
+        const changes = localChanges[slug];
+        const existing = visibilityMap.get(slug);
+        const item = CATALOG.find(c => c.slug === slug);
+        const title = changes._title || item?.title || slug;
+
+        if (existing) {
+          const update = {};
+          CATS.forEach(cat => {
+            if (cat.key in changes) update[cat.key] = changes[cat.key];
+          });
+          await base44.entities.WorkCategoryVisibility.update(existing.id, {
+            ...update,
+            updated_by: user?.email,
+          });
+        } else {
+          // Create a new record with all values
+          const fullRecord = { work_slug: slug, work_title: title, updated_by: user?.email };
+          CATS.forEach(cat => {
+            fullRecord[cat.key] = cat.key in changes
+              ? changes[cat.key]
+              : (item?.categories?.includes(cat.catalogKey) ?? false);
+          });
+          await base44.entities.WorkCategoryVisibility.create(fullRecord);
+        }
+      }));
+
+      setLocalChanges({});
+      await refetch();
+      queryClient.invalidateQueries({ queryKey: ["work-category-visibility"] });
+      toast.success("Modificações salvas com sucesso.");
+    } catch (e) {
+      toast.error("Não foi possível salvar as modificações.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const hasChanges = Object.keys(localChanges).length > 0;
 
   const filteredCatalog = useMemo(() =>
     CATALOG.filter(item =>
@@ -84,60 +156,91 @@ export default function CategoryManager() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="font-space font-bold text-xl text-foreground mb-1">Gerenciar categorias das obras</h2>
-        <p className="text-sm text-muted-foreground">Controle em quais seções cada obra aparece. As mudanças têm prioridade sobre os dados importados.</p>
+        <h2 className="font-space font-bold text-xl text-foreground mb-1">Gerenciar visibilidade por categoria</h2>
+        <p className="text-sm text-muted-foreground">
+          Todos os títulos permanecem no Catálogo. As caixas abaixo controlam apenas em quais seções públicas cada título aparece.
+        </p>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Filtrar obras..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 bg-secondary border-none"
-        />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Filtrar obras..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 bg-secondary border-none"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto">
+          {hasChanges && (
+            <div className="flex items-center gap-1.5 text-xs text-chart-4">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>{Object.keys(localChanges).length} alteração{Object.keys(localChanges).length > 1 ? "ões" : ""} não salva{Object.keys(localChanges).length > 1 ? "s" : ""}</span>
+            </div>
+          )}
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || isSaving}
+            className="gap-2 bg-primary text-primary-foreground"
+            size="sm"
+          >
+            <Save className="w-3.5 h-3.5" />
+            {isSaving ? "Salvando..." : "Salvar modificações"}
+          </Button>
+        </div>
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_repeat(4,_80px)] gap-2 px-4 py-2.5 border-b border-border bg-secondary/50">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Obra</span>
+        <div className="grid grid-cols-[1fr_90px_repeat(4,_72px)] gap-2 px-4 py-2.5 border-b border-border bg-secondary/50">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Título</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">Catálogo</span>
           {CATS.map(cat => (
             <span key={cat.key} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">{cat.label}</span>
           ))}
         </div>
 
         <div className="divide-y divide-border max-h-[60vh] overflow-y-auto">
-          {filteredCatalog.map(item => (
-            <div key={item.slug} className="grid grid-cols-[1fr_repeat(4,_80px)] gap-2 px-4 py-2.5 items-center hover:bg-secondary/30 transition-colors">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
-                <p className="text-[10px] text-muted-foreground">{item.categories.join(", ")}</p>
+          {filteredCatalog.map(item => {
+            const rowChanged = !!localChanges[item.slug];
+            return (
+              <div
+                key={item.slug}
+                className={`grid grid-cols-[1fr_90px_repeat(4,_72px)] gap-2 px-4 py-2.5 items-center transition-colors ${rowChanged ? "bg-chart-4/5 border-l-2 border-l-chart-4" : "hover:bg-secondary/30"}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                  {rowChanged && <p className="text-[10px] text-chart-4 font-medium">Alteração pendente</p>}
+                </div>
+                {/* Catalog column — always read-only */}
+                <div className="flex justify-center">
+                  <Badge className="bg-primary/10 text-primary border-none text-[10px] px-2 py-0.5 font-medium">No catálogo</Badge>
+                </div>
+                {/* Category checkboxes */}
+                {CATS.map(cat => {
+                  const checked = getCurrentValue(item.slug, cat.key, cat.catalogKey);
+                  return (
+                    <div key={cat.key} className="flex justify-center">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => handleCheckboxChange(item.slug, item.title, cat.key, cat.catalogKey, e.target.checked)}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                    </div>
+                  );
+                })}
               </div>
-              {CATS.map(cat => {
-                const checked = isVisible(item.slug, cat.key, cat.catalogKey);
-                return (
-                  <div key={cat.key} className="flex justify-center">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => updateMutation.mutate({
-                        slug: item.slug,
-                        title: item.title,
-                        catKey: cat.key,
-                        value: e.target.checked,
-                      })}
-                      className="w-4 h-4 accent-primary cursor-pointer"
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">{filteredCatalog.length} obras · {visibilityRecords.length} com configuração manual</p>
+      <p className="text-xs text-muted-foreground">
+        {filteredCatalog.length} obras · {visibilityRecords.length} com configuração manual
+      </p>
     </div>
   );
 }

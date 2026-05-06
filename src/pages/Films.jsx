@@ -9,9 +9,11 @@ import ViewToggle from "@/components/catalog/ViewToggle";
 import AdminEditableCard from "@/components/admin/AdminEditableCard";
 import SortControl from "@/components/catalog/SortControl";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
+import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
+import { CATALOG } from "@/lib/catalog";
 
-const films = getByCategory("movie");
+const allFilms = CATALOG.filter(item => item.categories?.includes("movie"));
 
 function useViewMode(key, defaultValue = "grid") {
   const [view, setView] = useState(() => localStorage.getItem(key) || defaultValue);
@@ -28,12 +30,13 @@ export default function Films() {
   const [view, setView] = useViewMode("filmesViewMode", "grid");
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+  const filterVisible = useVisibilityFilter("movie");
 
   useEffect(() => {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
 
-  const filtered = films.filter((f) =>
+  const filtered = allFilms.filter(filterVisible).filter((f) =>
     f.title.toLowerCase().includes(search.toLowerCase()) ||
     f.genres.some((g) => g.toLowerCase().includes(search.toLowerCase()))
   );
@@ -48,7 +51,7 @@ export default function Films() {
           </div>
           <div>
             <h1 className="font-space font-bold text-2xl text-foreground">Filmes</h1>
-            <p className="text-sm text-muted-foreground">{films.length} filmes no catálogo</p>
+            <p className="text-sm text-muted-foreground">{filtered.length} filmes</p>
           </div>
         </div>
       </div>

@@ -9,9 +9,11 @@ import ViewToggle from "@/components/catalog/ViewToggle";
 import AdminEditableCard from "@/components/admin/AdminEditableCard";
 import SortControl from "@/components/catalog/SortControl";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
+import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
+import { CATALOG } from "@/lib/catalog";
 
-const liveActionItems = getByCategory("liveaction");
+const allLiveAction = CATALOG.filter(item => item.categories?.includes("liveaction"));
 
 function useViewMode(key, defaultValue = "grid") {
   const [view, setView] = useState(() => localStorage.getItem(key) || defaultValue);
@@ -28,12 +30,13 @@ export default function Series() {
   const [view, setView] = useViewMode("liveactionViewMode", "grid");
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+  const filterVisible = useVisibilityFilter("liveaction");
 
   useEffect(() => {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
 
-  const filtered = liveActionItems.filter((s) =>
+  const filtered = allLiveAction.filter(filterVisible).filter((s) =>
     s.title.toLowerCase().includes(search.toLowerCase()) ||
     (s.liveActionTitle || "").toLowerCase().includes(search.toLowerCase()) ||
     s.genres.some((g) => g.toLowerCase().includes(search.toLowerCase()))
@@ -49,7 +52,7 @@ export default function Series() {
           </div>
           <div>
             <h1 className="font-space font-bold text-2xl text-foreground">Live-Action</h1>
-            <p className="text-sm text-muted-foreground">{liveActionItems.length} adaptações no catálogo</p>
+            <p className="text-sm text-muted-foreground">{filtered.length} adaptações</p>
           </div>
         </div>
       </div>

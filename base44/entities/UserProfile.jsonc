@@ -64,6 +64,16 @@
         "private"
       ],
       "default": "public"
+    },
+    "profile_setup_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the user has completed the first-login profile setup"
+    },
+    "profile_setup_completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the user completed profile setup"
     }
   },
   "required": [
