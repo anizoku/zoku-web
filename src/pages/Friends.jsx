@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Search, UserPlus, Check, X, UserMinus, MessageCircle, Play } from "lucide-react";
+import { Users, Search, UserPlus, Check, X, UserMinus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { sendFriendRequest, acceptFriendRequest, getMyFriends, getFriendshipStatus } from "@/lib/social";
 import DirectChatDialog from "@/components/social/DirectChatDialog";
 import WatchTogetherButton from "@/components/social/WatchTogetherButton";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 function FriendCard({ friend, currentUser, profiles, entries, friendshipId, onRemove }) {
   const [chatOpen, setChatOpen] = useState(false);
@@ -83,6 +83,11 @@ export default function Friends() {
   const [user, setUser] = useState(null);
   const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
+  const location = useLocation();
+
+  // Support ?tab=requests from notification routing
+  const urlParams = new URLSearchParams(location.search);
+  const defaultTab = urlParams.get("tab") || "friends";
 
   useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
 
@@ -132,7 +137,7 @@ export default function Friends() {
         {unreadCount > 0 && <Badge className="bg-primary text-primary-foreground">{unreadCount} novas</Badge>}
       </div>
 
-      <Tabs defaultValue="friends">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="bg-secondary mb-6 flex-wrap h-auto gap-1">
           <TabsTrigger value="friends">Amigos ({myFriends.length})</TabsTrigger>
           <TabsTrigger value="requests">

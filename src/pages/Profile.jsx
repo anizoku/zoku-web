@@ -13,7 +13,7 @@ import RankCard from "@/components/profile/RankCard";
 import LevelBadge from "@/components/profile/LevelBadge";
 import LevelUpToast from "@/components/profile/LevelUpToast";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
-import FriendsSection from "@/components/profile/FriendsSection";
+import FriendManagement from "@/components/profile/FriendManagement";
 import ActivityFeedSection from "@/components/profile/ActivityFeedSection";
 import { computeStats, computeTotalXp, getUnlockedAchievements, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
 import { getMyFriends } from "@/lib/social";
@@ -201,7 +201,7 @@ export default function Profile() {
 
         {/* Friends */}
         <TabsContent value="friends" className="mt-4">
-          <FriendsSection currentUser={user} />
+          <FriendManagement currentUser={user} />
         </TabsContent>
 
         {/* Activity Feed */}

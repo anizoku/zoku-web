@@ -3,9 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, UserPlus, Heart, MessageCircle, Calendar, List, CheckCircle, Tv, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover, PopoverContent, PopoverTrigger
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useNavigate } from "react-router-dom";
+import { getNotificationRoute } from "@/lib/notificationRoutes";
 
 const typeIcons = {
   friend_request: UserPlus,
@@ -37,6 +37,7 @@ const typeColors = {
 
 export default function NotificationBell({ userEmail }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: notifications } = useQuery({
     queryKey: ["notifications"],
@@ -56,6 +57,15 @@ export default function NotificationBell({ userEmail }) {
     await Promise.all(unread.map(n => base44.entities.Notification.update(n.id, { is_read: true })));
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
+
+  async function handleNotifClick(n) {
+    if (!n.is_read) {
+      await base44.entities.Notification.update(n.id, { is_read: true });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    }
+    const route = getNotificationRoute(n);
+    if (route) navigate(route);
+  }
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -91,7 +101,7 @@ export default function NotificationBell({ userEmail }) {
               <div
                 key={n.id}
                 className={`flex items-start gap-3 px-4 py-3 border-b border-border/50 cursor-pointer hover:bg-secondary/50 transition-colors ${!n.is_read ? "bg-primary/5" : ""}`}
-                onClick={() => !n.is_read && markReadMutation.mutate(n.id)}
+                onClick={() => handleNotifClick(n)}
               >
                 <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${color}`} />
                 <div className="flex-1 min-w-0">

@@ -7,6 +7,8 @@ import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
 import CatalogCardList from "@/components/catalog/CatalogCardList";
 import ViewToggle from "@/components/catalog/ViewToggle";
 import AdminEditableCard from "@/components/admin/AdminEditableCard";
+import SortControl from "@/components/catalog/SortControl";
+import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 
@@ -19,21 +21,25 @@ const trending = [...CATALOG]
 export default function Trending() {
   const navigate = useNavigate();
   const [view, setView] = useState(() => localStorage.getItem("trendingViewMode") || "grid");
+  const [sort, setSort] = useState("default");
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
 
+  const animes = useSortedWorks(trending.filter(i => i.categories.includes("anime")), sort);
+  const mangas = useSortedWorks(trending.filter(i => i.categories.includes("manga")), sort);
+  const movies = useSortedWorks(trending.filter(i => i.categories.includes("movie")), sort);
+  const liveaction = useSortedWorks(trending.filter(i => i.categories.includes("liveaction")), sort);
+  const all = useSortedWorks(trending, sort);
+
   function handleViewChange(v) {
     setView(v);
     localStorage.setItem("trendingViewMode", v);
   }
 
-  const animes = trending.filter(i => i.categories.includes("anime"));
-  const mangas = trending.filter(i => i.categories.includes("manga"));
-  const movies = trending.filter(i => i.categories.includes("movie"));
-  const liveaction = trending.filter(i => i.categories.includes("liveaction"));
+
 
   function handleClick(item) {
     const tipo = item.categories.includes("anime") ? "anime"
@@ -84,6 +90,7 @@ export default function Trending() {
             <p className="text-sm text-muted-foreground">Os mais populares do catálogo</p>
           </div>
         </div>
+        <SortControl value={sort} onChange={setSort} />
         <ViewToggle view={view} onChange={handleViewChange} />
       </div>
 
@@ -97,7 +104,7 @@ export default function Trending() {
         </TabsList>
 
         {[
-          { key: "all", data: trending },
+          { key: "all", data: all },
           { key: "anime", data: animes },
           { key: "manga", data: mangas },
           { key: "movie", data: movies },

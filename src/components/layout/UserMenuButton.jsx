@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { User, List, Users, Calendar, Settings, LogOut, Edit2 } from "lucide-react";
+import { User, List, Users, Calendar, LogOut, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,6 +78,17 @@ export default function UserMenuButton() {
             <Calendar className="w-4 h-4 text-muted-foreground" /> Eventos
           </Link>
         </DropdownMenuItem>
+
+        {user?.role === "admin" && (
+          <>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem asChild className="gap-2 cursor-pointer text-primary focus:text-primary">
+              <Link to="/admin">
+                <ShieldCheck className="w-4 h-4" /> Área admin
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
 
         <DropdownMenuSeparator className="bg-border" />
 

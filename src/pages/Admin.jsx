@@ -3,7 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CatalogManager from "@/components/admin/CatalogManager";
+import CategoryManager from "@/components/admin/CategoryManager";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -46,11 +48,22 @@ export default function Admin() {
 
       <div className="space-y-6">
         <div>
-          <h1 className="font-space font-bold text-3xl text-foreground">Painel Admin</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gerencie o catálogo, adicione/edite/remova obras</p>
+          <h1 className="font-space font-bold text-3xl text-foreground">Área Admin</h1>
+          <p className="text-muted-foreground text-sm mt-1">Gerencie o catálogo e a visibilidade das obras por categoria</p>
         </div>
 
-        <CatalogManager />
+        <Tabs defaultValue="catalog">
+          <TabsList className="bg-secondary">
+            <TabsTrigger value="catalog">Catálogo</TabsTrigger>
+            <TabsTrigger value="categories">Categorias</TabsTrigger>
+          </TabsList>
+          <TabsContent value="catalog" className="mt-6">
+            <CatalogManager />
+          </TabsContent>
+          <TabsContent value="categories" className="mt-6">
+            <CategoryManager />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
