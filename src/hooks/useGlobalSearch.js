@@ -55,16 +55,23 @@ export function useGlobalSearch(query) {
         .sort((a, b) => b._score - a._score)
         .slice(0, 8);
 
-      // Users (async)
+      // Users (async) — uses UserProfile which is publicly readable by all users
       let users = [];
       try {
-        const allUsers = await base44.entities.User.list("-created_date", 100);
-        users = allUsers
-          .filter(u =>
-            u.full_name?.toLowerCase().includes(lq) ||
-            u.email?.toLowerCase().includes(lq)
+        const allProfiles = await base44.entities.UserProfile.list("-created_date", 200);
+        users = allProfiles
+          .filter(p =>
+            p.username?.toLowerCase().includes(lq) ||
+            p.user_email?.toLowerCase().includes(lq) ||
+            p.bio?.toLowerCase().includes(lq)
           )
-          .slice(0, 4);
+          .slice(0, 4)
+          .map(p => ({
+            id: p.id,
+            email: p.user_email,
+            full_name: p.username || p.user_email,
+            avatar_url: p.avatar_url,
+          }));
       } catch {}
 
       // Events (async)

@@ -91,9 +91,10 @@ export default function Friends() {
 
   useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
 
-  const { data: allUsers } = useQuery({ queryKey: ["all-users"], queryFn: () => base44.entities.User.list("-created_date", 100), initialData: [] });
   const { data: friendships } = useQuery({ queryKey: ["friendships"], queryFn: () => base44.entities.Friendship.list("-created_date", 200), initialData: [] });
   const { data: profiles } = useQuery({ queryKey: ["user-profiles"], queryFn: () => base44.entities.UserProfile.list("-created_date", 200), initialData: [] });
+  // Use UserProfile (publicly readable) instead of User.list() which is admin-only
+  const allUsers = profiles.map(p => ({ id: p.id, email: p.user_email, full_name: p.username || p.user_email, avatar_url: p.avatar_url }));
   const { data: allEntries } = useQuery({ queryKey: ["all-entries-public"], queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 500), initialData: [] });
   const { data: notifications } = useQuery({ queryKey: ["notifications"], queryFn: () => base44.entities.Notification.list("-created_date", 50), initialData: [] });
 

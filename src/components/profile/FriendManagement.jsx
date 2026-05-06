@@ -13,11 +13,6 @@ export default function FriendManagement({ currentUser }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: allUsers } = useQuery({
-    queryKey: ["all-users"],
-    queryFn: () => base44.entities.User.list("-created_date", 100),
-    initialData: [],
-  });
   const { data: friendships } = useQuery({
     queryKey: ["friendships"],
     queryFn: () => base44.entities.Friendship.list("-created_date", 200),
@@ -28,6 +23,8 @@ export default function FriendManagement({ currentUser }) {
     queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
     initialData: [],
   });
+  // Use UserProfile (publicly readable) instead of User.list() which is admin-only
+  const allUsers = profiles.map(p => ({ id: p.id, email: p.user_email, full_name: p.username || p.user_email, avatar_url: p.avatar_url }));
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["friendships"] });
