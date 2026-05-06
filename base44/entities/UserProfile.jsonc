@@ -10,6 +10,10 @@
       "type": "string",
       "description": "@username handle"
     },
+    "display_name": {
+      "type": "string",
+      "description": "Optional display name"
+    },
     "bio": {
       "type": "string"
     },
@@ -18,6 +22,19 @@
     },
     "banner_url": {
       "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "preferred_language": {
+      "type": "string",
+      "enum": [
+        "pt",
+        "en",
+        "es",
+        "ja",
+        "other"
+      ]
     },
     "links": {
       "type": "object",

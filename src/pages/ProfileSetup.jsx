@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Camera, Upload, CheckCircle2, XCircle, Loader2, User, Sparkles } from "lucide-react";
+import { Camera, Upload, CheckCircle2, XCircle, Loader2, User, Sparkles, Globe } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 const USERNAME_REGEX = /^[a-z0-9_.]{3,20}$/;
@@ -28,6 +29,8 @@ export default function ProfileSetup() {
   const [bannerUrl, setBannerUrl] = useState("");
   const [favoriteAnime, setFavoriteAnime] = useState("");
   const [favoriteManga, setFavoriteManga] = useState("");
+  const [country, setCountry] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState("");
 
   const [usernameError, setUsernameError] = useState("");
   const [usernameTaken, setUsernameTaken] = useState(false);
@@ -124,6 +127,8 @@ export default function ProfileSetup() {
         profile_setup_completed_at: new Date().toISOString(),
         ...(favoriteAnime && { favorite_animes: [favoriteAnime] }),
         ...(favoriteManga && { favorite_mangas: [favoriteManga] }),
+        ...(country && { country }),
+        ...(preferredLanguage && { preferred_language: preferredLanguage }),
       };
 
       if (existing.length > 0) {
@@ -282,6 +287,37 @@ export default function ProfileSetup() {
                 onChange={(e) => setFavoriteManga(e.target.value)}
                 className="bg-secondary border-none"
               />
+            </div>
+          </div>
+
+          {/* Country + Language */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">País (opcional)</label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                <Input
+                  placeholder="Ex: Brasil"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value.slice(0, 50))}
+                  className="bg-secondary border-none pl-9"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">Idioma preferido (opcional)</label>
+              <Select value={preferredLanguage} onValueChange={setPreferredLanguage}>
+                <SelectTrigger className="bg-secondary border-none">
+                  <SelectValue placeholder="Selecionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pt">Português</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Español</SelectItem>
+                  <SelectItem value="ja">日本語</SelectItem>
+                  <SelectItem value="other">Outro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
