@@ -37,11 +37,11 @@ export function useVisibilityFilter(category) {
     return (item) => {
       if (!catKey) return true;
       const record = visibilityMap.get(item.slug);
-      if (record) {
-        // Visibility record exists — use it as source of truth
+      if (record && catKey in record) {
+        // Visibility record has this field explicitly set — use it as source of truth
         return record[catKey] === true;
       }
-      // No record — fall back to imported catalog categories
+      // No record or field not set — fall back to catalog categories
       return item.categories?.includes(catalogKey) ?? false;
     };
   }, [visibilityMap, catKey, catalogKey]);
