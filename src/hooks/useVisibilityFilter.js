@@ -37,8 +37,13 @@ export function useVisibilityFilter(category) {
     return (item) => {
       if (!catKey) return true;
       const record = visibilityMap.get(item.slug);
+
+      // Live-action: only show if explicitly enabled by admin (no catalog fallback)
+      if (category === "liveaction") {
+        return record ? record[catKey] === true : false;
+      }
+
       if (record && catKey in record) {
-        // Visibility record has this field explicitly set — use it as source of truth
         return record[catKey] === true;
       }
       // No record or field not set — fall back to catalog categories
