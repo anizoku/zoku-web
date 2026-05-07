@@ -6,6 +6,16 @@
       "type": "string",
       "description": "Slug \u00fanico da obra no cat\u00e1logo"
     },
+    "category": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "manga",
+        "movie",
+        "liveaction"
+      ],
+      "description": "Categoria espec\u00edfica onde este override se aplica"
+    },
     "override_title": {
       "type": "string",
       "description": "T\u00edtulo substitu\u00eddo pelo admin"
@@ -16,7 +26,7 @@
     },
     "override_image_url": {
       "type": "string",
-      "description": "URL da imagem substitu\u00edda pelo admin"
+      "description": "URL da imagem substitu\u00edda pelo admin (apenas para esta categoria)"
     },
     "is_manual_override": {
       "type": "boolean",

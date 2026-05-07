@@ -70,7 +70,7 @@ export default function Mangas() {
       {view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {sorted.map((manga) => (
-            <AdminEditableCard key={manga.slug} item={manga} isAdmin={isAdmin}>
+            <AdminEditableCard key={manga.slug} item={manga} isAdmin={isAdmin} category="manga">
               <CatalogCardGrid item={manga} filterCategory="manga" onClick={(item) => navigate(`/obra/${item.slug}?tipo=manga`)} />
             </AdminEditableCard>
           ))}
@@ -78,7 +78,7 @@ export default function Mangas() {
       ) : (
         <div className="flex flex-col gap-2">
           {sorted.map((manga) => (
-            <AdminEditableCard key={manga.slug} item={manga} isAdmin={isAdmin}>
+            <AdminEditableCard key={manga.slug} item={manga} isAdmin={isAdmin} category="manga">
               <CatalogCardList item={manga} filterCategory="manga" onClick={(item) => navigate(`/obra/${item.slug}?tipo=manga`)} />
             </AdminEditableCard>
           ))}

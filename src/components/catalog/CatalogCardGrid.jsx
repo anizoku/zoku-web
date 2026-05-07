@@ -31,7 +31,7 @@ function getDisplayCount(item, filterCategory) {
 
 export default function CatalogCardGrid({ item, onClick, filterCategory }) {
   const overrideMap = useOverrideMap();
-  const { displayTitle, displayImage } = useCardDisplayData(item, overrideMap);
+  const { displayTitle, displayImage } = useCardDisplayData(item, overrideMap, filterCategory);
   const { posterUrl, loading } = useTMDBPoster(item, filterCategory);
   const status = getDisplayStatus(item, filterCategory);
   const count = getDisplayCount(item, filterCategory);

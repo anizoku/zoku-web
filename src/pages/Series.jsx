@@ -71,7 +71,7 @@ export default function Series() {
       {view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {sorted.map((item) => (
-            <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin}>
+            <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin} category="liveaction">
               <CatalogCardGrid item={item} filterCategory="liveaction" onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)} />
             </AdminEditableCard>
           ))}
@@ -79,7 +79,7 @@ export default function Series() {
       ) : (
         <div className="flex flex-col gap-2">
           {sorted.map((item) => (
-            <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin}>
+            <AdminEditableCard key={item.slug} item={item} isAdmin={isAdmin} category="liveaction">
               <CatalogCardList item={item} filterCategory="liveaction" onClick={(i) => navigate(`/obra/${i.slug}?tipo=liveaction`)} />
             </AdminEditableCard>
           ))}

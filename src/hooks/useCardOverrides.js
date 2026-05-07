@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 
 /**
- * Loads ALL card overrides once and returns a Map<slug, override>
- * so any card can look up its override without extra fetches.
+ * Loads ALL card overrides once and returns a Map keyed by "slug:category"
+ * (plus a fallback key "slug" for legacy records without category).
  */
 export function useCardOverrides() {
   const { data: overrides = [] } = useQuery({
@@ -14,20 +14,26 @@ export function useCardOverrides() {
 
   const overrideMap = new Map();
   for (const o of overrides) {
-    overrideMap.set(o.card_slug, o);
+    if (o.category) {
+      overrideMap.set(`${o.card_slug}:${o.category}`, o);
+    } else {
+      // legacy override without category — store under bare slug as fallback
+      overrideMap.set(o.card_slug, o);
+    }
   }
 
   return overrideMap;
 }
 
 /**
- * Merges catalog item with its override (if any).
- * Returns display-ready fields.
+ * Merges catalog item with its override for a specific category.
+ * category-specific key takes priority; falls back to bare slug for legacy records.
  */
-export function useCardDisplayData(item, overrideMap) {
+export function useCardDisplayData(item, overrideMap, category) {
   if (!item) return { displayTitle: "", displayImage: null, displayDescription: "", isManualOverride: false, overrideRecord: null };
 
-  const override = overrideMap?.get(item.slug);
+  const categoryKey = category ? `${item.slug}:${category}` : null;
+  const override = (categoryKey && overrideMap?.get(categoryKey)) || overrideMap?.get(item.slug) || null;
 
   return {
     displayTitle: override?.override_title || item.title,

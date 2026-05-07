@@ -9,9 +9,9 @@ import AdminEditCardModal from "./AdminEditCardModal";
  * For non-admins: completely transparent, no overhead.
  * For admins: pencil icon on hover + "Edição manual" badge.
  */
-export default function AdminEditableCard({ item, isAdmin, children }) {
+export default function AdminEditableCard({ item, isAdmin, category, children }) {
   const overrideMap = useOverrideMap();
-  const { isManualOverride, overrideRecord } = useCardDisplayData(item, overrideMap);
+  const { isManualOverride, overrideRecord } = useCardDisplayData(item, overrideMap, category);
   const [modalOpen, setModalOpen] = useState(false);
 
   if (!isAdmin) return children;
@@ -42,6 +42,7 @@ export default function AdminEditableCard({ item, isAdmin, children }) {
 
       <AdminEditCardModal
         item={item}
+        category={category}
         overrideRecord={overrideRecord}
         open={modalOpen}
         onClose={() => setModalOpen(false)}

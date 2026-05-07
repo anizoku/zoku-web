@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, ImageOff, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 
-export default function AdminEditCardModal({ item, overrideRecord, open, onClose }) {
+export default function AdminEditCardModal({ item, category, overrideRecord, open, onClose }) {
   const qc = useQueryClient();
   const [title, setTitle] = useState(overrideRecord?.override_title || "");
   const [description, setDescription] = useState(overrideRecord?.override_description || "");
@@ -39,6 +39,7 @@ export default function AdminEditCardModal({ item, overrideRecord, open, onClose
 
       const payload = {
         card_slug: item.slug,
+        category: category || null,
         override_title: title.trim() || null,
         override_description: description.trim() || null,
         override_image_url: imageUrl,

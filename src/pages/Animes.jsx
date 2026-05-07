@@ -70,7 +70,7 @@ export default function Animes() {
       {view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {sorted.map((anime) => (
-            <AdminEditableCard key={anime.slug} item={anime} isAdmin={isAdmin}>
+            <AdminEditableCard key={anime.slug} item={anime} isAdmin={isAdmin} category="anime">
               <CatalogCardGrid
                 item={anime}
                 filterCategory="anime"
@@ -82,7 +82,7 @@ export default function Animes() {
       ) : (
         <div className="flex flex-col gap-2">
           {sorted.map((anime) => (
-            <AdminEditableCard key={anime.slug} item={anime} isAdmin={isAdmin}>
+            <AdminEditableCard key={anime.slug} item={anime} isAdmin={isAdmin} category="anime">
               <CatalogCardList
                 item={anime}
                 filterCategory="anime"

@@ -70,7 +70,7 @@ export default function Films() {
       {view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {sorted.map((film) => (
-            <AdminEditableCard key={film.slug} item={film} isAdmin={isAdmin}>
+            <AdminEditableCard key={film.slug} item={film} isAdmin={isAdmin} category="movie">
               <CatalogCardGrid item={film} filterCategory="movie" onClick={(item) => navigate(`/obra/${item.slug}?tipo=movie`)} />
             </AdminEditableCard>
           ))}
@@ -78,7 +78,7 @@ export default function Films() {
       ) : (
         <div className="flex flex-col gap-2">
           {sorted.map((film) => (
-            <AdminEditableCard key={film.slug} item={film} isAdmin={isAdmin}>
+            <AdminEditableCard key={film.slug} item={film} isAdmin={isAdmin} category="movie">
               <CatalogCardList item={film} filterCategory="movie" onClick={(item) => navigate(`/obra/${item.slug}?tipo=movie`)} />
             </AdminEditableCard>
           ))}
