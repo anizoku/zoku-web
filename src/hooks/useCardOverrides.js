@@ -33,7 +33,11 @@ export function useCardDisplayData(item, overrideMap, category) {
   if (!item) return { displayTitle: "", displayImage: null, displayDescription: "", isManualOverride: false, overrideRecord: null };
 
   const categoryKey = category ? `${item.slug}:${category}` : null;
-  const override = (categoryKey && overrideMap?.get(categoryKey)) || overrideMap?.get(item.slug) || null;
+  // For category-specific lookups, ONLY use the category-specific override.
+  // Legacy bare-slug overrides are only used when no category is specified.
+  const override = categoryKey
+    ? (overrideMap?.get(categoryKey) || null)
+    : (overrideMap?.get(item.slug) || null);
 
   return {
     displayTitle: override?.override_title || item.title,
