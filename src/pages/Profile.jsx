@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users } from "lucide-react";
 import WorkLink from "@/components/media/WorkLink";
 import { useNavigate } from "react-router-dom";
@@ -13,9 +13,12 @@ import RankCard from "@/components/profile/RankCard";
 import LevelBadge from "@/components/profile/LevelBadge";
 import LevelUpToast from "@/components/profile/LevelUpToast";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
+import AchievementBadgeSelector from "@/components/profile/AchievementBadgeSelector";
 import FriendManagement from "@/components/profile/FriendManagement";
 import ActivityFeedSection from "@/components/profile/ActivityFeedSection";
 import { computeStats, computeTotalXp, getUnlockedAchievements, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
+import { getAchievementIcon } from "@/lib/achievementIcons";
+import { getAchievementColor, ACHIEVEMENTS } from "@/lib/achievements";
 import { getMyFriends } from "@/lib/social";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
@@ -32,7 +35,7 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [levelUpNotif, setLevelUpNotif] = useState(null);
   const prevLevelRef = useRef(null);
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
 
@@ -48,11 +51,12 @@ export default function Profile() {
   const myFriends = user ? getMyFriends(friendships, user.email) : [];
   const myEvents = events.filter(e => e.organizer_email === user?.email || e.participants?.includes(user?.email));
 
-  const stats = computeStats(myEntries, myPosts);
+  const stats = computeStats(myEntries, myPosts, friendships, myEvents, myProfile);
   const totalXp = computeTotalXp(stats);
   const { level, percent } = getXpProgress(totalXp);
   const rank = getRankForLevel(level);
   const unlockedAchievements = getUnlockedAchievements(stats);
+  const unlockedIds = unlockedAchievements.map(a => a.id);
 
   useEffect(() => {
     if (prevLevelRef.current !== null && level > prevLevelRef.current) {
@@ -61,6 +65,19 @@ export default function Profile() {
     }
     prevLevelRef.current = level;
   }, [level]);
+
+  // Save selected badge
+  const saveBadgeMutation = useMutation({
+    mutationFn: (badgeId) => {
+      if (!myProfile) return Promise.resolve();
+      return base44.entities.UserProfile.update(myProfile.id, { selected_badge_id: badgeId || "" });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["user-profiles"] }),
+  });
+
+  const selectedBadgeId = myProfile?.selected_badge_id || null;
+  const selectedAchievement = ACHIEVEMENTS.find(a => a.id === selectedBadgeId);
+  const BadgeIcon = selectedAchievement ? getAchievementIcon(selectedAchievement.icon) : null;
 
   const statsCards = [
     { icon: Tv, label: "Assistindo", value: myEntries.filter(e => e.status === "watching").length, color: "text-primary" },
@@ -71,6 +88,20 @@ export default function Profile() {
     { icon: BookOpen, label: "Caps. Lidos", value: stats.totalChapters, color: "text-chart-2" },
   ];
 
+  const avatarCrop = myProfile?.avatar_crop;
+  const bannerCrop = myProfile?.banner_crop;
+
+  const avatarStyle = avatarCrop ? {
+    transform: `translate(${avatarCrop.offsetX || 0}px, ${avatarCrop.offsetY || 0}px) scale(${avatarCrop.scale || 1})`,
+    transformOrigin: "center center",
+  } : {};
+
+  const bannerStyle = bannerCrop ? {
+    transform: `translate(${bannerCrop.offsetX || 0}px, ${bannerCrop.offsetY || 0}px) scale(${bannerCrop.scale || 1})`,
+    transformOrigin: "center center",
+    width: "100%", height: "100%", position: "absolute",
+  } : {};
+
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 space-y-6">
       {/* Profile Header */}
@@ -78,42 +109,59 @@ export default function Profile() {
         {/* Banner */}
         <div className="h-36 relative overflow-hidden">
           {myProfile?.banner_url ? (
-            <img src={myProfile.banner_url} alt="banner" className="w-full h-full object-cover" />
+            <img src={myProfile.banner_url} alt="banner" style={bannerStyle.transform ? bannerStyle : {}} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-primary/30 via-chart-2/15 to-chart-3/10" />
           )}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-secondary">
-            <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${percent}%` }} />
-          </div>
         </div>
 
         <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
-            {/* Avatar circular */}
-            <div className="w-24 h-24 rounded-full border-4 border-card flex items-center justify-center relative shrink-0 overflow-hidden bg-secondary">
-              {myProfile?.avatar_url ? (
-                <img src={myProfile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className={`font-bold text-3xl font-space ${rank.color}`}>
-                  {(user?.full_name || "A")[0].toUpperCase()}
-                </span>
-              )}
-              <div className="absolute -bottom-1 -right-1">
+            {/* Avatar */}
+            <div className="relative shrink-0">
+              <div className="w-24 h-24 rounded-full border-4 border-card flex items-center justify-center relative overflow-hidden bg-secondary">
+                {myProfile?.avatar_url ? (
+                  <img src={myProfile.avatar_url} alt="avatar"
+                    className="w-full h-full object-cover"
+                    style={avatarStyle.transform ? avatarStyle : {}}
+                  />
+                ) : (
+                  <span className={`font-bold text-3xl font-space ${rank.color}`}>
+                    {(user?.full_name || "A")[0].toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              {/* Level badge bottom-left */}
+              <div className="absolute -bottom-1 -left-1">
                 <LevelBadge level={level} size="sm" />
               </div>
+
+              {/* Achievement badge selector bottom-right */}
+              <AchievementBadgeSelector
+                unlockedIds={unlockedIds}
+                selectedBadgeId={selectedBadgeId}
+                onSelect={(id) => saveBadgeMutation.mutate(id)}
+              />
             </div>
 
+            {/* Name / rank / XP info */}
             <div className="flex-1 pt-2 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                <h1 className="font-space font-bold text-xl text-foreground">{user?.full_name || "Carregando..."}</h1>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-0.5">
+                <h1 className="font-space font-bold text-xl text-foreground leading-tight">
+                  {user?.full_name || "Carregando..."}
+                </h1>
                 <span className={`text-sm font-semibold ${rank.color}`}>{rank.title}</span>
               </div>
+
               {myProfile?.username && (
-                <p className="text-sm text-primary/80 font-medium mb-0.5">@{myProfile.username}</p>
+                <p className="text-sm text-muted-foreground font-medium mb-1">
+                  <span className="text-primary/70">@</span>{myProfile.username}
+                </p>
               )}
 
               {myProfile?.bio && (
-                <p className="text-sm text-foreground/80 mt-2 leading-relaxed">{myProfile.bio}</p>
+                <p className="text-sm text-foreground/70 mt-1 leading-relaxed">{myProfile.bio}</p>
               )}
 
               {/* Social links */}
@@ -139,13 +187,14 @@ export default function Profile() {
                   )}
                 </div>
               )}
-
-              <div className="max-w-sm mt-3">
-                <XpProgressBar totalXp={totalXp} />
-              </div>
             </div>
 
             <EditProfileDialog user={user} />
+          </div>
+
+          {/* XP Bar — single, clean */}
+          <div className="mt-5 pt-4 border-t border-border">
+            <XpProgressBar totalXp={totalXp} />
           </div>
 
           {/* Favorites */}
@@ -199,12 +248,10 @@ export default function Profile() {
           <TabsTrigger value="posts"><Star className="w-3.5 h-3.5 mr-1" />Posts</TabsTrigger>
         </TabsList>
 
-        {/* Friends */}
         <TabsContent value="friends" className="mt-4">
           <FriendManagement currentUser={user} />
         </TabsContent>
 
-        {/* Activity Feed */}
         <TabsContent value="activity" className="mt-4">
           <div className="mb-3 flex items-center gap-2">
             <Flame className="w-4 h-4 text-primary" />
@@ -213,7 +260,6 @@ export default function Profile() {
           <ActivityFeedSection userEmail={user?.email} friends={myFriends} />
         </TabsContent>
 
-        {/* List */}
         <TabsContent value="list" className="mt-4">
           {myEntries.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-8 text-center">
@@ -262,7 +308,6 @@ export default function Profile() {
           )}
         </TabsContent>
 
-        {/* Events */}
         <TabsContent value="events" className="mt-4">
           {myEvents.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-8 text-center">
@@ -298,11 +343,13 @@ export default function Profile() {
         </TabsContent>
 
         <TabsContent value="achievements" className="mt-4">
-          <AchievementsPanel unlockedIds={unlockedAchievements.map(a => a.id)} />
+          <AchievementsPanel unlockedIds={unlockedIds} />
         </TabsContent>
+
         <TabsContent value="ranks" className="mt-4">
           <RankCard currentLevel={level} />
         </TabsContent>
+
         <TabsContent value="posts" className="mt-4 space-y-4">
           {myPosts.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-8 text-center">

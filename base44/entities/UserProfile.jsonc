@@ -20,8 +20,38 @@
     "avatar_url": {
       "type": "string"
     },
+    "avatar_crop": {
+      "type": "object",
+      "description": "Crop/position data for avatar image",
+      "properties": {
+        "scale": {
+          "type": "number"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        }
+      }
+    },
     "banner_url": {
       "type": "string"
+    },
+    "banner_crop": {
+      "type": "object",
+      "description": "Crop/position data for banner image",
+      "properties": {
+        "scale": {
+          "type": "number"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        }
+      }
     },
     "country": {
       "type": "string"
@@ -64,6 +94,10 @@
       },
       "default": []
     },
+    "selected_badge_id": {
+      "type": "string",
+      "description": "ID of the achievement badge the user chose to display on their avatar"
+    },
     "list_visibility": {
       "type": "string",
       "enum": [
@@ -84,13 +118,11 @@
     },
     "profile_setup_completed": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether the user has completed the first-login profile setup"
+      "default": false
     },
     "profile_setup_completed_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When the user completed profile setup"
+      "format": "date-time"
     }
   },
   "required": [

@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit2, Save, Upload, Eye, Loader2, Camera } from "lucide-react";
+import { Edit2, Save, Upload, Eye, Loader2, Camera, Crop } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import CropImageModal from "./CropImageModal";
 
-function ImageUploader({ label, value, onChange, shape = "banner" }) {
+function ImageUploader({ label, value, onChange, onCropConfirm, shape = "banner", cropData }) {
   const [uploading, setUploading] = useState(false);
+  const [showCrop, setShowCrop] = useState(false);
   const inputRef = useRef();
 
   const handleFile = async (e) => {
@@ -20,7 +22,13 @@ function ImageUploader({ label, value, onChange, shape = "banner" }) {
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     onChange(file_url);
     setUploading(false);
+    setShowCrop(true);
   };
+
+  const imgStyle = cropData ? {
+    transform: `translate(${cropData.offsetX || 0}px, ${cropData.offsetY || 0}px) scale(${cropData.scale || 1})`,
+    transformOrigin: "center center",
+  } : {};
 
   return (
     <div>
@@ -32,7 +40,7 @@ function ImageUploader({ label, value, onChange, shape = "banner" }) {
         onClick={() => inputRef.current?.click()}
       >
         {value ? (
-          <img src={value} alt="preview" className="w-full h-full object-cover" />
+          <img src={value} alt="preview" className="w-full h-full object-cover" style={imgStyle} />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-1">
             <Upload className="w-5 h-5 text-muted-foreground/60" />
@@ -40,13 +48,11 @@ function ImageUploader({ label, value, onChange, shape = "banner" }) {
           </div>
         )}
         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-          {uploading
-            ? <Loader2 className="w-5 h-5 text-primary animate-spin" />
-            : <Camera className="w-5 h-5 text-primary" />
-          }
+          {uploading ? <Loader2 className="w-5 h-5 text-primary animate-spin" /> : <Camera className="w-5 h-5 text-primary" />}
         </div>
       </div>
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile} />
+
       {value && (
         <div className="flex gap-2 mt-1.5">
           <Input
@@ -55,7 +61,12 @@ function ImageUploader({ label, value, onChange, shape = "banner" }) {
             onChange={e => onChange(e.target.value)}
             className="bg-secondary border-none text-xs h-7 flex-1"
           />
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive/70 px-2" onClick={() => onChange("")}>
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 px-2"
+            onClick={(e) => { e.stopPropagation(); setShowCrop(true); }}>
+            <Crop className="w-3 h-3" /> Crop
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive/70 px-2"
+            onClick={() => onChange("")}>
             Remover
           </Button>
         </div>
@@ -67,6 +78,14 @@ function ImageUploader({ label, value, onChange, shape = "banner" }) {
           className="bg-secondary border-none text-xs h-7 mt-1.5"
         />
       )}
+
+      <CropImageModal
+        open={showCrop}
+        onClose={() => setShowCrop(false)}
+        imageUrl={value}
+        shape={shape}
+        onConfirm={onCropConfirm}
+      />
     </div>
   );
 }
@@ -78,6 +97,7 @@ export default function EditProfileDialog({ user, onSaved }) {
     twitter: "", instagram: "", website: "",
     list_visibility: "public", profile_visibility: "public",
     favorite_animes: "", favorite_mangas: "",
+    avatar_crop: null, banner_crop: null,
   });
   const queryClient = useQueryClient();
 
@@ -103,6 +123,8 @@ export default function EditProfileDialog({ user, onSaved }) {
         profile_visibility: myProfile.profile_visibility || "public",
         favorite_animes: (myProfile.favorite_animes || []).join(", "),
         favorite_mangas: (myProfile.favorite_mangas || []).join(", "),
+        avatar_crop: myProfile.avatar_crop || null,
+        banner_crop: myProfile.banner_crop || null,
       });
     }
   }, [myProfile, open]);
@@ -117,6 +139,8 @@ export default function EditProfileDialog({ user, onSaved }) {
         bio: form.bio,
         avatar_url: form.avatar_url,
         banner_url: form.banner_url,
+        avatar_crop: form.avatar_crop,
+        banner_crop: form.banner_crop,
         links: { twitter: form.twitter, instagram: form.instagram, website: form.website },
         list_visibility: form.list_visibility,
         profile_visibility: form.profile_visibility,
@@ -177,13 +201,17 @@ export default function EditProfileDialog({ user, onSaved }) {
               label="Foto de perfil (circular)"
               value={form.avatar_url}
               onChange={v => set("avatar_url", v)}
+              onCropConfirm={({ scale, offsetX, offsetY }) => set("avatar_crop", { scale, offsetX, offsetY })}
               shape="circle"
+              cropData={form.avatar_crop}
             />
             <ImageUploader
               label="Banner do perfil"
               value={form.banner_url}
               onChange={v => set("banner_url", v)}
+              onCropConfirm={({ scale, offsetX, offsetY }) => set("banner_crop", { scale, offsetX, offsetY })}
               shape="banner"
+              cropData={form.banner_crop}
             />
           </TabsContent>
 
