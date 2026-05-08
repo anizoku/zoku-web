@@ -3,54 +3,75 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Check, X, RotateCcw } from "lucide-react";
 
-// Banner aspect ratio shown on profile: ~5:1 (wide strip)
-// Avatar: 1:1 circle
-const BANNER_RATIO = 5; // width / height
-const CROP_W_BANNER = 480;
-const CROP_H_BANNER = Math.round(CROP_W_BANNER / BANNER_RATIO); // 96px
-
-const CROP_SIZE_CIRCLE = 200;
+// Banner: proporção 4:1 (igual ao perfil)
+const BANNER_ASPECT = 4; // width / height
+const CIRCLE_SIZE = 200;
 
 export default function CropImageModal({ open, onClose, imageUrl, shape = "banner", onConfirm }) {
   const isCircle = shape === "circle";
 
-  // Crop window dimensions
-  const cropW = isCircle ? CROP_SIZE_CIRCLE : CROP_W_BANNER;
-  const cropH = isCircle ? CROP_SIZE_CIRCLE : CROP_H_BANNER;
-
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
-  const [imgNaturalSize, setImgNaturalSize] = useState({ w: 0, h: 0 });
+  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
+  const [canvasW, setCanvasW] = useState(480);
   const dragStart = useRef(null);
-  const imgRef = useRef(null);
+  const wrapperRef = useRef(null);
 
-  // Initial scale: fit image so it fills the crop area
-  function computeInitialScale(nw, nh) {
-    if (!nw || !nh) return 1;
-    const scaleW = cropW / nw;
-    const scaleH = cropH / nh;
-    return Math.max(scaleW, scaleH);
+  // Recalculate canvas width from wrapper
+  useEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      if (wrapperRef.current) {
+        setCanvasW(wrapperRef.current.offsetWidth);
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (wrapperRef.current) ro.observe(wrapperRef.current);
+    return () => ro.disconnect();
+  }, [open]);
+
+  // Crop area dimensions
+  const cropW = isCircle ? CIRCLE_SIZE : canvasW;
+  const cropH = isCircle ? CIRCLE_SIZE : Math.round(canvasW / BANNER_ASPECT);
+
+  // Canvas total height: crop + vertical padding
+  const padV = isCircle ? 40 : 24;
+  const padH = isCircle ? 40 : 0;
+  const canvasH = cropH + padV * 2;
+
+  // Where the crop window sits inside canvas
+  const cropLeft = padH;
+  const cropTop = padV;
+
+  // Compute scale to fill the crop area with the image
+  function fitScale(nw, nh) {
+    if (!nw || !nh || !cropW || !cropH) return 1;
+    return Math.max(cropW / nw, cropH / nh);
   }
 
+  // Reset when opening or image changes
   useEffect(() => {
     if (open) {
       setOffset({ x: 0, y: 0 });
-      setScale(1);
-      setImgNaturalSize({ w: 0, h: 0 });
+      setImgNatural({ w: 0, h: 0 });
     }
   }, [open, imageUrl]);
 
+  // Re-fit scale when canvas or image natural size changes
+  useEffect(() => {
+    if (imgNatural.w && imgNatural.h && cropW && cropH) {
+      setScale(fitScale(imgNatural.w, imgNatural.h));
+      setOffset({ x: 0, y: 0 });
+    }
+  }, [imgNatural.w, imgNatural.h, cropW, cropH]);
+
   function handleImageLoad(e) {
-    const nw = e.target.naturalWidth;
-    const nh = e.target.naturalHeight;
-    setImgNaturalSize({ w: nw, h: nh });
-    const s = computeInitialScale(nw, nh);
-    setScale(s);
-    setOffset({ x: 0, y: 0 });
+    setImgNatural({ w: e.target.naturalWidth, h: e.target.naturalHeight });
   }
 
-  // Drag handlers — mouse
+  // Drag — mouse
   const onMouseDown = (e) => {
     e.preventDefault();
     setDragging(true);
@@ -60,9 +81,9 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
     if (!dragging || !dragStart.current) return;
     setOffset({ x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y });
   }, [dragging]);
-  const onMouseUp = () => setDragging(false);
+  const stopDrag = () => setDragging(false);
 
-  // Drag handlers — touch
+  // Drag — touch
   const onTouchStart = (e) => {
     const t = e.touches[0];
     setDragging(true);
@@ -74,33 +95,27 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
     setOffset({ x: t.clientX - dragStart.current.x, y: t.clientY - dragStart.current.y });
   }, [dragging]);
 
+  function handleReset() {
+    setScale(fitScale(imgNatural.w, imgNatural.h));
+    setOffset({ x: 0, y: 0 });
+  }
+
   function handleConfirm() {
     onConfirm({ imageUrl, scale, offsetX: offset.x, offsetY: offset.y });
     onClose();
   }
 
-  function handleReset() {
-    const s = computeInitialScale(imgNaturalSize.w, imgNaturalSize.h);
-    setScale(s);
-    setOffset({ x: 0, y: 0 });
-  }
+  // Image rendered size
+  const renderedW = imgNatural.w * scale;
+  const renderedH = imgNatural.h * scale;
 
-  // Rendered image size (natural * scale)
-  const renderedW = imgNaturalSize.w * scale;
-  const renderedH = imgNaturalSize.h * scale;
-
-  // Canvas area — give extra space around the crop window so user can drag freely
-  const canvasPad = isCircle ? 60 : 40;
-  const canvasW = cropW + canvasPad * 2;
-  const canvasH = cropH + canvasPad * 2;
-
-  // Image is positioned so its center aligns with the crop window center + offset
+  // Image position: centered in canvas + user offset
   const imgLeft = (canvasW - renderedW) / 2 + offset.x;
   const imgTop = (canvasH - renderedH) / 2 + offset.y;
 
-  // The crop window sits centered in the canvas
-  const cropLeft = canvasPad;
-  const cropTop = canvasPad;
+  // Clip image inside crop window: offset relative to crop window origin
+  const clipImgLeft = imgLeft - cropLeft;
+  const clipImgTop = imgTop - cropTop;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -111,102 +126,115 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
           </DialogTitle>
         </DialogHeader>
 
-        <p className="text-xs text-muted-foreground -mt-1">
-          Arraste a imagem para reposicionar dentro da área demarcada. Use o zoom para ajustar.
+        <p className="text-xs text-muted-foreground -mt-2">
+          Arraste para reposicionar dentro da área demarcada. Use o zoom para ajustar.
         </p>
 
-        {/* Editor canvas */}
-        <div
-          className="relative mx-auto overflow-hidden rounded-lg bg-black/60 select-none cursor-grab active:cursor-grabbing"
-          style={{ width: canvasW, height: canvasH, maxWidth: "100%" }}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onMouseUp}
-        >
-          {/* Full image, free to move */}
-          {imageUrl && (
-            <img
-              ref={imgRef}
-              src={imageUrl}
-              alt="crop"
-              draggable={false}
-              onLoad={handleImageLoad}
-              style={{
-                position: "absolute",
-                left: imgLeft,
-                top: imgTop,
-                width: renderedW || "auto",
-                height: renderedH || "auto",
-                maxWidth: "none",
-                userSelect: "none",
-                pointerEvents: "none",
-                opacity: 0.45, // dim the area outside crop
-              }}
-            />
-          )}
-
-          {/* Crop window — shows full-brightness image clipped to crop area */}
+        {/* Measure wrapper — full width */}
+        <div ref={wrapperRef} className="w-full">
+          {/* Editor canvas */}
           <div
-            style={{
-              position: "absolute",
-              left: cropLeft,
-              top: cropTop,
-              width: cropW,
-              height: cropH,
-              overflow: "hidden",
-              borderRadius: isCircle ? "50%" : "8px",
-              pointerEvents: "none",
-            }}
+            className="relative overflow-hidden rounded-lg bg-black/70 select-none cursor-grab active:cursor-grabbing mx-auto"
+            style={{ width: canvasW, height: canvasH }}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={stopDrag}
+            onMouseLeave={stopDrag}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={stopDrag}
           >
-            {imageUrl && (
+            {/* Dimmed full image (outside crop area) */}
+            {imageUrl && renderedW > 0 && (
               <img
                 src={imageUrl}
-                alt="crop preview"
+                alt=""
                 draggable={false}
                 style={{
                   position: "absolute",
-                  left: imgLeft - cropLeft,
-                  top: imgTop - cropTop,
-                  width: renderedW || "auto",
-                  height: renderedH || "auto",
+                  left: imgLeft,
+                  top: imgTop,
+                  width: renderedW,
+                  height: renderedH,
                   maxWidth: "none",
-                  userSelect: "none",
+                  opacity: 0.3,
                   pointerEvents: "none",
+                  userSelect: "none",
                 }}
               />
             )}
-          </div>
 
-          {/* Crop border overlay */}
-          <div
-            style={{
-              position: "absolute",
-              left: cropLeft,
-              top: cropTop,
-              width: cropW,
-              height: cropH,
-              borderRadius: isCircle ? "50%" : "8px",
-              border: "2px solid hsl(var(--primary))",
-              boxShadow: "0 0 0 1px rgba(0,0,0,0.5)",
-              pointerEvents: "none",
-            }}
-          />
+            {/* Crop window — full-brightness image clipped */}
+            <div
+              style={{
+                position: "absolute",
+                left: cropLeft,
+                top: cropTop,
+                width: cropW,
+                height: cropH,
+                overflow: "hidden",
+                borderRadius: isCircle ? "50%" : 6,
+                pointerEvents: "none",
+              }}
+            >
+              {imageUrl && renderedW > 0 && (
+                <img
+                  src={imageUrl}
+                  alt="crop preview"
+                  draggable={false}
+                  onLoad={handleImageLoad}
+                  style={{
+                    position: "absolute",
+                    left: clipImgLeft,
+                    top: clipImgTop,
+                    width: renderedW,
+                    height: renderedH,
+                    maxWidth: "none",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
+                />
+              )}
+            </div>
 
-          {/* Corner label */}
-          <div
-            style={{ position: "absolute", left: cropLeft + 6, top: cropTop + 6, pointerEvents: "none" }}
-            className="text-[10px] font-semibold text-primary/80 bg-black/50 px-1.5 py-0.5 rounded"
-          >
-            {isCircle ? "Área do avatar" : "Área do banner"}
+            {/* Hidden img just to trigger onLoad when renderedW is still 0 */}
+            {imageUrl && renderedW === 0 && (
+              <img
+                src={imageUrl}
+                alt=""
+                draggable={false}
+                onLoad={handleImageLoad}
+                style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+              />
+            )}
+
+            {/* Crop border */}
+            <div
+              style={{
+                position: "absolute",
+                left: cropLeft,
+                top: cropTop,
+                width: cropW,
+                height: cropH,
+                borderRadius: isCircle ? "50%" : 6,
+                border: "2px solid hsl(var(--primary))",
+                pointerEvents: "none",
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
+              }}
+            />
+
+            {/* Label */}
+            <div
+              style={{ position: "absolute", left: cropLeft + 8, top: cropTop + 8, pointerEvents: "none" }}
+              className="text-[10px] font-semibold text-primary bg-black/60 px-1.5 py-0.5 rounded"
+            >
+              {isCircle ? "Área do avatar" : "Área do banner"}
+            </div>
           </div>
         </div>
 
         {/* Zoom controls */}
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 mt-1">
           <Button variant="outline" size="icon" className="h-7 w-7"
             onClick={() => setScale(s => Math.max(0.2, +(s - 0.1).toFixed(2)))}>
             <ZoomOut className="w-3.5 h-3.5" />
@@ -216,12 +244,12 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
             onClick={() => setScale(s => Math.min(5, +(s + 0.1).toFixed(2)))}>
             <ZoomIn className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 ml-2" title="Resetar" onClick={handleReset}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 ml-1" title="Resetar" onClick={handleReset}>
             <RotateCcw className="w-3.5 h-3.5" />
           </Button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-1">
           <Button variant="outline" className="flex-1 gap-1.5 text-xs h-8" onClick={onClose}>
             <X className="w-3.5 h-3.5" /> Cancelar
           </Button>
