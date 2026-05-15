@@ -132,7 +132,21 @@
     "create": {
       "data.user_email": "{{user.email}}"
     },
-    "read": {},
+    "read": {
+      "$or": [
+        {
+          "data.profile_visibility": "public"
+        },
+        {
+          "data.user_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
     "update": {
       "data.user_email": "{{user.email}}"
     },
