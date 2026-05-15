@@ -84,18 +84,23 @@
   ],
   "rls": {
     "create": {
+      "data.organizer_email": "{{user.email}}",
       "created_by": "{{user.email}}"
     },
     "read": {
       "$or": [
         {
+          "data.visibility": "public"
+        },
+        {
           "data.organizer_email": "{{user.email}}"
         },
         {
-          "data.participants": "{{user.email}}"
-        },
-        {
-          "data.visibility": "public"
+          "data.participants": {
+            "$in": [
+              "{{user.email}}"
+            ]
+          }
         },
         {
           "user_condition": {
