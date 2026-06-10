@@ -1,81 +1,124 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { List, Plus, Tv, BookOpen, Star, Minus, Zap, Film, CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
-import ProgressInput from "@/components/media/ProgressInput";
-import WorkLink from "@/components/media/WorkLink";
-import { XP_REWARDS } from "@/lib/xpSystem";
-import { CATALOG } from "@/lib/catalog";
+import { List, Plus, Search, SortAsc, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import EntryCard from "@/components/mylist/EntryCard";
 
-const statusLabels = {
-  watching: "Assistindo",
-  reading: "Lendo",
-  completed: "Concluído",
-  planned: "Planejado",
-  dropped: "Dropado",
-  on_hold: "Pausado",
+// ── Constantes ────────────────────────────────────────────────
+const STATUS_LABELS = {
+  watching: "Assistindo", reading: "Lendo", completed: "Concluído",
+  planned: "Planejado", dropped: "Dropado", on_hold: "Pausado",
 };
 
-const statusColors = {
-  watching: "bg-primary/15 text-primary border-primary/20",
-  reading: "bg-chart-2/15 text-chart-2 border-chart-2/20",
-  completed: "bg-chart-4/15 text-chart-4 border-chart-4/20",
-  planned: "bg-secondary text-secondary-foreground border-border",
-  dropped: "bg-destructive/15 text-destructive border-destructive/20",
-  on_hold: "bg-chart-3/15 text-chart-3 border-chart-3/20",
-};
+const TABS = [
+  { value: "all", label: "Todos" },
+  { value: "watching", label: "Assistindo" },
+  { value: "reading", label: "Lendo" },
+  { value: "completed", label: "Concluído" },
+  { value: "planned", label: "Planejado" },
+  { value: "on_hold", label: "Pausado" },
+];
 
-function getMediaReleaseStatus(title, type) {
-  const entry = CATALOG.find(c => c.title.toLowerCase() === title.toLowerCase());
-  if (!entry) return null;
-  if (type === "anime" || type === "movie") {
-    return entry.animeStatus === "Em exibição" ? "airing" : "finished";
-  }
-  if (type === "manga") {
-    return entry.mangaStatus === "Em publicação" || entry.mangaStatus === "Hiato" ? "airing" : "finished";
-  }
-  return null;
+const SORT_OPTIONS = [
+  { value: "title_az", label: "Nome A–Z" },
+  { value: "updated_desc", label: "Recém atualizado" },
+  { value: "progress_desc", label: "Mais progresso" },
+  { value: "status", label: "Por status" },
+];
+
+// ── Helpers ───────────────────────────────────────────────────
+function getMediaType(entry) {
+  const fmt = entry.genre?.startsWith("__format:") ? entry.genre.replace("__format:", "") : null;
+  if (fmt === "movie" || entry.type === "movie") return "movie";
+  if (fmt === "liveaction") return "liveaction";
+  if (fmt === "manga" || entry.type === "manga") return "manga";
+  return "anime";
 }
 
+function getProgress(entry) {
+  const mediaType = getMediaType(entry);
+  const isAnime = mediaType === "anime" || mediaType === "liveaction";
+  const current = isAnime ? (entry.current_episode || 0) : (entry.current_chapter || 0);
+  const total = isAnime ? (entry.total_episodes || 0) : (entry.total_chapters || 0);
+  return total > 0 ? current / total : 0;
+}
+
+function filterEntries(entries, status, search) {
+  let result = status === "all" ? entries : entries.filter(e => e.status === status);
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    result = result.filter(e =>
+      e.title?.toLowerCase().includes(q) ||
+      getMediaType(e).includes(q) ||
+      ["anime", "mangá", "manga", "filme", "movie", "live-action", "liveaction"].some(t => t.includes(q) && getMediaType(e).includes(q.replace("mangá","manga").replace("filme","movie").replace("live-action","liveaction")))
+    );
+  }
+  return result;
+}
+
+function sortEntries(entries, sort) {
+  const statusOrder = { watching: 0, reading: 1, on_hold: 2, planned: 3, completed: 4, dropped: 5 };
+  return [...entries].sort((a, b) => {
+    if (sort === "title_az") return a.title.localeCompare(b.title, "pt-BR");
+    if (sort === "updated_desc") return new Date(b.updated_date) - new Date(a.updated_date);
+    if (sort === "progress_desc") return getProgress(b) - getProgress(a);
+    if (sort === "status") return (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+    return a.title.localeCompare(b.title, "pt-BR");
+  });
+}
+
+// ── Deduplication (same as before) ───────────────────────────
+function deduplicateEntries(rawEntries) {
+  return Object.values(
+    rawEntries.reduce((acc, entry) => {
+      const key = `${entry.title}__${entry.genre || ""}`;
+      const existing = acc[key];
+      if (!existing || new Date(entry.updated_date) > new Date(existing.updated_date)) {
+        acc[key] = entry;
+      }
+      return acc;
+    }, {})
+  );
+}
+
+// ── AddEntryDialog (preserved from original) ─────────────────
 function AddEntryDialog({ onAdd, existingTitles = [] }) {
   const [title, setTitle] = useState("");
   const [type, setType] = useState("anime");
   const [status, setStatus] = useState("watching");
-  const [totalEpisodes, setTotalEpisodes] = useState("");
+  const [totalCount, setTotalCount] = useState("");
   const [open, setOpen] = useState(false);
 
   const isDuplicate = title.trim() && existingTitles.some(t => t.toLowerCase() === title.trim().toLowerCase());
-  // If duplicate, we'll update instead of block (show info message)
 
-  const handleSubmit = () => {
+  function handleSubmit() {
     if (!title.trim()) return;
     onAdd({
       title: title.trim(),
       type,
       status,
-      total_episodes: type === "anime" ? parseInt(totalEpisodes) || 0 : 0,
-      total_chapters: type === "manga" ? parseInt(totalEpisodes) || 0 : 0,
+      total_episodes: type === "anime" ? parseInt(totalCount) || 0 : 0,
+      total_chapters: type === "manga" ? parseInt(totalCount) || 0 : 0,
       current_episode: 0,
       current_chapter: 0,
       rating: 0,
     });
     setTitle("");
-    setTotalEpisodes("");
+    setTotalCount("");
     setOpen(false);
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
-          <Plus className="w-4 h-4" /> Adicionar
+          <Plus className="w-4 h-4" /> Adicionar título
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-card border-border">
@@ -84,8 +127,15 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div>
-            <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary border-none" />
-            {isDuplicate && <p className="text-xs text-yellow-400 mt-1">Esta obra já está na lista — o status será atualizado.</p>}
+            <Input
+              placeholder="Título"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              className="bg-secondary border-none"
+            />
+            {isDuplicate && (
+              <p className="text-xs text-yellow-400 mt-1">Esta obra já está na lista — o status será atualizado.</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Select value={type} onValueChange={setType}>
@@ -99,7 +149,7 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="bg-secondary border-none"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(statusLabels).map(([k, v]) => (
+                {Object.entries(STATUS_LABELS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}
               </SelectContent>
@@ -108,11 +158,15 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
           <Input
             placeholder={type === "anime" ? "Total de episódios" : "Total de capítulos"}
             type="number"
-            value={totalEpisodes}
-            onChange={(e) => setTotalEpisodes(e.target.value)}
+            value={totalCount}
+            onChange={e => setTotalCount(e.target.value)}
             className="bg-secondary border-none"
           />
-          <Button onClick={handleSubmit} disabled={!title.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button
+            onClick={handleSubmit}
+            disabled={!title.trim()}
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+          >
             {isDuplicate ? "Atualizar Status" : "Adicionar"}
           </Button>
         </div>
@@ -121,154 +175,38 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
   );
 }
 
-function RemoveConfirmDialog({ open, onOpenChange, onConfirm }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="font-space">Remover da lista?</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">Tem certeza que deseja remover esta obra da sua lista?</p>
-        <DialogFooter className="flex gap-2 pt-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button variant="destructive" onClick={onConfirm}>Remover</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EntryCard({ entry, onUpdate, onRemove }) {
-  // Support __format: marker from ObraProfile
-  const formatFromGenre = entry.genre?.startsWith("__format:") ? entry.genre.replace("__format:", "") : null;
-  const isMovie = formatFromGenre === "movie" || entry.type === "movie";
-  const isAnime = isMovie ? false : (formatFromGenre === "anime" || entry.type === "anime");
-  const current = isAnime ? entry.current_episode || 0 : entry.current_chapter || 0;
-  const total = isAnime ? entry.total_episodes || 0 : entry.total_chapters || 0;
-  const progress = total > 0 ? (current / total) * 100 : 0;
-
-  const releaseStatus = getMediaReleaseStatus(entry.title, isMovie ? "movie" : isAnime ? "anime" : "manga");
-  const isAiring = releaseStatus === "airing";
-  const isFinished = isMovie || releaseStatus === "finished";
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const increment = () => {
-    const field = isAnime ? "current_episode" : "current_chapter";
-    const newVal = current + 1;
-    const updates = { [field]: newVal };
-    if (total > 0 && newVal >= total) updates.status = "completed";
-    onUpdate(entry.id, updates);
-  };
-
-  const decrement = () => {
-    if (current <= 0) return;
-    const field = isAnime ? "current_episode" : "current_chapter";
-    onUpdate(entry.id, { [field]: current - 1 });
-  };
-
-  const jumpTo = (newVal) => {
-    const field = isAnime ? "current_episode" : "current_chapter";
-    const updates = { [field]: newVal };
-    if (total > 0 && newVal >= total) updates.status = "completed";
-    onUpdate(entry.id, updates);
-  };
-
-  return (
-    <>
-    <RemoveConfirmDialog
-      open={confirmOpen}
-      onOpenChange={setConfirmOpen}
-      onConfirm={() => { setConfirmOpen(false); onRemove(entry.id); }}
-    />
-    <div className="bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-all">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {isMovie ? <Film className="w-4 h-4 text-chart-5 shrink-0" /> : isAnime ? <Tv className="w-4 h-4 text-chart-2 shrink-0" /> : <BookOpen className="w-4 h-4 text-chart-3 shrink-0" />}
-          <WorkLink title={entry.title} className="font-semibold text-sm text-foreground hover:text-primary transition-colors truncate" />
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-          {isAiring && (
-            <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-1.5 py-0.5">
-              <RefreshCw className="w-2.5 h-2.5" /> Atualizado
-            </span>
-          )}
-          {isFinished && !isAiring && (
-            <span className="flex items-center gap-0.5 text-[9px] font-semibold text-chart-4 bg-chart-4/10 border border-chart-4/20 rounded-full px-1.5 py-0.5">
-              <CheckCircle2 className="w-2.5 h-2.5" /> Concluído
-            </span>
-          )}
-          <Badge variant="outline" className={`text-[10px] ${statusColors[entry.status] || ""}`}>
-            {statusLabels[entry.status]}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={() => setConfirmOpen(true)}
-            title="Remover da lista"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
+// ── Empty state ───────────────────────────────────────────────
+function EmptyState({ isSearch, statusLabel }) {
+  if (isSearch) {
+    return (
+      <div className="bg-card rounded-xl border border-border p-12 text-center">
+        <Search className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-50" />
+        <p className="text-muted-foreground text-sm">Nenhum resultado encontrado para a busca.</p>
       </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{isAnime ? "Episódio" : "Capítulo"}</span>
-          <span className="font-medium text-foreground">{current}{total > 0 ? ` / ${total}` : ""}</span>
-        </div>
-        {total > 0 && <Progress value={progress} className="h-1.5" />}
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={decrement}>
-              <Minus className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 hover:text-primary hover:bg-primary/10"
-              onClick={increment}
-              title={`+${isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read} XP`}
-            >
-              <Plus className="w-3 h-3" />
-            </Button>
-            {!isMovie && (
-              <ProgressInput
-                current={current}
-                total={total}
-                prefix={isAnime ? "EP" : "CP"}
-                onConfirm={jumpTo}
-              />
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-primary/70 flex items-center gap-0.5 font-medium">
-              <Zap className="w-2.5 h-2.5" />
-              +{isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read} XP
-            </span>
-            {entry.rating > 0 && (
-              <div className="flex items-center gap-1 text-xs text-chart-4">
-                <Star className="w-3 h-3 fill-chart-4" /> {entry.rating}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+    );
+  }
+  return (
+    <div className="bg-card rounded-xl border border-border p-12 text-center">
+      <List className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-50" />
+      <p className="text-muted-foreground text-sm">
+        {statusLabel ? `Nenhuma obra com status "${statusLabel}"` : "Sua lista está vazia. Adicione obras para começar!"}
+      </p>
     </div>
-    </>
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────
 export default function MyList() {
   const [user, setUser] = useState(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("title_az");
   const queryClient = useQueryClient();
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const { data: entries, isLoading } = useQuery({
+  const { data: entries = [], isLoading } = useQuery({
     queryKey: ["anime-entries"],
     queryFn: () => base44.entities.AnimeEntry.list("title", 100),
     initialData: [],
@@ -288,7 +226,6 @@ export default function MyList() {
   });
 
   const [removedToast, setRemovedToast] = useState(false);
-
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.AnimeEntry.delete(id),
     onSuccess: () => {
@@ -298,24 +235,11 @@ export default function MyList() {
     },
   });
 
-  // Deduplicate: keep only the most recently updated entry per title+genre combo
-  const myEntriesRaw = entries.filter((e) => e.created_by === user?.email);
+  // Deduplicate raw entries for this user
+  const myEntriesRaw = entries.filter(e => e.created_by === user?.email);
+  const myEntries = deduplicateEntries(myEntriesRaw);
 
-  const deduped = Object.values(
-    myEntriesRaw.reduce((acc, entry) => {
-      // Key: title + genre (to allow same title as anime AND manga via ObraProfile)
-      const key = `${entry.title}__${entry.genre || ""}`;
-      const existing = acc[key];
-      if (!existing || new Date(entry.updated_date) > new Date(existing.updated_date)) {
-        acc[key] = entry;
-      }
-      return acc;
-    }, {})
-  );
-
-  const myEntries = deduped.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
-
-  // Clean up duplicate entries in background (keep best, delete the rest)
+  // Clean up duplicates in background (same logic as before)
   useEffect(() => {
     if (!user?.email || myEntriesRaw.length === 0) return;
     const groups = myEntriesRaw.reduce((acc, entry) => {
@@ -326,26 +250,75 @@ export default function MyList() {
     }, {});
     Object.values(groups).forEach((group) => {
       if (group.length <= 1) return;
-      // Sort by updated_date desc, keep first, delete the rest
       const sorted = [...group].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
       sorted.slice(1).forEach((dup) => {
-        base44.entities.AnimeEntry.delete(dup.id).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
-        }).catch(() => {});
+        base44.entities.AnimeEntry.delete(dup.id)
+          .then(() => queryClient.invalidateQueries({ queryKey: ["anime-entries"] }))
+          .catch(() => {});
       });
     });
   }, [user?.email, myEntriesRaw.length]);
 
+  // Counters per status for tab badges
+  const counts = useMemo(() => {
+    const result = { all: myEntries.length };
+    TABS.slice(1).forEach(t => {
+      result[t.value] = myEntries.filter(e => e.status === t.value).length;
+    });
+    return result;
+  }, [myEntries]);
+
   const existingTitles = myEntries.map(e => e.title);
 
-  const getFiltered = (status) => {
-    if (status === "all") return myEntries;
-    return myEntries.filter((e) => e.status === status);
-  };
+  function handleAdd(data) {
+    const existing = myEntriesRaw.find(
+      e => e.title.toLowerCase() === data.title.toLowerCase() && !e.genre?.startsWith("__format:")
+    );
+    if (existing) {
+      updateMutation.mutate({ id: existing.id, data: { status: data.status } });
+    } else {
+      createMutation.mutate(data);
+    }
+  }
+
+  function handleUpdate(id, data) {
+    updateMutation.mutate({ id, data });
+  }
+
+  function handleRemove(id) {
+    deleteMutation.mutate(id);
+  }
+
+  function getTabEntries(status) {
+    const filtered = filterEntries(myEntries, status, search);
+    return sortEntries(filtered, sort);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <List className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-space font-bold text-2xl text-foreground">Minha Lista</h1>
+            <p className="text-sm text-muted-foreground">Carregando...</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="bg-card rounded-xl border border-border p-3 h-32 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <List className="w-5 h-5 text-primary" />
@@ -355,59 +328,83 @@ export default function MyList() {
             <p className="text-sm text-muted-foreground">{myEntries.length} títulos</p>
           </div>
         </div>
-        <AddEntryDialog
-          onAdd={(data) => {
-            // Upsert: find existing entry for this title (without format marker)
-            const existing = myEntriesRaw.find(
-              (e) => e.title.toLowerCase() === data.title.toLowerCase() && !e.genre?.startsWith("__format:")
-            );
-            if (existing) {
-              updateMutation.mutate({ id: existing.id, data: { status: data.status } });
-            } else {
-              createMutation.mutate(data);
-            }
-          }}
-          existingTitles={existingTitles}
-        />
+        <AddEntryDialog onAdd={handleAdd} existingTitles={existingTitles} />
       </div>
 
+      {/* Busca + ordenação */}
+      <div className="flex gap-2 mb-5">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar na minha lista..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9 bg-secondary border-none"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <Select value={sort} onValueChange={setSort}>
+          <SelectTrigger className="bg-secondary border-none w-auto gap-2 shrink-0">
+            <SortAsc className="w-4 h-4 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Tabs com contadores */}
       <Tabs defaultValue="all">
-        <TabsList className="bg-secondary mb-6 flex-wrap h-auto gap-1">
-          <TabsTrigger value="all">Todos</TabsTrigger>
-          <TabsTrigger value="watching">Assistindo</TabsTrigger>
-          <TabsTrigger value="reading">Lendo</TabsTrigger>
-          <TabsTrigger value="completed">Concluído</TabsTrigger>
-          <TabsTrigger value="planned">Planejado</TabsTrigger>
-          <TabsTrigger value="on_hold">Pausado</TabsTrigger>
+        <TabsList className="bg-secondary mb-5 flex-wrap h-auto gap-1">
+          {TABS.map(tab => (
+            <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+              {tab.label}
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1 py-0 h-4 border-border/50 bg-transparent font-semibold"
+              >
+                {counts[tab.value] || 0}
+              </Badge>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {["all", "watching", "reading", "completed", "planned", "on_hold"].map((status) => (
-          <TabsContent key={status} value={status}>
-            {getFiltered(status).length === 0 ? (
-              <div className="bg-card rounded-xl border border-border p-12 text-center">
-                <p className="text-muted-foreground text-sm">
-                  Nenhum título {status !== "all" ? `com status "${statusLabels[status]}"` : "na lista"}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {getFiltered(status).map((entry) => (
-                  <EntryCard
-                    key={entry.id}
-                    entry={entry}
-                    onUpdate={(id, data) => updateMutation.mutate({ id, data })}
-                    onRemove={(id) => deleteMutation.mutate(id)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        ))}
+        {TABS.map(tab => {
+          const tabEntries = getTabEntries(tab.value);
+          return (
+            <TabsContent key={tab.value} value={tab.value}>
+              {tabEntries.length === 0 ? (
+                <EmptyState isSearch={!!search} statusLabel={tab.value !== "all" ? tab.label : null} />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {tabEntries.map(entry => (
+                    <EntryCard
+                      key={entry.id}
+                      entry={entry}
+                      onUpdate={handleUpdate}
+                      onRemove={handleRemove}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
+      {/* Toast de remoção */}
       {removedToast && (
         <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-2 px-4 py-3 rounded-xl border border-destructive/30 bg-card shadow-2xl text-sm font-medium text-destructive">
-          <Trash2 className="w-4 h-4 shrink-0" />
           Obra removida da sua lista.
         </div>
       )}
