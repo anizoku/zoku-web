@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Tv, BookOpen, Film, Minus, Plus, Zap, Star, MoreVertical, Trash2, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Tv, BookOpen, Film, Minus, Plus, Zap, Star, MoreVertical, Trash2, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -12,6 +12,9 @@ import ProgressInput from "@/components/media/ProgressInput";
 import WorkLink from "@/components/media/WorkLink";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { CATALOG } from "@/lib/catalog";
+import { useTMDBPoster } from "@/components/catalog/useTMDBPoster";
+import { useCardDisplayData } from "@/hooks/useCardOverrides";
+import { useOverrideMap } from "@/context/CardOverridesContext";
 
 // ── helpers ──────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -42,9 +45,12 @@ function getCatalogEntry(title) {
   return CATALOG.find(c => c.title.toLowerCase() === title?.toLowerCase()) || null;
 }
 
-function getCoverUrl(entry) {
-  const cat = getCatalogEntry(entry.title);
-  return cat?.cover || entry.cover_url || null;
+// mediaType -> catalog category string
+function toCatalogCategory(mediaType) {
+  if (mediaType === "liveaction") return "liveaction";
+  if (mediaType === "movie") return "movie";
+  if (mediaType === "manga") return "manga";
+  return "anime";
 }
 
 function getReleaseStatusLabel(entry, mediaType) {
@@ -119,33 +125,44 @@ function ChangeStatusDialog({ open, onOpenChange, currentStatus, onConfirm }) {
   );
 }
 
-// ── Cover thumbnail ───────────────────────────────────────────
-function CoverThumb({ coverUrl, mediaType, title }) {
-  const [imgError, setImgError] = useState(false);
-  const Icon = mediaType === "movie" || mediaType === "liveaction"
-    ? Film
-    : mediaType === "manga"
-      ? BookOpen
-      : Tv;
+// ── Cover thumbnail — uses same TMDB + override logic as catalog cards ────────
+function CoverThumb({ entry, mediaType }) {
+  const overrideMap = useOverrideMap();
+  const catalogItem = getCatalogEntry(entry.title);
+  const catalogCategory = toCatalogCategory(mediaType);
+
+  // Only call hooks when we have a catalog item; otherwise fall back to a placeholder
+  const { displayImage } = useCardDisplayData(catalogItem || { slug: "", title: entry.title, categories: [] }, overrideMap, catalogCategory);
+  const { posterUrl, loading } = useTMDBPoster(
+    catalogItem || { slug: "", title: entry.title, categories: [catalogCategory], cover: null },
+    catalogCategory
+  );
+
+  const finalImage = displayImage || posterUrl;
+
+  const Icon = mediaType === "movie" || mediaType === "liveaction" ? Film : mediaType === "manga" ? BookOpen : Tv;
   const iconColor = mediaType === "manga" ? "text-chart-3" : mediaType === "movie" ? "text-chart-5" : "text-chart-2";
 
-  if (coverUrl && !imgError) {
-    return (
-      <div className="w-14 h-20 rounded-lg overflow-hidden shrink-0 border border-border/60">
+  return (
+    <div className="w-14 h-20 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-secondary relative">
+      {loading && !finalImage && (
+        <div className="absolute inset-0 animate-pulse bg-secondary/80" />
+      )}
+      {finalImage ? (
         <img
-          src={coverUrl}
-          alt={title}
+          src={finalImage}
+          alt={entry.title}
           className="w-full h-full object-cover"
-          onError={() => setImgError(true)}
+          onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
           loading="lazy"
         />
+      ) : null}
+      <div
+        className="absolute inset-0 items-center justify-center flex-col"
+        style={{ display: finalImage ? "none" : "flex" }}
+      >
+        <Icon className={`w-6 h-6 ${iconColor} opacity-60`} />
       </div>
-    );
-  }
-
-  return (
-    <div className={`w-14 h-20 rounded-lg shrink-0 border border-border/60 bg-secondary flex items-center justify-center`}>
-      <Icon className={`w-6 h-6 ${iconColor} opacity-60`} />
     </div>
   );
 }
@@ -161,7 +178,6 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
   const current = isAnime ? (entry.current_episode || 0) : (entry.current_chapter || 0);
   const total = isAnime ? (entry.total_episodes || 0) : (entry.total_chapters || 0);
   const progress = calculateProgress(current, total);
-  const coverUrl = getCoverUrl(entry);
   const releaseStatus = getReleaseStatusLabel(entry, mediaType);
   const xpPerAction = isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read;
 
@@ -211,7 +227,7 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
 
       <div className="bg-card rounded-xl border border-border p-3 hover:border-primary/20 transition-all flex gap-3">
         {/* Capa */}
-        <CoverThumb coverUrl={coverUrl} mediaType={mediaType} title={entry.title} />
+        <CoverThumb entry={entry} mediaType={mediaType} />
 
         {/* Conteúdo */}
         <div className="flex-1 min-w-0 flex flex-col gap-2">
