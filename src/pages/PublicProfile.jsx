@@ -46,7 +46,19 @@ export default function PublicProfile() {
   const userEntries = entries.filter(e => e.created_by === userEmail);
   const userPosts = posts.filter(p => p.created_by === userEmail);
   const userFriends = getMyFriends(friendships, userEmail);
-  const userEvents = events.filter(e => e.visibility === "public" && (e.organizer_email === userEmail || e.participants?.includes(userEmail)));
+  // Verifica se o visitante atual é amigo do perfil visitado
+  const currentUserFriends = currentUser ? getMyFriends(friendships, currentUser.email) : [];
+  const isFriendOfTarget = currentUserFriends.some(f => f.email === userEmail);
+  const isOwnProfile = currentUser?.email === userEmail;
+
+  // Mostra eventos públicos para todos; eventos "friends" apenas se for amigo ou o próprio dono
+  const userEvents = events.filter(e => {
+    if (e.organizer_email !== userEmail && !e.participants?.includes(userEmail)) return false;
+    if (e.visibility === "public") return true;
+    if (e.visibility === "friends" && (isFriendOfTarget || isOwnProfile)) return true;
+    if (e.visibility === "private" && isOwnProfile) return true;
+    return false;
+  });
 
   const stats = computeStats(userEntries, userPosts);
   const totalXp = computeTotalXp(stats);

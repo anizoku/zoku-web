@@ -52,8 +52,14 @@ export default function Events() {
   });
 
   const myEvents = events.filter(e => e.organizer_email === user?.email);
-  const joined = events.filter(e => e.participants?.includes(user?.email) && e.organizer_email !== user?.email);
-  const publicEvents = events.filter(e => e.visibility === "public" && e.organizer_email !== user?.email);
+  // Participando: eventos públicos ou de amigos onde o usuário está na lista de participantes
+  const joined = events.filter(e =>
+    e.participants?.includes(user?.email) && e.organizer_email !== user?.email
+  );
+  // Feed público: apenas visibilidade pública, de outros usuários
+  const publicEvents = events.filter(e =>
+    e.visibility === "public" && e.organizer_email !== user?.email && !e.participants?.includes(user?.email)
+  );
 
   const myWT = watchTogetherList.filter(w =>
     w.initiator_email === user?.email || w.friend_email === user?.email

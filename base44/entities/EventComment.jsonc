@@ -21,9 +21,11 @@
   ],
   "rls": {
     "create": {
+      "data.author_email": "{{user.email}}",
       "created_by": "{{user.email}}"
     },
-    "read": {
+    "read": {},
+    "update": {
       "$or": [
         {
           "data.author_email": "{{user.email}}"
@@ -35,22 +37,10 @@
         }
       ]
     },
-    "update": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
     "delete": {
       "$or": [
         {
-          "created_by": "{{user.email}}"
+          "data.author_email": "{{user.email}}"
         },
         {
           "user_condition": {

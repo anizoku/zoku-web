@@ -73,9 +73,6 @@
           "user_condition": {
             "role": "admin"
           }
-        },
-        {
-          "data.community_creator_email": "{{user.email}}"
         }
       ]
     },
@@ -88,9 +85,6 @@
           "user_condition": {
             "role": "admin"
           }
-        },
-        {
-          "data.community_creator_email": "{{user.email}}"
         }
       ]
     }

@@ -80,16 +80,7 @@
       ]
     },
     "delete": {
-      "$or": [
-        {
-          "data.initiator_email": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "data.initiator_email": "{{user.email}}"
     }
   }
 }
