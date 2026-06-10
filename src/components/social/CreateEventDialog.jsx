@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
-import { Plus, Calendar, Search, X, UserPlus } from "lucide-react";
+import { Plus, Calendar, Search, X, UserPlus, Clock } from "lucide-react";
 import { notifyEventInvite } from "@/lib/social";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -46,10 +46,47 @@ const EMPTY_FORM = {
   visibility: "public",
 };
 
+const HOURS = [1,2,3,4,5,6,7,8,9,10,11,12];
+const MINUTES = ["00","15","30","45"];
+const PERIODS = ["AM","PM"];
+
+/** Converte seleção 12h → "HH:mm" 24h para buildEventDate */
+function to24h(h, m, period) {
+  let hour = parseInt(h);
+  if (period === "AM" && hour === 12) hour = 0;
+  if (period === "PM" && hour !== 12) hour += 12;
+  return `${String(hour).padStart(2,"0")}:${m}`;
+}
+
+/** Converte "HH:mm" 24h → {h, m, period} para exibir no picker */
+function from24h(time) {
+  if (!time) return { h: "", m: "00", period: "AM" };
+  const [hh, mm] = time.split(":").map(Number);
+  const period = hh >= 12 ? "PM" : "AM";
+  let h = hh % 12;
+  if (h === 0) h = 12;
+  return { h: String(h), m: String(mm).padStart(2,"0"), period };
+}
+
 export default function CreateEventDialog({ user, onCreated }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
+
+  const timeParsed = from24h(form.event_time);
+
+  function setTimePart(key, value) {
+    const next = { ...timeParsed, [key]: value };
+    if (next.h) {
+      set("event_time", to24h(next.h, next.m, next.period));
+    }
+  }
+
+  function clearTime() {
+    set("event_time", "");
+    setTimeOpen(false);
+  }
 
   // Invite search state
   const [inviteSearch, setInviteSearch] = useState("");
@@ -223,13 +260,106 @@ export default function CreateEventDialog({ user, onCreated }) {
               </PopoverContent>
             </Popover>
 
-            <Input
-              type="time"
-              placeholder="Horário (opcional)"
-              value={form.event_time}
-              onChange={e => set("event_time", e.target.value)}
-              className="bg-secondary border-none text-sm"
-            />
+            {/* Time picker customizado */}
+            <Popover open={timeOpen} onOpenChange={setTimeOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 h-9 px-3 rounded-md bg-secondary text-sm text-left w-full hover:bg-secondary/80 transition-colors"
+                >
+                  <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className={form.event_time ? "text-foreground" : "text-muted-foreground"}>
+                    {form.event_time
+                      ? `${timeParsed.h}:${timeParsed.m} ${timeParsed.period}`
+                      : "Horário"}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3 bg-card border-border" align="start">
+                <div className="space-y-3">
+                  {/* Horas */}
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1.5">Hora</p>
+                    <div className="grid grid-cols-6 gap-1">
+                      {HOURS.map(h => (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => setTimePart("h", String(h))}
+                          className={`h-7 w-7 rounded-md text-xs font-medium transition-colors ${
+                            timeParsed.h === String(h)
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground hover:bg-secondary/60"
+                          }`}
+                        >
+                          {h}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Minutos */}
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1.5">Minutos</p>
+                    <div className="flex gap-1">
+                      {MINUTES.map(m => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setTimePart("m", m)}
+                          className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors ${
+                            timeParsed.m === m
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground hover:bg-secondary/60"
+                          }`}
+                        >
+                          :{m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* AM / PM */}
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1.5">Período</p>
+                    <div className="flex gap-1">
+                      {PERIODS.map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setTimePart("period", p)}
+                          className={`h-7 px-4 rounded-md text-xs font-semibold transition-colors ${
+                            timeParsed.period === p
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground hover:bg-secondary/60"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="flex justify-between pt-1 border-t border-border/50">
+                    <button
+                      type="button"
+                      onClick={clearTime}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Limpar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeOpen(false)}
+                      className="text-xs text-primary font-semibold hover:text-primary/80 transition-colors"
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           {!form.event_date && (
             <p className="text-[10px] text-muted-foreground -mt-1">* A data é obrigatória. O horário é opcional.</p>
