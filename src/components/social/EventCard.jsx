@@ -7,21 +7,21 @@ import { useState } from "react";
 import EventChatDialog from "./EventChatDialog";
 
 const typeLabels = {
-  watch_episode: "Assistir Episódio",
-  watch_marathon: "Maratona",
-  read_chapter: "Ler Capítulo",
-  debate: "Debate",
+  watch_episode: "Assistir",
+  watch_marathon: "Assistir",   // legado
+  watch_party: "Assistir",      // legado
+  read_chapter: "Ler",
+  debate: "Discussão pós-episódio",
   theory_night: "Noite de Teorias",
-  watch_party: "Watch Party",
 };
 
 const typeColors = {
   watch_episode: "bg-chart-2/15 text-chart-2 border-chart-2/20",
-  watch_marathon: "bg-primary/15 text-primary border-primary/20",
+  watch_marathon: "bg-chart-2/15 text-chart-2 border-chart-2/20",
+  watch_party: "bg-chart-2/15 text-chart-2 border-chart-2/20",
   read_chapter: "bg-chart-3/15 text-chart-3 border-chart-3/20",
   debate: "bg-chart-5/15 text-chart-5 border-chart-5/20",
   theory_night: "bg-chart-4/15 text-chart-4 border-chart-4/20",
-  watch_party: "bg-primary/15 text-primary border-primary/20",
 };
 
 const statusColors = {

@@ -14,21 +14,19 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const eventTypes = [
-  { value: "watch_episode", label: "Assistir Episódio" },
-  { value: "watch_marathon", label: "Maratonar Temporada" },
-  { value: "read_chapter", label: "Ler Capítulo Novo" },
-  { value: "debate", label: "Debate Pós-episódio" },
+  { value: "watch_episode", label: "Assistir" },
+  { value: "read_chapter", label: "Ler" },
+  { value: "debate", label: "Discussão pós-episódio" },
   { value: "theory_night", label: "Noite de Teorias" },
-  { value: "watch_party", label: "Watch Party" },
 ];
 
 const eventTypeLabels = {
-  watch_episode: "Assistir Episódio",
-  watch_marathon: "Maratonar Temporada",
-  read_chapter: "Ler Capítulo Novo",
-  debate: "Debate Pós-episódio",
+  watch_episode: "Assistir",
+  watch_marathon: "Assistir",   // legado
+  watch_party: "Assistir",      // legado
+  read_chapter: "Ler",
+  debate: "Discussão pós-episódio",
   theory_night: "Noite de Teorias",
-  watch_party: "Watch Party",
 };
 
 /** Gera título automático baseado no tipo e obra */
