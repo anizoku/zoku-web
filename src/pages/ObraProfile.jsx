@@ -231,6 +231,28 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       showToast(`Status: ${STATUS_LABELS[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
       return;
     }
+    // Se status é "completed", preenche o progresso com o total e registra XP
+    if (status === "completed") {
+      const resolvedTotal = Math.max(catalogTotal, isMovie ? 1 : 0);
+      const xpPerUnit = XP_REWARDS[cfg.xpKey];
+      const xpEarned = resolvedTotal > 0 ? resolvedTotal * xpPerUnit : 0;
+      const bonusXp = 125;
+      const totalXp = xpEarned + bonusXp;
+      createMutation.mutate({
+        title: media.title,
+        type: entryType,
+        status,
+        genre: formatMarker,
+        total_episodes: format === "anime" || format === "liveaction" || format === "movie" ? resolvedTotal : 0,
+        total_chapters: format === "manga" ? resolvedTotal : 0,
+        current_episode: format === "anime" || format === "liveaction" || format === "movie" ? resolvedTotal : 0,
+        current_chapter: format === "manga" ? resolvedTotal : 0,
+      });
+      if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
+      recordXpEvent("work_completed", 125);
+      showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+      return;
+    }
     createMutation.mutate({
       title: media.title,
       type: entryType,
