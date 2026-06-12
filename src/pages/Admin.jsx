@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CatalogManager from "@/components/admin/CatalogManager";
 import CategoryManager from "@/components/admin/CategoryManager";
 import CatalogSync from "@/components/admin/CatalogSync";
+import SuggestionsPanel from "@/components/admin/SuggestionsPanel";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -17,13 +20,19 @@ export default function Admin() {
     base44.auth.me()
       .then((u) => {
         setUser(u);
-        if (u.role !== "admin") {
-          navigate("/");
-        }
+        if (u.role !== "admin") navigate("/");
       })
       .catch(() => navigate("/"))
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  // Hook must be called unconditionally — enabled flag controls execution
+  const { data: pendingSuggestions = [] } = useQuery({
+    queryKey: ["pending-suggestions-count"],
+    queryFn: () => base44.entities.WorkSuggestion.list("-created_at", 200),
+    enabled: !!user && user.role === "admin",
+    select: (data) => data.filter((s) => s.suggestion_status === "pending"),
+  });
 
   if (loading) {
     return (
@@ -36,9 +45,7 @@ export default function Admin() {
     );
   }
 
-  if (!user || user.role !== "admin") {
-    return null;
-  }
+  if (!user || user.role !== "admin") return null;
 
   return (
     <div className="max-w-6xl mx-auto px-4 lg:px-6 py-6">
@@ -54,10 +61,18 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="catalog">
-          <TabsList className="bg-secondary">
+          <TabsList className="bg-secondary flex-wrap h-auto gap-1">
             <TabsTrigger value="catalog">Catálogo</TabsTrigger>
             <TabsTrigger value="categories">Categorias</TabsTrigger>
             <TabsTrigger value="sync">Sincronização</TabsTrigger>
+            <TabsTrigger value="suggestions" className="relative">
+              Sugestões
+              {pendingSuggestions.length > 0 && (
+                <Badge className="ml-1.5 text-[10px] bg-chart-4/15 text-chart-4 border-none px-1.5 py-0">
+                  {pendingSuggestions.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
             <CatalogManager />
@@ -67,6 +82,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="sync" className="mt-6">
             <CatalogSync />
+          </TabsContent>
+          <TabsContent value="suggestions" className="mt-6">
+            <SuggestionsPanel />
           </TabsContent>
         </Tabs>
       </div>

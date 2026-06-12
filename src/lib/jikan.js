@@ -25,6 +25,25 @@ export function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Busca com múltiplos resultados (para sugestão de obras)
+export async function searchAnime(query) {
+  const url = `${JIKAN_BASE}/anime?q=${encodeURIComponent(query)}&limit=10&sfw=true`;
+  const res = await fetch(url);
+  if (res.status === 429) throw new Error("rate_limit");
+  if (!res.ok) throw new Error(`Jikan error: ${res.status}`);
+  const json = await res.json();
+  return json.data || [];
+}
+
+export async function searchManga(query) {
+  const url = `${JIKAN_BASE}/manga?q=${encodeURIComponent(query)}&limit=10&sfw=true`;
+  const res = await fetch(url);
+  if (res.status === 429) throw new Error("rate_limit");
+  if (!res.ok) throw new Error(`Jikan error: ${res.status}`);
+  const json = await res.json();
+  return json.data || [];
+}
+
 export async function jikanSearch(type, query) {
   const url = `${JIKAN_BASE}/${type}?q=${encodeURIComponent(query)}&limit=1&sfw=true`;
   const res = await fetch(url);

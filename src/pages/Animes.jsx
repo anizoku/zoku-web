@@ -1,5 +1,6 @@
-import { Tv } from "lucide-react";
+import { Tv, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
@@ -13,6 +14,7 @@ import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import SuggestWorkModal from "@/components/catalog/SuggestWorkModal";
 
 function useViewMode(key, defaultValue = "grid") {
   const [view, setView] = useState(() => localStorage.getItem(key) || defaultValue);
@@ -29,6 +31,7 @@ export default function Animes() {
   const [view, setView] = useViewMode("animesViewMode", "grid");
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
   const navigate = useNavigate();
   const filterVisible = useVisibilityFilter("anime");
   const { getByCategory, isLoading } = useCatalog();
@@ -78,7 +81,16 @@ export default function Animes() {
         />
         <SortControl value={sort} onChange={setSort} />
         <ViewToggle view={view} onChange={setView} />
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs border-primary/30 text-primary hover:bg-primary/10 shrink-0"
+          onClick={() => setShowSuggest(true)}
+        >
+          <Plus className="w-3.5 h-3.5 mr-1" /> Sugerir obra
+        </Button>
       </div>
+      <SuggestWorkModal open={showSuggest} onClose={() => setShowSuggest(false)} workType="anime" />
       <div className="mb-6">
         <GenreFilter allGenres={allGenres} selectedGenres={selectedGenres} onChange={setSelectedGenres} />
       </div>

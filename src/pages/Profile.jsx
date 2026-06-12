@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users } from "lucide-react";
+import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users, Lightbulb } from "lucide-react";
 import WorkLink from "@/components/media/WorkLink";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { getMyFriends } from "@/lib/social";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import MySuggestions from "@/components/profile/MySuggestions";
 
 const statusLabels = { watching: "Assistindo", reading: "Lendo", completed: "Concluído", planned: "Planejado", dropped: "Dropado", on_hold: "Pausado" };
 const statusColors = {
@@ -257,6 +258,7 @@ export default function Profile() {
           <TabsTrigger value="achievements"><Trophy className="w-3.5 h-3.5 mr-1" />Conquistas</TabsTrigger>
           <TabsTrigger value="ranks"><Zap className="w-3.5 h-3.5 mr-1" />Ranks</TabsTrigger>
           <TabsTrigger value="posts"><Star className="w-3.5 h-3.5 mr-1" />Posts</TabsTrigger>
+          <TabsTrigger value="suggestions"><Lightbulb className="w-3.5 h-3.5 mr-1" />Sugestões</TabsTrigger>
         </TabsList>
 
         <TabsContent value="friends" className="mt-4">
@@ -375,6 +377,10 @@ export default function Profile() {
           ) : (
             myPosts.map(post => <PostCard key={post.id} post={post} userEmail={user?.email} />)
           )}
+        </TabsContent>
+
+        <TabsContent value="suggestions" className="mt-4">
+          <MySuggestions userEmail={user?.email} />
         </TabsContent>
       </Tabs>
 
