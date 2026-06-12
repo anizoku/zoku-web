@@ -65,6 +65,7 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
   let added = 0;
   let skipped = 0;
   let errors = 0;
+  const importedWorks = [];
 
   for (let page = 1; page <= totalPages; page++) {
     if (abortRef?.current) break;
@@ -109,7 +110,16 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
           }
 
           // Criar na DynamicWork
-          await base44.entities.DynamicWork.create(normalizeJikanWork(work, type));
+          const normalized = normalizeJikanWork(work, type);
+          await base44.entities.DynamicWork.create(normalized);
+          
+          const categories = JSON.parse(normalized.categories);
+          importedWorks.push({
+            title: work.title_english || work.title,
+            categories,
+            score: work.score || 0
+          });
+          
           added++;
         } catch (e) {
           console.warn("Erro ao criar work:", e.message);
@@ -128,7 +138,7 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
     }
   }
 
-  return { added, skipped, errors };
+  return { added, skipped, errors, works: importedWorks };
 }
 
 // ─── SINCRONIZAÇÃO DE OBRAS EM EXIBIÇÃO ──────────────────────────────────

@@ -25,6 +25,7 @@ export default function DynamicCatalogPanel() {
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState([]);
   const [progress, setProgress] = useState(0);
+  const [importedWorks, setImportedWorks] = useState([]);
   const abortRef = useRef(false);
   const { refreshCatalog } = useCatalog();
   const queryClient = useQueryClient();
@@ -50,12 +51,14 @@ export default function DynamicCatalogPanel() {
     setRunning(true);
     setLogs([]);
     setProgress(0);
+    setImportedWorks([]);
     abortRef.current = false;
 
     addLog("Iniciando importação de Top 500 Animes...", "info");
     const result = await importTopWorks("anime", 20, addLog, setProgress, abortRef);
 
     addLog(`✓ Importação concluída: +${result.added} animes, ${result.skipped} pulados`, "success");
+    setImportedWorks(result.works || []);
     refreshCatalog();
     queryClient.invalidateQueries({ queryKey: ["dynamic-catalog-stats"] });
     setRunning(false);
@@ -65,12 +68,14 @@ export default function DynamicCatalogPanel() {
     setRunning(true);
     setLogs([]);
     setProgress(0);
+    setImportedWorks([]);
     abortRef.current = false;
 
     addLog("Iniciando importação de Top 500 Mangás...", "info");
     const result = await importTopWorks("manga", 20, addLog, setProgress, abortRef);
 
     addLog(`✓ Importação concluída: +${result.added} mangás, ${result.skipped} pulados`, "success");
+    setImportedWorks(result.works || []);
     refreshCatalog();
     queryClient.invalidateQueries({ queryKey: ["dynamic-catalog-stats"] });
     setRunning(false);
@@ -166,6 +171,30 @@ export default function DynamicCatalogPanel() {
               <span className="text-xs">Processando...</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Lista de obras importadas */}
+      {importedWorks.length > 0 && !running && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-primary">✓ Obras Importadas ({importedWorks.length})</p>
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 max-h-64 overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {importedWorks.map((work, i) => (
+                <div key={i} className="text-xs bg-card/60 rounded px-2 py-1.5 border border-border/50 hover:border-primary/30 transition-all">
+                  <p className="font-medium text-foreground truncate">{work.title}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {work.categories?.map((cat, j) => (
+                      <span key={j} className="inline-block px-1.5 py-0.5 rounded text-[9px] bg-secondary text-muted-foreground">
+                        {cat === "anime" ? "Anime" : cat === "manga" ? "Mangá" : cat === "movie" ? "Filme" : cat}
+                      </span>
+                    ))}
+                    {work.score && <span className="text-chart-4 font-semibold ml-auto">★ {work.score}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
