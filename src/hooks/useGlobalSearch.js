@@ -39,12 +39,12 @@ export function useGlobalSearch(query) {
   const location = useLocation();
   const context = getContextCategory(location.pathname);
 
-  const [results, setResults] = useState({ works: [], users: [], events: [] });
+  const [results, setResults] = useState({ works: [], users: [], events: [], communities: [] });
   const [isLoading, setIsLoading] = useState(false);
 
   const doSearch = useCallback(async (q) => {
     if (!q || q.length < 2) {
-      setResults({ works: [], users: [], events: [] });
+      setResults({ works: [], users: [], events: [], communities: [] });
       return;
     }
     setIsLoading(true);
@@ -82,6 +82,19 @@ export function useGlobalSearch(query) {
           }));
       } catch {}
 
+      // Communities (async)
+      let communities = [];
+      try {
+        const allCommunities = await base44.entities.Community.list("-members_count", 100);
+        communities = allCommunities
+          .filter(c =>
+            c.name?.toLowerCase().includes(lq) ||
+            c.description?.toLowerCase().includes(lq) ||
+            c.tags?.some(tag => tag.toLowerCase().includes(lq))
+          )
+          .slice(0, 3);
+      } catch {}
+
       // Events (async)
       let events = [];
       try {
@@ -94,7 +107,7 @@ export function useGlobalSearch(query) {
           .slice(0, 3);
       } catch {}
 
-      setResults({ works: matchedWorks, users, events });
+      setResults({ works: matchedWorks, users, events, communities });
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +115,7 @@ export function useGlobalSearch(query) {
 
   useEffect(() => {
     if (!query || query.length < 2) {
-      setResults({ works: [], users: [], events: [] });
+      setResults({ works: [], users: [], events: [], communities: [] });
       return;
     }
     const timer = setTimeout(() => doSearch(query), 300);
@@ -115,7 +128,7 @@ export function useGlobalSearch(query) {
     : [];
   const otherWorks = results.works.filter(w => !contextWorks.includes(w));
 
-  const total = results.works.length + results.users.length + results.events.length;
+  const total = results.works.length + results.users.length + results.events.length + results.communities.length;
 
   return {
     isLoading,
@@ -123,6 +136,7 @@ export function useGlobalSearch(query) {
     otherWorks,
     users: results.users,
     events: results.events,
+    communities: results.communities,
     hasResults: total > 0,
     isEmpty: !isLoading && query.length >= 2 && total === 0,
   };

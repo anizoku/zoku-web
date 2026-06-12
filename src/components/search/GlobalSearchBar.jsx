@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Loader2, Tv, BookOpen, Film, Clapperboard, User, Calendar } from "lucide-react";
+import { Search, Loader2, Tv, BookOpen, Film, Clapperboard, User, Calendar, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
@@ -73,6 +73,24 @@ function EventResult({ event, onClick }) {
   );
 }
 
+function CommunityResult({ community, onClick }) {
+  return (
+    <button
+      onClick={() => onClick(community)}
+      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/70 transition-colors text-left"
+    >
+      <div className="w-8 h-8 rounded bg-accent/10 flex items-center justify-center shrink-0">
+        <Users className="w-4 h-4 text-accent" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">{community.name}</p>
+        <p className="text-[10px] text-muted-foreground truncate">{community.members_count} membros</p>
+      </div>
+      <Badge className="bg-accent/20 text-accent border-none text-[9px] px-1.5 py-0">Comunidade</Badge>
+    </button>
+  );
+}
+
 function SectionHeader({ label }) {
   return (
     <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-background/50">
@@ -88,7 +106,7 @@ export default function GlobalSearchBar() {
   const inputRef = useRef(null);
   const containerRef = useRef(null);
 
-  const { isLoading, contextWorks, otherWorks, users, events, hasResults, isEmpty } = useGlobalSearch(query);
+  const { isLoading, contextWorks, otherWorks, users, events, communities, hasResults, isEmpty } = useGlobalSearch(query);
 
   useEffect(() => {
     setOpen(query.length >= 2);
@@ -115,6 +133,7 @@ export default function GlobalSearchBar() {
       if (contextWorks[0]) navigateToWork(contextWorks[0]);
       else if (otherWorks[0]) navigateToWork(otherWorks[0]);
       else if (users[0]) navigateToUser(users[0]);
+      else if (communities[0]) navigateToCommunity(communities[0]);
       else if (events[0]) navigateToEvent(events[0]);
     }
   }
@@ -128,6 +147,12 @@ export default function GlobalSearchBar() {
 
   function navigateToUser(user) {
     navigate(`/u/${user.email}`);
+    setQuery("");
+    setOpen(false);
+  }
+
+  function navigateToCommunity(community) {
+    navigate(`/communities/${community.id}`);
     setQuery("");
     setOpen(false);
   }
@@ -148,7 +173,7 @@ export default function GlobalSearchBar() {
       )}
       <Input
         ref={inputRef}
-        placeholder="Buscar animes, mangás, usuários, eventos..."
+        placeholder="Buscar tudo: obras, usuários, comunidades, eventos..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => query.length >= 2 && setOpen(true)}
@@ -187,6 +212,15 @@ export default function GlobalSearchBar() {
               <SectionHeader label="Usuários" />
               {users.map(u => (
                 <UserResult key={u.id} user={u} onClick={navigateToUser} />
+              ))}
+            </>
+          )}
+
+          {communities.length > 0 && (
+            <>
+              <SectionHeader label="Comunidades" />
+              {communities.map(c => (
+                <CommunityResult key={c.id} community={c} onClick={navigateToCommunity} />
               ))}
             </>
           )}
