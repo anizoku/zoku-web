@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Tv, BookOpen, Star, Trophy, Twitter, Instagram, Globe, Calendar, Users, Zap } from "lucide-react";
+import { ArrowLeft, Tv, BookOpen, Star, Trophy, Twitter, Instagram, Globe, Calendar, Users, Zap, Share2, Flag } from "lucide-react";
 import AchievementsPanel from "@/components/profile/AchievementsPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,11 @@ import { getMyFriends } from "@/lib/social";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import WorkLink from "@/components/media/WorkLink";
+import PublicProfileStats from "@/components/profile/PublicProfileStats";
+import CommonWorksSection from "@/components/profile/CommonWorksSection";
+import ReportModal from "@/components/moderation/ReportModal";
+import { toast } from "sonner";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const statusLabels = { watching: "Assistindo", reading: "Lendo", completed: "Concluído", planned: "Planejado", dropped: "Dropado", on_hold: "Pausado" };
 const statusColors = {
@@ -67,7 +72,22 @@ export default function PublicProfile() {
   const { level, percent } = getXpProgress(totalXp);
   const rank = getRankForLevel(level);
 
+  const [listStatusFilter, setListStatusFilter] = useState("all");
+  const [listTypeFilter, setListTypeFilter] = useState("all");
+  const [showReportProfile, setShowReportProfile] = useState(false);
+
+  usePageTitle(targetUser ? `@${profile?.username || targetUser.full_name}` : null);
+
   const displayName = targetUser?.full_name || userEmail;
+
+  const handleShareProfile = () => {
+    const url = `${window.location.origin}/u/${userEmail}`;
+    navigator.clipboard.writeText(url).catch(() => {});
+    toast.success("Link copiado!");
+  };
+
+  // My entries for compatibility section
+  const myOwnEntries = currentUser ? entries.filter(e => e.created_by === currentUser.email) : [];
 
   if (!targetUser && allUsers.length > 0) {
     return (
@@ -143,11 +163,46 @@ export default function PublicProfile() {
                 <XpProgressBar totalXp={totalXp} />
               </div>
             </div>
+
+            <div className="flex items-center gap-2 pt-2 flex-wrap">
+              <Button size="sm" variant="outline" onClick={handleShareProfile} className="h-8 text-xs gap-1.5">
+                <Share2 className="w-3.5 h-3.5" /> Compartilhar perfil
+              </Button>
+              {!isOwnProfile && currentUser && (
+                <Button size="sm" variant="ghost" onClick={() => setShowReportProfile(true)}
+                  className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive">
+                  <Flag className="w-3.5 h-3.5" /> Reportar perfil
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Stats */}
+      <ReportModal
+        open={showReportProfile}
+        onClose={() => setShowReportProfile(false)}
+        contentType="profile"
+        contentId={userEmail}
+        contentPreview={`Perfil de @${profile?.username || displayName}`}
+        authorEmail={userEmail}
+        userEmail={currentUser?.email}
+      />
+
+      {/* Detailed Stats */}
+      <PublicProfileStats entries={userEntries} />
+
+      {/* Compatibility section (friends only) */}
+      {isFriendOfTarget && !isOwnProfile && currentUser && (
+        <CommonWorksSection
+          myEntries={myOwnEntries}
+          theirEntries={userEntries}
+          targetUser={targetUser}
+          currentUser={currentUser}
+        />
+      )}
+
+      {/* Quick Stats */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {[
           { icon: Tv, label: "Assistindo", value: userEntries.filter(e=>e.status==="watching").length, color: "text-primary" },
@@ -179,8 +234,29 @@ export default function PublicProfile() {
             ? <div className="bg-card rounded-xl border border-border p-8 text-center"><p className="text-muted-foreground text-sm">Lista vazia ou privada</p></div>
             : (
               <div className="space-y-4">
+                {/* Filters */}
+                <div className="flex flex-wrap gap-2">
+                  {["all", "anime", "manga", "movie"].map(t => (
+                    <button key={t} onClick={() => setListTypeFilter(t)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${listTypeFilter === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+                      {t === "all" ? "Todos" : t === "anime" ? "Anime" : t === "manga" ? "Mangá" : "Filme"}
+                    </button>
+                  ))}
+                  <span className="text-muted-foreground">|</span>
+                  {["all", ...Object.keys(statusLabels)].map(s => (
+                    <button key={s} onClick={() => setListStatusFilter(s)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${listStatusFilter === s ? "bg-secondary text-foreground ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}>
+                      {s === "all" ? "Todos status" : statusLabels[s]}
+                    </button>
+                  ))}
+                </div>
+
                 {Object.entries(statusLabels).map(([status, label]) => {
-                  const items = userEntries.filter(e => e.status === status);
+                  if (listStatusFilter !== "all" && listStatusFilter !== status) return null;
+                  const items = userEntries.filter(e =>
+                    e.status === status &&
+                    (listTypeFilter === "all" || e.type === listTypeFilter)
+                  );
                   if (!items.length) return null;
                   return (
                     <div key={status}>

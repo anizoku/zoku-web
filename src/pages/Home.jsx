@@ -1,5 +1,6 @@
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState, useEffect } from "react";
 import CreatePostCard from "@/components/feed/CreatePostCard";
 import PostCard from "@/components/feed/PostCard";
@@ -10,6 +11,7 @@ import RecommendationsSection from "@/components/home/RecommendationsSection";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
+  usePageTitle(null);
   const [user, setUser] = useState(null);
 
   useEffect(() => {

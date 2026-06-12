@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
 import FloatingChat from "@/components/chat/FloatingChat";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
+import PushPermissionPrompt from "@/components/pwa/PushPermissionPrompt";
+import { base44 } from "@/api/base44Client";
 
 export default function AppLayout() {
   useAutoImageRefresh();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  useEffect(() => { base44.auth.me().then(setCurrentUser).catch(() => {}); }, []);
 
   const sidebarWidth = sidebarCollapsed ? "lg:pl-16" : "lg:pl-56";
 
@@ -23,6 +27,7 @@ export default function AppLayout() {
       </div>
       <MobileNav />
       <FloatingChat />
+      <PushPermissionPrompt user={currentUser} />
     </div>
   );
 }

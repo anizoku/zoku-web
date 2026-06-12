@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Camera, Upload, CheckCircle2, XCircle, Loader2, User, Sparkles, Globe } from "lucide-react";
+import { MascotDuo } from "@/components/mascots/ZokuMascot";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -151,6 +152,16 @@ export default function ProfileSetup() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
+        {/* Mascots welcome — TODO: substituir pelo SVG final dos mascotes quando o design estiver pronto */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative">
+            <MascotDuo size={100} />
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-card border border-primary/20 rounded-xl px-3 py-1.5 text-xs text-foreground font-medium whitespace-nowrap shadow-lg -translate-y-full">
+              Bem-vindo ao ZOKU! Vamos configurar seu perfil otaku. 🎌
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-medium mb-4">

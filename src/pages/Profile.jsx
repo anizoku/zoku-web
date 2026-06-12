@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users, Lightbulb } from "lucide-react";
+import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users, Lightbulb, Share2 } from "lucide-react";
 import WorkLink from "@/components/media/WorkLink";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const statusColors = {
 };
 
 export default function Profile() {
+  usePageTitle("Meu Perfil");
   const [user, setUser] = useState(null);
   const queryClient = useQueryClient();
 
@@ -201,7 +203,20 @@ export default function Profile() {
               )}
             </div>
 
-            <EditProfileDialog user={user} />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (user?.email) {
+                    navigator.clipboard.writeText(`${window.location.origin}/u/${user.email}`).catch(() => {});
+                    import("sonner").then(({ toast }) => toast.success("Link do perfil copiado!"));
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg transition-colors"
+              >
+                <Share2 className="w-3.5 h-3.5" /> Compartilhar
+              </button>
+              <EditProfileDialog user={user} />
+            </div>
           </div>
 
           {/* XP Bar — single, clean */}

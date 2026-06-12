@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -429,6 +430,7 @@ export default function ObraProfile() {
   useAutoImageRefresh();
   
   const { slug } = useParams();
+  usePageTitle(slug?.replace(/-/g, " ") || "Obra");
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState(null);

@@ -14,6 +14,7 @@ import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function useViewMode(key, defaultValue = "grid") {
@@ -32,6 +33,7 @@ export default function Mangas() {
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
+  usePageTitle("Mangás");
   const navigate = useNavigate();
   const filterVisible = useVisibilityFilter("manga");
   const { getByCategory, isLoading } = useCatalog();

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Pencil, Check, X } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Pencil, Check, X, Flag } from "lucide-react";
+import ReportModal from "@/components/moderation/ReportModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,11 +47,13 @@ export default function PostCard({ post, userEmail, userRole, communityCreatorEm
   });
   const authorProfile = authorProfiles?.[0];
 
+  const [showReportModal, setShowReportModal] = useState(false);
   const isLiked = (post.liked_by || []).includes(userEmail);
   const isOwner = post.created_by === userEmail;
   const isAdmin = userRole === "admin";
   const isCommunityCreator = communityCreatorEmail && communityCreatorEmail === userEmail;
   const canModify = isOwner || isAdmin || isCommunityCreator;
+  const canReport = !!userEmail && !isOwner;
 
   const timeAgo = post.created_date
     ? formatDistanceToNow(new Date(post.created_date), { addSuffix: true, locale: ptBR })
@@ -123,7 +126,7 @@ export default function PostCard({ post, userEmail, userRole, communityCreatorEm
           </div>
         </div>
 
-        {canModify && (
+        {(canModify || canReport) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
@@ -131,15 +134,33 @@ export default function PostCard({ post, userEmail, userRole, communityCreatorEm
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-card border-border">
-              <DropdownMenuItem onClick={() => { setEditing(true); setEditContent(post.content); }} className="gap-2 text-sm cursor-pointer">
-                <Pencil className="w-4 h-4" /> Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDelete} className="gap-2 text-sm text-destructive cursor-pointer focus:text-destructive">
-                <Trash2 className="w-4 h-4" /> Excluir
-              </DropdownMenuItem>
+              {canModify && (
+                <>
+                  <DropdownMenuItem onClick={() => { setEditing(true); setEditContent(post.content); }} className="gap-2 text-sm cursor-pointer">
+                    <Pencil className="w-4 h-4" /> Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDelete} className="gap-2 text-sm text-destructive cursor-pointer focus:text-destructive">
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canReport && (
+                <DropdownMenuItem onClick={() => setShowReportModal(true)} className="gap-2 text-sm text-muted-foreground cursor-pointer">
+                  <Flag className="w-4 h-4" /> Reportar
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        <ReportModal
+          open={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          contentType="post"
+          contentId={post.id}
+          contentPreview={post.content}
+          authorEmail={post.created_by}
+          userEmail={userEmail}
+        />
       </div>
 
       {/* Content */}

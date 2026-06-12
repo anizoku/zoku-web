@@ -10,6 +10,7 @@ import CatalogManager from "@/components/admin/CatalogManager";
 import CategoryManager from "@/components/admin/CategoryManager";
 import CatalogSync from "@/components/admin/CatalogSync";
 import SuggestionsPanel from "@/components/admin/SuggestionsPanel";
+import ModerationPanel from "@/components/admin/ModerationPanel";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -32,6 +33,13 @@ export default function Admin() {
     queryFn: () => base44.entities.WorkSuggestion.list("-created_at", 200),
     enabled: !!user && user.role === "admin",
     select: (data) => data.filter((s) => s.suggestion_status === "pending"),
+  });
+
+  const { data: pendingReports = [] } = useQuery({
+    queryKey: ["pending-reports-count"],
+    queryFn: () => base44.entities.ContentReport.list("-created_at", 200),
+    enabled: !!user && user.role === "admin",
+    select: (data) => data.filter((r) => r.report_status === "pending"),
   });
 
   if (loading) {
@@ -73,6 +81,14 @@ export default function Admin() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="moderation" className="relative">
+              Moderação
+              {pendingReports.length > 0 && (
+                <Badge className="ml-1.5 text-[10px] bg-destructive/15 text-destructive border-none px-1.5 py-0">
+                  {pendingReports.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
             <CatalogManager />
@@ -85,6 +101,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="suggestions" className="mt-6">
             <SuggestionsPanel />
+          </TabsContent>
+          <TabsContent value="moderation" className="mt-6">
+            <ModerationPanel />
           </TabsContent>
         </Tabs>
       </div>

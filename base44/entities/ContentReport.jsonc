@@ -1,0 +1,103 @@
+{
+  "name": "ContentReport",
+  "type": "object",
+  "properties": {
+    "reported_by_email": {
+      "type": "string"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "post",
+        "comment",
+        "reply",
+        "profile"
+      ]
+    },
+    "content_id": {
+      "type": "string"
+    },
+    "content_preview": {
+      "type": "string"
+    },
+    "author_email": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "spam",
+        "hate_speech",
+        "nsfw",
+        "harassment",
+        "spoiler",
+        "misinformation",
+        "other"
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "report_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "reviewed",
+        "dismissed",
+        "actioned"
+      ],
+      "default": "pending"
+    },
+    "admin_action": {
+      "type": "string",
+      "enum": [
+        "warning",
+        "content_removed",
+        "user_warned",
+        "user_suspended"
+      ]
+    },
+    "admin_note": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "reported_by_email",
+    "content_type",
+    "content_id",
+    "reason"
+  ],
+  "rls": {
+    "create": {
+      "data.reported_by_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.reported_by_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -13,6 +13,7 @@ import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
 import SuggestWorkModal from "@/components/catalog/SuggestWorkModal";
 
@@ -26,6 +27,7 @@ function useViewMode(key, defaultValue = "grid") {
 }
 
 export default function Animes() {
+  usePageTitle("Animes");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("az");
   const [view, setView] = useViewMode("animesViewMode", "grid");

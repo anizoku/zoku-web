@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { List, Plus, Search, SortAsc, X } from "lucide-react";
@@ -204,6 +205,7 @@ function EmptyState({ isSearch, statusLabel }) {
 
 // ── Page ──────────────────────────────────────────────────────
 export default function MyList() {
+  usePageTitle("Minha Lista");
   const [user, setUser] = useState(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("title_az");

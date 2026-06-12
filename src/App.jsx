@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import PageNotFound from './lib/PageNotFound';
+
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -10,6 +10,10 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from '@/components/layout/AppLayout';
 import { CardOverridesProvider } from '@/context/CardOverridesContext';
 import { CatalogProvider } from '@/contexts/CatalogContext';
+import ScrollToTop from '@/components/ScrollToTop';
+import InstallBanner from '@/components/pwa/InstallBanner';
+import PushPermissionPrompt from '@/components/pwa/PushPermissionPrompt';
+import NotFound from '@/pages/NotFound';
 import ProfileSetup from '@/pages/ProfileSetup';
 import Home from '@/pages/Home';
 import Trending from '@/pages/Trending';
@@ -112,7 +116,7 @@ const AuthenticatedApp = () => {
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/recomendacoes" element={<Recommendations />} />
       </Route>
-      <Route path="*" element={<PageNotFound />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
@@ -124,7 +128,9 @@ function App() {
         <CatalogProvider>
           <Router>
             <CardOverridesProvider>
+              <ScrollToTop />
               <AuthenticatedApp />
+              <InstallBanner />
             </CardOverridesProvider>
           </Router>
         </CatalogProvider>
