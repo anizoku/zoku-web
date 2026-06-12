@@ -123,6 +123,24 @@
     "profile_setup_completed_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "push_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "current_streak": {
+      "type": "number",
+      "default": 0,
+      "description": "Dias consecutivos de atividade"
+    },
+    "last_activity_date": {
+      "type": "string",
+      "description": "Data da \u00faltima atividade no formato YYYY-MM-DD"
+    },
+    "login_streak": {
+      "type": "number",
+      "default": 0,
+      "description": "Dias consecutivos de login"
     }
   },
   "required": [

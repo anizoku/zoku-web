@@ -59,6 +59,15 @@ export default function Profile() {
   const createdCommunities = allCommunities.filter(c => c.creator_email === user?.email);
   const maxMembersInMyCommunity = createdCommunities.reduce((m, c) => Math.max(m, c.members_count || c.members?.length || 0), 0);
 
+  // Streak: based on current_streak saved on profile (updated in ObraProfile when progressing)
+  const currentStreak = myProfile?.current_streak || 0;
+  const loginStreak = myProfile?.login_streak || 0;
+
+  // isFounder: check if user is among the first 10 profiles by created_date
+  const sortedProfiles = [...profiles].sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+  const founderEmails = new Set(sortedProfiles.slice(0, 10).map(p => p.user_email));
+  const isFounder = user?.email ? founderEmails.has(user.email) : false;
+
   // XP for current level (needed for level achievements)
   const tempStats0 = computeStats(myEntries, myPosts, friendships, myEvents, myProfile);
   const tempXp0 = computeTotalXp(tempStats0);
@@ -69,6 +78,9 @@ export default function Profile() {
     communitiesCreated: createdCommunities.length,
     communityMaxMembers: maxMembersInMyCommunity,
     currentLevel: currentLevel0,
+    currentStreak,
+    loginStreak,
+    isFounder,
   });
   const totalXp = computeTotalXp(stats);
   const { level, percent } = getXpProgress(totalXp);

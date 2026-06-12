@@ -168,6 +168,47 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     },
   });
 
+  // Helper: create XpEvent + update streak on profile
+  async function recordXpEvent(eventType, xpAmount) {
+    if (!user?.email) return;
+    const today = new Date().toISOString().slice(0, 10);
+    // Map internal keys to XpEvent enum values
+    const typeMap = {
+      episode_watched: "episode_watched",
+      chapter_read: "chapter_read",
+      work_completed: "work_completed",
+    };
+    const mappedType = typeMap[eventType] || "episode_watched";
+    // Fire-and-forget — don't block the UI
+    base44.entities.XpEvent.create({
+      user_email: user.email,
+      event_type: mappedType,
+      xp_amount: xpAmount,
+      event_date: new Date().toISOString(),
+    }).catch(() => {});
+
+    // Update streak on UserProfile
+    try {
+      const profiles = await base44.entities.UserProfile.filter({ user_email: user.email });
+      const profile = profiles[0];
+      if (!profile) return;
+      const lastActivity = profile.last_activity_date;
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      let newStreak = profile.current_streak || 0;
+      if (lastActivity === today) {
+        // already updated today, keep streak
+      } else if (lastActivity === yesterday) {
+        newStreak += 1;
+      } else {
+        newStreak = 1;
+      }
+      base44.entities.UserProfile.update(profile.id, {
+        last_activity_date: today,
+        current_streak: newStreak,
+      }).catch(() => {});
+    } catch {}
+  }
+
   function showToast(msg, icon, color) {
     setToast({ message: msg, icon, color });
     setTimeout(() => setToast(null), 2500);
@@ -214,10 +255,13 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     const cur = entry[field] || 0;
     const newVal = cur + 1;
     const updates = { [field]: newVal };
-    if (effectiveTotal > 0 && newVal >= effectiveTotal) updates.status = "completed";
+    const willComplete = effectiveTotal > 0 && newVal >= effectiveTotal;
+    if (willComplete) updates.status = "completed";
     updateMutation.mutate({ id: entry.id, data: updates });
     const xp = XP_REWARDS[cfg.xpKey];
     showToast(`${cfg.unit} ${newVal}! +${xp} XP`, Zap, "bg-card border-primary/30 text-primary");
+    recordXpEvent(cfg.xpKey, xp);
+    if (willComplete) recordXpEvent("work_completed", 125);
   }
 
   function handleDecrement() {
@@ -234,15 +278,18 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     const prev = entry[field] || 0;
     if (newVal === prev) return;
     const updates = { [field]: newVal };
-    if (effectiveTotal > 0 && newVal >= effectiveTotal) updates.status = "completed";
+    const willComplete = effectiveTotal > 0 && newVal >= effectiveTotal;
+    if (willComplete) updates.status = "completed";
     updateMutation.mutate({ id: entry.id, data: updates });
     const diff = Math.max(0, newVal - prev);
     const xp = XP_REWARDS[cfg.xpKey];
     if (diff > 0) {
       showToast(`Progresso → ${cfg.unit} ${newVal}! +${diff * xp} XP`, Zap, "bg-card border-primary/30 text-primary");
+      recordXpEvent(cfg.xpKey, diff * xp);
     } else {
       showToast(`Progresso atualizado para ${cfg.unit} ${newVal}`, CheckCircle2, "bg-card border-primary/30 text-primary");
     }
+    if (willComplete) recordXpEvent("work_completed", 125);
   }
 
   const current = entry ? (entry[cfg.progressKey] || 0) : 0;
@@ -430,7 +477,6 @@ export default function ObraProfile() {
   useAutoImageRefresh();
   
   const { slug } = useParams();
-  usePageTitle(slug?.replace(/-/g, " ") || "Obra");
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState(null);
@@ -452,6 +498,9 @@ export default function ObraProfile() {
 
   // getBySlug já retorna o item mesclado com CatalogSync via CatalogContext
   const media = getBySlug(slug);
+
+  // Dynamic page title using real work title
+  usePageTitle(media?.title || slug?.replace(/-/g, " ") || "Obra");
 
   // Fetch TMDB data — skip manga-only works
   useEffect(() => {
@@ -617,7 +666,7 @@ export default function ObraProfile() {
               </div>
               <h1 className="font-space font-bold text-2xl sm:text-3xl text-foreground leading-tight">{media.title}</h1>
               {tmdbData?.originalTitle && tmdbData.originalTitle !== media.title && (
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{tmdbData.originalTitle}</p>
+                <p className="text-sm text-muted-foreground/70 mt-1 truncate font-normal">{tmdbData.originalTitle}</p>
               )}
             </div>
 

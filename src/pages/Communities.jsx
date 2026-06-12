@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Plus, Tag, X, Upload } from "lucide-react";
+import { MascotGray } from "@/components/mascots/ZokuMascot";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,15 +15,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import CommunityAvatar from "@/components/community/CommunityAvatar";
-
-const fallbackCommunities = [
-  { id: "f1", name: "Shonen Lovers", description: "Discussões sobre os melhores shonens de todos os tempos", members_count: 12400, category: "anime" },
-  { id: "f2", name: "Manga Readers", description: "Para quem prefere ler antes de assistir", members_count: 8700, category: "manga" },
-  { id: "f3", name: "Teoria Central", description: "Teorias e especulações sobre as séries mais populares", members_count: 5300, category: "theories" },
-  { id: "f4", name: "Anime News", description: "Fique por dentro das últimas novidades do mundo anime", members_count: 21000, category: "news" },
-  { id: "f5", name: "Reviews & Críticas", description: "Compartilhe suas análises detalhadas", members_count: 3200, category: "reviews" },
-  { id: "f6", name: "Otaku Geral", description: "Tudo sobre cultura otaku, cosplay, eventos e mais", members_count: 15600, category: "general" },
-];
 
 const categoryColors = {
   anime: "bg-chart-2/15 text-chart-2 border-chart-2/20",
@@ -188,11 +180,6 @@ export default function Communities() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["communities"] }),
   });
 
-  const isFallback = (id) => id?.startsWith("f");
-  // Show real communities or fallback placeholder data when empty
-  const displayCommunities = communities.length > 0 ? communities : fallbackCommunities;
-  const isShowingFallback = communities.length === 0;
-
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
       <div className="flex items-center justify-between mb-6">
@@ -208,43 +195,46 @@ export default function Communities() {
         <CreateCommunityDialog onCreate={createMutation.mutate} userEmail={user?.email} />
       </div>
 
-      {isShowingFallback && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-secondary/50 border border-border text-xs text-muted-foreground text-center">
-          Nenhuma comunidade criada ainda — estas são sugestões de exemplo. Crie a primeira!
+      {communities.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <MascotGray size={80} mood="normal" />
+          <h2 className="font-space font-bold text-xl text-foreground mt-6 mb-2">Nenhuma comunidade ainda</h2>
+          <p className="text-muted-foreground text-sm max-w-sm mb-6">
+            Seja o primeiro a criar uma comunidade e reunir fãs da mesma obra!
+          </p>
+          <CreateCommunityDialog onCreate={createMutation.mutate} userEmail={user?.email} />
         </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {displayCommunities.map((community) => (
-          <div
-            key={community.id}
-            onClick={() => !isFallback(community.id) && navigate(`/communities/${community.id}`)}
-            className={`bg-card rounded-xl border border-border p-5 hover:border-primary/30 transition-all group ${!isFallback(community.id) ? "cursor-pointer" : "cursor-default"}`}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <CommunityAvatar community={community} size="sm" />
-              <Badge variant="outline" className={`text-[10px] ${categoryColors[community.category] || ""}`}>
-                {categoryLabels[community.category] || community.category}
-              </Badge>
-            </div>
-            <h3 className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
-              {community.name}
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed mb-2">
-              {community.description}
-            </p>
-            {community.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-3">
-                {community.tags.map(t => (
-                  <span key={t} className="text-[10px] bg-secondary text-muted-foreground rounded-full px-2 py-0.5">#{t}</span>
-                ))}
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {communities.map((community) => (
+            <div
+              key={community.id}
+              onClick={() => navigate(`/communities/${community.id}`)}
+              className="bg-card rounded-xl border border-border p-5 hover:border-primary/30 transition-all group cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <CommunityAvatar community={community} size="sm" />
+                <Badge variant="outline" className={`text-[10px] ${categoryColors[community.category] || ""}`}>
+                  {categoryLabels[community.category] || community.category}
+                </Badge>
               </div>
-            )}
-            <div className="flex items-center justify-between pt-3 border-t border-border/50">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Users className="w-3 h-3" /> {formatNumber(community.members_count)} membros
-              </span>
-              {!isFallback(community.id) && (
+              <h3 className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                {community.name}
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-2">
+                {community.description}
+              </p>
+              {community.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {community.tags.map(t => (
+                    <span key={t} className="text-[10px] bg-secondary text-muted-foreground rounded-full px-2 py-0.5">#{t}</span>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Users className="w-3 h-3" /> {formatNumber(community.members_count)} membros
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -253,11 +243,11 @@ export default function Communities() {
                 >
                   Entrar
                 </Button>
-              )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

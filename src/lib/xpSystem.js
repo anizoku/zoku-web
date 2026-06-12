@@ -3,6 +3,7 @@
 // ============================================================
 
 import { ACHIEVEMENTS, getAchievementColor } from "./achievements";
+import { CATALOG } from "./catalog";
 export { ACHIEVEMENTS, getAchievementColor };
 
 // XP earned per action
@@ -76,7 +77,7 @@ export function getRankForLevel(level) {
 export function computeStats(entries, posts, friendships = [], events = [], profile = null, extra = {}) {
   const myAnime    = entries.filter((e) => e.type === "anime");
   const myManga    = entries.filter((e) => e.type === "manga");
-  const myMovies   = entries.filter((e) => e.type === "movie" || e.type === "movie");
+  const myMovies   = entries.filter((e) => e.type === "movie" || e.type === "liveaction");
   const myLiveact  = entries.filter((e) => e.type === "liveaction");
 
   const totalEpisodes  = myAnime.reduce((s, e) => s + (e.current_episode || 0), 0);
@@ -93,8 +94,14 @@ export function computeStats(entries, posts, friendships = [], events = [], prof
   // Category count (for four_categories achievement)
   const categoryCount  = [hasAnime, hasManga, hasMovie, hasLiveaction].filter(Boolean).length;
 
-  // Genre diversity
-  const allGenres = new Set(entries.flatMap(e => e.genre ? [e.genre] : []));
+  // Genre diversity — use real genres from catalog, not the __format: marker stored in entry.genre
+  const normalize = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const allGenres = new Set(
+    entries.flatMap(e => {
+      const work = CATALOG.find(w => normalize(w.title) === normalize(e.title));
+      return work?.genres || [];
+    })
+  );
   const uniqueGenres = allGenres.size;
 
   // Same work in both types (title appears in both anime and manga entries)
