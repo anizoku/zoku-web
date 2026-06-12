@@ -16,7 +16,7 @@ import { useCatalog } from "@/contexts/CatalogContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
 import SuggestWorkModal from "@/components/catalog/SuggestWorkModal";
-import { searchAnime, searchManga } from "@/lib/jikan";
+import { hybridSearch } from "@/lib/hybridSearch";
 
 const CATEGORIES = [
   { key: "all", label: "Todos" },
@@ -135,13 +135,10 @@ export default function Works() {
     setSearchTimeout(
       setTimeout(async () => {
         try {
-          // Se não há resultados locais, buscar no Jikan
+          // Se não há resultados locais, buscar em Jikan + TMDB
           if (filtered.length === 0) {
-            const [animes, mangas] = await Promise.all([
-              searchAnime(search),
-              searchManga(search),
-            ]);
-            setExternalResults([...animes, ...mangas].slice(0, 6));
+            const results = await hybridSearch(search);
+            setExternalResults(results);
           }
         } catch (e) {
           console.warn("Busca externa falhou:", e);
@@ -170,7 +167,7 @@ export default function Works() {
   async function handleAddExternal(externalWork) {
     try {
       // Criar na DynamicWork
-      const slug = (externalWork.title || "")
+      const slug = ((externalWork.title_english || externalWork.title) || "")
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
@@ -180,18 +177,19 @@ export default function Works() {
 
       const workType = externalWork.type?.toLowerCase().includes("manga") ? "manga" : "anime";
       const categories = workType === "manga" ? ["manga"] : ["anime"];
+      const source = externalWork._source || "jikan";
 
       await base44.entities.DynamicWork.create({
         slug,
         title: externalWork.title_english || externalWork.title,
-        romaji_title: externalWork.title,
+        romaji_title: externalWork.title !== (externalWork.title_english || externalWork.title) ? externalWork.title : null,
         categories: JSON.stringify(categories),
-        genres: JSON.stringify((externalWork.genres || []).map(g => g.name)),
-        mal_id: workType === "anime" ? externalWork.mal_id : null,
-        manga_mal_id: workType === "manga" ? externalWork.mal_id : null,
+        genres: JSON.stringify((externalWork.genres || []).map(g => typeof g === "string" ? g : g.name)),
+        mal_id: workType === "anime" && source === "jikan" ? externalWork.mal_id : null,
+        manga_mal_id: workType === "manga" && source === "jikan" ? externalWork.mal_id : null,
         score: externalWork.score || null,
-        image_url: externalWork.images?.jpg?.large_image_url || null,
-        source: "jikan",
+        image_url: externalWork.images?.jpg?.large_image_url || externalWork.images?.jpg?.small_image_url || null,
+        source: source,
       });
 
       setExternalResults([]);
@@ -262,12 +260,12 @@ export default function Works() {
       {/* Resultados externos */}
       {externalResults.length > 0 && filtered.length < 3 && (
         <div className="mb-6">
-          <p className="text-xs font-semibold text-muted-foreground mb-3">Resultados externos (Jikan)</p>
+          <p className="text-xs font-semibold text-muted-foreground mb-3">Resultados externos (Jikan + TMDB)</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {externalResults.map((work) => (
               <button
-                key={work.mal_id}
-                onClick={() => handleAddExternal(work)}
+                key={work.mal_id || work._tmdbId}
+                  onClick={() => handleAddExternal(work)}
                 className="rounded-lg border border-border bg-card p-2 hover:bg-secondary transition-all space-y-2"
               >
                 <img
