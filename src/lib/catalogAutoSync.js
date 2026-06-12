@@ -1,6 +1,6 @@
 import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
-import { delay } from "@/lib/jikan";
+import { syncWorkFromJikan, delay } from "@/lib/jikan";
 import { getTMDBWorkDetails } from "@/lib/tmdb";
 
 // ─── NORMALIZAÇÃO DE OBRA DO JIKAN ───────────────────────────────────────
@@ -142,6 +142,83 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
   return { added, skipped, errors, works: importedWorks };
 }
 
+// ─── SYNC HÍBRIDO POR TIPO ──────────────────────────────────────────────────
+export async function runHybridAnimeSync(catalog, onLog, onProgress, abortRef) {
+  const works = catalog.filter((w) => {
+    if (w.sync_status === "manual_override") return false;
+    return w.categories?.includes("anime") && w.animeStatus === "Em exibição";
+  });
+
+  let updated = 0, unchanged = 0, notFound = 0;
+  onLog?.(`Sincronizando ${works.length} anime(s) em exibição (Jikan+TMDB)...`, "info");
+
+  for (let i = 0; i < works.length; i++) {
+    if (abortRef?.current) break;
+    const work = works[i];
+    onLog?.(`[${i + 1}/${works.length}] ${work.title}...`, "loading");
+
+    try {
+      const result = await syncWorkBothSources(work, "anime");
+      if (!result || result.totalEpisodes == null) {
+        onLog?.(`${work.title}: não encontrado (Jikan nem TMDB)`, "warn");
+        notFound++;
+      } else {
+        const changes = [];
+        if (result.totalEpisodes !== work.totalEpisodes) changes.push(`Eps: ${work.totalEpisodes} → ${result.totalEpisodes}`);
+        if (result.animeStatus && result.animeStatus !== work.animeStatus) changes.push(`Status: ${result.animeStatus}`);
+        if (changes.length > 0) { onLog?.(`${work.title}: atualizado (${changes.join(", ")})`, "success"); updated++; }
+        else { onLog?.(`${work.title}: sem alterações`, "info"); unchanged++; }
+      }
+    } catch (err) {
+      onLog?.(`${work.title}: erro — ${err.message}`, "error");
+      notFound++;
+    }
+
+    if (i < works.length - 1) await delay(450);
+    onProgress?.(i / works.length);
+  }
+
+  return { total: works.length, updated, unchanged, notFound };
+}
+
+export async function runHybridMangaSync(catalog, onLog, onProgress, abortRef) {
+  const works = catalog.filter((w) => {
+    if (w.sync_status === "manual_override") return false;
+    return w.categories?.includes("manga");
+  });
+
+  let updated = 0, unchanged = 0, notFound = 0;
+  onLog?.(`Sincronizando ${works.length} mangá(s) (Jikan+TMDB)...`, "info");
+
+  for (let i = 0; i < works.length; i++) {
+    if (abortRef?.current) break;
+    const work = works[i];
+    onLog?.(`[${i + 1}/${works.length}] ${work.title}...`, "loading");
+
+    try {
+      const result = await syncWorkBothSources(work, "manga");
+      if (!result || result.totalChapters == null) {
+        onLog?.(`${work.title}: não encontrado (Jikan nem TMDB)`, "warn");
+        notFound++;
+      } else {
+        const changes = [];
+        if (result.totalChapters !== work.totalChapters) changes.push(`Caps: ${work.totalChapters} → ${result.totalChapters}`);
+        if (result.mangaStatus && result.mangaStatus !== work.mangaStatus) changes.push(`Status: ${result.mangaStatus}`);
+        if (changes.length > 0) { onLog?.(`${work.title}: atualizado (${changes.join(", ")})`, "success"); updated++; }
+        else { onLog?.(`${work.title}: sem alterações`, "info"); unchanged++; }
+      }
+    } catch (err) {
+      onLog?.(`${work.title}: erro — ${err.message}`, "error");
+      notFound++;
+    }
+
+    if (i < works.length - 1) await delay(450);
+    onProgress?.(i / works.length);
+  }
+
+  return { total: works.length, updated, unchanged, notFound };
+}
+
 // ─── SINCRONIZAÇÃO DE OBRAS EM EXIBIÇÃO ──────────────────────────────────
 export async function syncCurrentlyAiring(onLog) {
   let added = 0;
@@ -220,6 +297,28 @@ export async function discoverNewSeason(onLog) {
 
   onLog?.(`${newCount} obras da próxima temporada adicionadas.`);
   return { newCount };
+}
+
+// ─── SINCRONIZAÇÃO HÍBRIDA (JIKAN + TMDB) ──────────────────────────────────
+export async function syncWorkBothSources(work, type = "anime") {
+  const jikanResult = await syncWorkFromJikan(work);
+  
+  // Se encontrou no Jikan, retorna resultado do Jikan
+  if (jikanResult?.totalEpisodes != null || jikanResult?.totalChapters != null) {
+    return jikanResult;
+  }
+
+  // Fallback para TMDB se Jikan não achou
+  if (type === "anime" && work.title) {
+    try {
+      const tmdbResult = await getTMDBWorkDetails(work.title, "tv");
+      if (tmdbResult) return tmdbResult;
+    } catch (e) {
+      console.warn("Erro no TMDB fallback:", e.message);
+    }
+  }
+
+  return null;
 }
 
 // ─── IMPORTAÇÃO HÍBRIDA (JIKAN + TMDB) ──────────────────────────────────

@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle2, AlertCircle, Loader2, Info, BookOpen, Layers, Clock } from "lucide-react";
+import { RefreshCw, CheckCircle2, AlertCircle, Loader2, Info, BookOpen, Layers, Clock, Zap } from "lucide-react";
 import { CATALOG } from "@/lib/catalog";
 import { syncWorkFromJikan, syncAllMangas, delay } from "@/lib/jikan";
+import { runHybridAnimeSync, runHybridMangaSync } from "@/lib/catalogAutoSync";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
@@ -179,6 +180,24 @@ export default function CatalogSync() {
     setRunning(false);
   }
 
+  async function handleSyncHybridAnimes() {
+    setRunning(true); setLogs([]); setAnimeSummary(null); setMangaSummary(null);
+    abortRef.current = false;
+    const summary = await runHybridAnimeSync(CATALOG, addLog, null, abortRef);
+    setAnimeSummary(summary);
+    refreshCatalog();
+    setRunning(false);
+  }
+
+  async function handleSyncHybridMangas() {
+    setRunning(true); setLogs([]); setAnimeSummary(null); setMangaSummary(null);
+    abortRef.current = false;
+    const summary = await runHybridMangaSync(CATALOG, addLog, null, abortRef);
+    setMangaSummary(summary);
+    refreshCatalog();
+    setRunning(false);
+  }
+
   function handleAbort() {
     abortRef.current = true;
     setRunning(false);
@@ -190,10 +209,10 @@ export default function CatalogSync() {
   return (
     <div className="bg-card rounded-xl border border-border p-5 space-y-4">
       <div>
-        <h3 className="font-space font-bold text-base text-foreground">Sincronização do Catálogo (Jikan/MAL)</h3>
+        <h3 className="font-space font-bold text-base text-foreground">Sincronização do Catálogo</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {animeCount} anime(s) em exibição · dados via{" "}
-          <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Jikan API</a>
+          {animeCount} anime(s) em exibição · modo Jikan ou Híbrida{" "}
+          <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">(Jikan/TMDB)</a>
         </p>
       </div>
 
@@ -207,16 +226,26 @@ export default function CatalogSync() {
           <>
             <Button size="sm" onClick={handleSyncAnimes} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               <RefreshCw className="w-4 h-4" />
-              Sincronizar animes
+              Animes (Jikan)
             </Button>
             <Button size="sm" variant="outline" onClick={handleSyncMangas} className="gap-2">
               <BookOpen className="w-4 h-4" />
-              Sincronizar mangás
+              Mangás (Jikan)
             </Button>
             <Button size="sm" variant="secondary" onClick={handleSyncAll} className="gap-2">
               <Layers className="w-4 h-4" />
-              Sincronizar tudo
+              Tudo (Jikan)
             </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSyncHybridAnimes} className="gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10">
+                <Zap className="w-4 h-4" />
+                Animes (Híbrida)
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleSyncHybridMangas} className="gap-2">
+                <Zap className="w-4 h-4" />
+                Mangás (Híbrida)
+              </Button>
+            </div>
           </>
         )}
       </div>
