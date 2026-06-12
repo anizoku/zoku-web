@@ -243,17 +243,36 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     });
   }
 
-  function handleStatusChange(newStatus) {
+  async function handleStatusChange(newStatus) {
     if (!entry) return;
-    updateMutation.mutate({ id: entry.id, data: { status: newStatus } });
-    showToast(`Status: ${STATUS_LABELS[newStatus]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    if (newStatus === "completed" && effectiveTotal > 0) {
+      const prev = entry[cfg.progressKey] || 0;
+      const missing = effectiveTotal - prev;
+      const xpPerUnit = XP_REWARDS[cfg.xpKey];
+      const xpEarned = missing > 0 ? missing * xpPerUnit : 0;
+      const bonusXp = 125;
+      const totalXp = xpEarned + bonusXp;
+      const updates = {
+        status: "completed",
+        [cfg.progressKey]: effectiveTotal,
+        [cfg.totalKey]: effectiveTotal,
+      };
+      updateMutation.mutate({ id: entry.id, data: updates });
+      if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
+      recordXpEvent("work_completed", 125);
+      showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+    } else {
+      updateMutation.mutate({ id: entry.id, data: { status: newStatus } });
+      showToast(`Status: ${STATUS_LABELS[newStatus]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    }
   }
 
   function handleIncrement() {
     if (!entry) return;
+    if (effectiveTotal > 0 && current >= effectiveTotal) return;
     const field = cfg.progressKey;
     const cur = entry[field] || 0;
-    const newVal = cur + 1;
+    const newVal = effectiveTotal > 0 ? Math.min(cur + 1, effectiveTotal) : cur + 1;
     const updates = { [field]: newVal };
     const willComplete = effectiveTotal > 0 && newVal >= effectiveTotal;
     if (willComplete) updates.status = "completed";
@@ -412,7 +431,7 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
                       <Button variant="outline" size="icon" className="h-8 w-8 border-border" onClick={handleDecrement} disabled={isMutating || current <= 0}>
                         <Minus className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" className={`h-8 w-8 ${cfg.bg} ${cfg.color} border ${cfg.border} hover:opacity-80`} onClick={handleIncrement} disabled={isMutating}>
+                      <Button size="icon" className={`h-8 w-8 ${cfg.bg} ${cfg.color} border ${cfg.border} hover:opacity-80`} onClick={handleIncrement} disabled={isMutating || (effectiveTotal > 0 && current >= effectiveTotal)}>
                         {isMutating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                       </Button>
                       <ProgressInput

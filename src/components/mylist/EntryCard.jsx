@@ -232,7 +232,15 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
         open={statusDialogOpen}
         onOpenChange={setStatusDialogOpen}
         currentStatus={entry.status}
-        onConfirm={(s) => onUpdate(entry.id, { status: s })}
+        onConfirm={(s) => {
+          if (s === "completed" && total > 0) {
+            const field = isAnime ? "current_episode" : "current_chapter";
+            const totalField = isAnime ? "total_episodes" : "total_chapters";
+            onUpdate(entry.id, { status: "completed", [field]: total, [totalField]: total });
+          } else {
+            onUpdate(entry.id, { status: s });
+          }
+        }}
       />
 
       <div className="bg-card rounded-xl border border-border p-3 hover:border-primary/20 transition-all flex gap-3">

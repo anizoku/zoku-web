@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Tv, Film, BookOpen, List, User, Users, Calendar, Clapperboard, Trophy, Sparkles } from "lucide-react";
+import { Home, TrendingUp, Library, List, User, Users, Calendar, Trophy, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { computeStats, computeTotalXp, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
@@ -8,17 +8,14 @@ const LOGO_ICON       = "https://media.base44.com/images/public/69f36ad625ae768a
 const LOGO_HORIZONTAL = "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/c61581414_aniZoku.png";
 
 const navItems = [
-  { icon: Home,       label: "Início",      path: "/" },
-  { icon: TrendingUp, label: "Trending",    path: "/trending" },
-  { icon: Tv,         label: "Animes",      path: "/animes" },
-  { icon: Film,       label: "Filmes",      path: "/films" },
-  { icon: Clapperboard, label: "Live-Action", path: "/series" },
-  { icon: BookOpen,   label: "Mangás",      path: "/mangas" },
-  { icon: List,       label: "Minha Lista", path: "/my-list" },
-  { icon: Users,      label: "Comunidades", path: "/communities" },
-  { icon: User,       label: "Amigos",      path: "/friends" },
-  { icon: Calendar,   label: "Eventos",     path: "/events" },
-  { icon: Trophy,     label: "Ranking",     path: "/ranking" },
+  { icon: Home,       label: "Início",        path: "/" },
+  { icon: TrendingUp, label: "Trending",      path: "/trending" },
+  { icon: Library,    label: "Obras",         path: "/obras" },
+  { icon: List,       label: "Minha Lista",   path: "/my-list" },
+  { icon: Users,      label: "Comunidades",   path: "/communities" },
+  { icon: User,       label: "Amigos",        path: "/friends" },
+  { icon: Calendar,   label: "Eventos",       path: "/events" },
+  { icon: Trophy,     label: "Ranking",       path: "/ranking" },
   { icon: Sparkles,   label: "Recomendações", path: "/recomendacoes" },
 ];
 
@@ -113,7 +110,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto py-3 space-y-0.5 px-2">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
           return (
             <Link
               key={item.path}

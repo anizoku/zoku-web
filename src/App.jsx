@@ -32,6 +32,8 @@ import Series from '@/pages/Series';
 import Admin from '@/pages/Admin';
 import Ranking from '@/pages/Ranking';
 import Recommendations from '@/pages/Recommendations';
+import Works from '@/pages/Works';
+import { Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
 const AuthenticatedApp = () => {
@@ -100,11 +102,11 @@ const AuthenticatedApp = () => {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/trending" element={<Trending />} />
-        <Route path="/animes" element={<Animes />} />
-        <Route path="/mangas" element={<Mangas />} />
+        <Route path="/animes" element={<Navigate to="/obras?categoria=anime" replace />} />
+        <Route path="/mangas" element={<Navigate to="/obras?categoria=manga" replace />} />
+        <Route path="/films" element={<Navigate to="/obras?categoria=movie" replace />} />
+        <Route path="/series" element={<Navigate to="/obras?categoria=liveaction" replace />} />
         <Route path="/communities" element={<Communities />} />
-        <Route path="/films" element={<Films />} />
-        <Route path="/series" element={<Series />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/events" element={<Events />} />
         <Route path="/my-list" element={<MyList />} />
@@ -112,6 +114,7 @@ const AuthenticatedApp = () => {
         <Route path="/obra/:slug" element={<ObraProfile />} />
         <Route path="/u/:userEmail" element={<PublicProfile />} />
         <Route path="/communities/:communityId" element={<CommunityPage />} />
+        <Route path="/obras" element={<Works />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/recomendacoes" element={<Recommendations />} />

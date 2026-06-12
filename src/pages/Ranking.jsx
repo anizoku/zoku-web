@@ -189,35 +189,68 @@ export default function Ranking() {
         </div>
       </div>
 
-      {/* Top 3 Highlight */}
+      {/* Top 3 Podium */}
+      {(() => {
+        const top3 = buildRanking("general").slice(0, 3);
+        if (top3.length === 0) return null;
+        // Order: 2nd (left), 1st (center), 3rd (right)
+        const podiumOrder = [top3[1], top3[0], top3[2]];
+        const podiumPos   = [2, 1, 3];
+        const podiumStyles = {
+          1: { border: "border-[#FFD700]", bg: "bg-[#FFD700]/10", text: "text-[#FFD700]", avatarSize: "w-20 h-20", cardPad: "pb-6 pt-4", nameSize: "text-sm", xpSize: "text-sm" },
+          2: { border: "border-[#C0C0C0]", bg: "bg-[#C0C0C0]/10", text: "text-[#C0C0C0]", avatarSize: "w-16 h-16", cardPad: "pb-4 pt-3", nameSize: "text-xs", xpSize: "text-xs" },
+          3: { border: "border-[#CD7F32]", bg: "bg-[#CD7F32]/10", text: "text-[#CD7F32]", avatarSize: "w-14 h-14", cardPad: "pb-3 pt-3", nameSize: "text-xs", xpSize: "text-xs" },
+        };
+        return (
+          <div className="hidden sm:flex items-end justify-center gap-2">
+            {podiumOrder.map((entry, vi) => {
+              if (!entry) return <div key={vi} className="flex-1 max-w-[140px]" />;
+              const pos = podiumPos[vi];
+              const s   = podiumStyles[pos];
+              const rank = getRankForLevel(entry.level);
+              return (
+                <button
+                  key={entry.email}
+                  onClick={() => window.location.href = `/u/${entry.email}`}
+                  className={`flex-1 max-w-[160px] flex flex-col items-center ${s.cardPad} px-2 rounded-xl border-2 ${s.border} ${s.bg} transition-all hover:opacity-90`}
+                >
+                  {/* Medal / Crown above avatar */}
+                  <div className="mb-1.5">
+                    {pos === 1 && (
+                      <svg viewBox="0 0 24 24" className="w-7 h-7 fill-[#FFD700]" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L9 8L2 9.5L7 14.5L5.5 22L12 18.5L18.5 22L17 14.5L22 9.5L15 8Z" />
+                      </svg>
+                    )}
+                    {pos === 2 && <Medal className="w-5 h-5 text-[#C0C0C0]" />}
+                    {pos === 3 && <Trophy className="w-5 h-5 text-[#CD7F32]" />}
+                  </div>
+                  <div className={`${s.avatarSize} rounded-full border-2 ${s.border} flex items-center justify-center overflow-hidden mb-2 shrink-0`}>
+                    {entry.avatar_url
+                      ? <img src={entry.avatar_url} alt={entry.name} className="w-full h-full object-cover" />
+                      : <span className={`font-bold font-space ${s.text} ${pos === 1 ? "text-2xl" : "text-xl"}`}>{(entry.name || "?")[0].toUpperCase()}</span>
+                    }
+                  </div>
+                  <p className={`font-bold ${s.nameSize} text-foreground truncate w-full text-center`}>
+                    {entry.username ? `@${entry.username}` : entry.name?.split(" ")[0]}
+                  </p>
+                  <p className={`text-[10px] font-medium ${rank.color} mt-0.5`}>Lv.{entry.level}</p>
+                  <p className={`font-space font-bold mt-1 ${s.xpSize} ${s.text}`}>{entry.xp.toLocaleString()} XP</p>
+                  <div className={`font-bold text-[10px] mt-1 ${s.text}`}>#{pos}</div>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+      {/* Mobile top 3 — vertical */}
       {(() => {
         const top3 = buildRanking("general").slice(0, 3);
         if (top3.length === 0) return null;
         return (
-          <div className="grid grid-cols-3 gap-3">
-            {[top3[1], top3[0], top3[2]].map((entry, vi) => {
-              if (!entry) return <div key={vi} />;
-              const realPos = vi === 0 ? 2 : vi === 1 ? 1 : 3;
-              const medal = getMedalStyle(realPos);
-              const rank  = getRankForLevel(entry.level);
-              return (
-                <button key={entry.email} onClick={() => window.location.href = `/u/${entry.email}`}
-                  className={`flex flex-col items-center p-3 rounded-xl border ${medal.border} ${medal.bg} transition-all hover:opacity-90 ${realPos === 1 ? "order-2 scale-105" : ""}`}>
-                  <div className={`text-xs font-bold mb-2 ${medal.text}`}>#{realPos}</div>
-                  <div className={`w-14 h-14 rounded-full border-2 ${medal.border} flex items-center justify-center overflow-hidden mb-2`}>
-                    {entry.avatar_url
-                      ? <img src={entry.avatar_url} className="w-full h-full object-cover" />
-                      : <span className={`font-bold text-lg font-space ${medal.text}`}>{(entry.name || "?")[0].toUpperCase()}</span>
-                    }
-                  </div>
-                  <p className="text-xs font-semibold text-foreground truncate w-full text-center">
-                    {entry.username ? `@${entry.username}` : entry.name?.split(" ")[0]}
-                  </p>
-                  <p className={`text-[10px] font-medium ${rank.color}`}>Lv.{entry.level}</p>
-                  <p className={`text-xs font-bold mt-1 ${medal.text}`}>{entry.xp.toLocaleString()}</p>
-                </button>
-              );
-            })}
+          <div className="flex sm:hidden flex-col gap-2">
+            {top3.map((entry, i) => (
+              <RankRow key={entry.email} position={i + 1} entry={entry} isCurrentUser={entry.email === currentUser?.email} />
+            ))}
           </div>
         );
       })()}

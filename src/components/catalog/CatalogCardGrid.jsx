@@ -50,17 +50,19 @@ export default function CatalogCardGrid({ item, onClick, filterCategory }) {
           <img
             src={finalImage}
             alt={displayTitle}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
           />
         ) : null}
-        {/* Fallback placeholder */}
+        {/* Fallback placeholder — shows initial while loading */}
         <div
-          className="absolute inset-0 flex-col items-center justify-center bg-secondary text-muted-foreground"
+          className="absolute inset-0 flex-col items-center justify-center bg-gray-800 text-gray-400"
           style={{ display: finalImage ? "none" : "flex" }}
         >
-          <ImageOff className="w-8 h-8 mb-1 opacity-40" />
-          <span className="text-[10px] text-center px-2 opacity-60 line-clamp-2">{displayTitle}</span>
+          <span className="text-4xl font-bold opacity-40">{(displayTitle || "?")[0].toUpperCase()}</span>
+          <span className="text-[9px] text-center px-2 opacity-50 line-clamp-2 mt-1">{displayTitle}</span>
         </div>
 
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/10 to-transparent" />

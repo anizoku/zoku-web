@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Tv, Film, BookOpen, MessageCircle, Trophy, Sparkles } from "lucide-react";
+import { Home, Library, MessageCircle, Trophy, Sparkles } from "lucide-react";
 import MobileChatDrawer from "@/components/chat/MobileChatDrawer";
 
 const mobileItems = [
   { icon: Home, label: "Home", path: "/" },
-  { icon: Tv, label: "Animes", path: "/animes" },
-  { icon: Film, label: "Filmes", path: "/films" },
-  { icon: BookOpen, label: "Mangás", path: "/mangas" },
+  { icon: Library, label: "Obras", path: "/obras" },
   { icon: Trophy, label: "Ranking", path: "/ranking" },
   { icon: Sparkles, label: "Para você", path: "/recomendacoes" },
 ];
@@ -21,7 +19,7 @@ export default function MobileNav() {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border">
         <div className="flex items-center justify-around py-2 px-1">
           {mobileItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
             return (
               <Link
                 key={item.path}

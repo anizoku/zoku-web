@@ -66,7 +66,7 @@ function extractTrailer(videos) {
   return null;
 }
 
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 function cacheKey(title, type) {
   return `tmdb_cache__${type}__${title.toLowerCase().trim()}`;
