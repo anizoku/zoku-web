@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CatalogManager from "@/components/admin/CatalogManager";
 import CategoryManager from "@/components/admin/CategoryManager";
 import CatalogSync from "@/components/admin/CatalogSync";
+import DynamicCatalogPanel from "@/components/admin/DynamicCatalogPanel";
 import SuggestionsPanel from "@/components/admin/SuggestionsPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
 import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
@@ -72,6 +73,7 @@ export default function Admin() {
         <Tabs defaultValue="catalog">
           <TabsList className="bg-secondary flex-wrap h-auto gap-1">
             <TabsTrigger value="catalog">Catálogo</TabsTrigger>
+            <TabsTrigger value="dynamic">Catálogo Dinâmico</TabsTrigger>
             <TabsTrigger value="categories">Categorias</TabsTrigger>
             <TabsTrigger value="sync">Sincronização</TabsTrigger>
             <TabsTrigger value="suggestions" className="relative">
@@ -94,6 +96,9 @@ export default function Admin() {
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
             <CatalogManager />
+          </TabsContent>
+          <TabsContent value="dynamic" className="mt-6">
+            <DynamicCatalogPanel />
           </TabsContent>
           <TabsContent value="categories" className="mt-6">
             <CategoryManager />

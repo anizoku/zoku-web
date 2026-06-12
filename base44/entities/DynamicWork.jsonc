@@ -1,0 +1,134 @@
+{
+  "name": "DynamicWork",
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Slug \u00fanico em kebab-case"
+    },
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo em ingl\u00eas/principal"
+    },
+    "title_pt": {
+      "type": "string",
+      "description": "T\u00edtulo em portugu\u00eas (nullable)"
+    },
+    "romaji_title": {
+      "type": "string",
+      "description": "T\u00edtulo em romaji/translitera\u00e7\u00e3o (nullable)"
+    },
+    "categories": {
+      "type": "string",
+      "description": "JSON array serializado ex: '[\"anime\"]'"
+    },
+    "genres": {
+      "type": "string",
+      "description": "JSON array serializado de g\u00eaneros"
+    },
+    "synopsis": {
+      "type": "string",
+      "description": "Sinopse da obra"
+    },
+    "episodes": {
+      "type": "number",
+      "description": "Total de epis\u00f3dios (anime)"
+    },
+    "chapters": {
+      "type": "number",
+      "description": "Total de cap\u00edtulos (manga)"
+    },
+    "volumes": {
+      "type": "number",
+      "description": "Total de volumes (manga)"
+    },
+    "anime_status": {
+      "type": "string",
+      "description": "Status do anime: 'Em exibi\u00e7\u00e3o', 'Finalizado', 'Em breve'"
+    },
+    "manga_status": {
+      "type": "string",
+      "description": "Status do manga: 'Em publica\u00e7\u00e3o', 'Finalizado', 'Em hiato'"
+    },
+    "mal_id": {
+      "type": "number",
+      "description": "ID do anime no MAL (\u00fanico)"
+    },
+    "manga_mal_id": {
+      "type": "number",
+      "description": "ID do manga no MAL (\u00fanico)"
+    },
+    "score": {
+      "type": "number",
+      "description": "Score do MAL (0-10)"
+    },
+    "year": {
+      "type": "number",
+      "description": "Ano de lan\u00e7amento"
+    },
+    "duration": {
+      "type": "string",
+      "description": "Dura\u00e7\u00e3o (ex: '24 min/ep')"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL da imagem do poster"
+    },
+    "source": {
+      "type": "string",
+      "description": "Origem dos dados: 'jikan'"
+    },
+    "sync_status": {
+      "type": "string",
+      "enum": [
+        "synced",
+        "manual_override"
+      ],
+      "default": "synced"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u00daltima sincroniza\u00e7\u00e3o"
+    },
+    "popularity_rank": {
+      "type": "number",
+      "description": "Posi\u00e7\u00e3o no ranking de popularidade do MAL"
+    },
+    "is_currently_airing": {
+      "type": "boolean",
+      "default": false,
+      "description": "Est\u00e1 em exibi\u00e7\u00e3o agora"
+    },
+    "season": {
+      "type": "string",
+      "description": "Temporada: 'winter_2025', 'spring_2025', etc"
+    },
+    "season_year": {
+      "type": "number",
+      "description": "Ano da temporada"
+    }
+  },
+  "required": [
+    "slug",
+    "title"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

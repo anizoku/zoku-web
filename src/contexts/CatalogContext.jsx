@@ -1,20 +1,44 @@
 /**
- * CatalogContext — Provê o catálogo enriquecido com dados do banco (CatalogSync)
- * para toda a aplicação via React Context + React Query.
- *
- * O array estático do catalog.js serve como base/fallback.
- * Os registros da entidade CatalogSync sobrescrevem campos dinâmicos (episódios,
- * capítulos, status) quando o valor do banco é não-nulo e não-zero.
+ * CatalogContext — Catálogo mesclado em tempo real
+ * Combina 3 fontes: catalog.js (estático), CatalogSync (atualizações), DynamicWork (importações).
+ * Prioridade: DynamicWork > CatalogSync > catalog.js
  */
 import { createContext, useContext, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
 
-const QUERY_KEY = ["catalog-sync-records"];
-const STALE_TIME = 5 * 60 * 1000; // 5 minutos
+const QUERY_KEY_SYNC = ["catalog-sync-records"];
+const QUERY_KEY_DYNAMIC = ["catalog-dynamic-works"];
+const STALE_TIME = 10 * 60 * 1000; // 10 minutos
 
-// Mescla um item estático com o registro do banco
+// Converte DynamicWork para formato compatível com o catálogo
+function convertDynamicWork(dw) {
+  return {
+    slug: dw.slug,
+    title: dw.title,
+    title_pt: dw.title_pt,
+    romaji_title: dw.romaji_title,
+    categories: dw.categories ? JSON.parse(dw.categories) : [],
+    genres: dw.genres ? JSON.parse(dw.genres) : [],
+    synopsis: dw.synopsis,
+    totalEpisodes: dw.episodes || null,
+    totalChapters: dw.chapters || null,
+    totalVolumes: dw.volumes || null,
+    animeStatus: dw.anime_status,
+    mangaStatus: dw.manga_status,
+    mal_id: dw.mal_id,
+    manga_mal_id: dw.manga_mal_id,
+    score: dw.score,
+    year: dw.year,
+    cover: null, // DynamicWork usa image_url diretamente
+    image_url: dw.image_url,
+    _source: "dynamic",
+    _dynamicRecord: dw,
+  };
+}
+
+// Mescla item estático com CatalogSync
 function mergeItem(work, syncRecord) {
   if (!syncRecord) return work;
   return {
@@ -35,11 +59,34 @@ function mergeItem(work, syncRecord) {
     mangaStatus: syncRecord.manga_status || work.mangaStatus,
     mal_id: syncRecord.mal_id || work.mal_id,
     manga_mal_id: syncRecord.manga_mal_id || work.manga_mal_id,
-    // romaji_title: preferir o do banco se disponível, senão manter o estático
     romaji_title: syncRecord.romaji_title || work.romaji_title || null,
     _syncRecord: syncRecord,
     _isManualOverride: syncRecord.sync_status === "manual_override",
   };
+}
+
+// Deduplicação por mal_id, slug, título normalizado
+function deduplicateCatalog(items) {
+  const seen = new Map();
+  const result = [];
+
+  for (const item of items) {
+    const malKey = item.mal_id || item.manga_mal_id;
+    const slugKey = item.slug;
+    const titleKey = (item.title || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    if (malKey && seen.has(`mal:${malKey}`)) continue;
+    if (slugKey && seen.has(`slug:${slugKey}`)) continue;
+    if (titleKey && seen.has(`title:${titleKey}`)) continue;
+
+    if (malKey) seen.set(`mal:${malKey}`, true);
+    if (slugKey) seen.set(`slug:${slugKey}`, true);
+    if (titleKey) seen.set(`title:${titleKey}`, true);
+
+    result.push(item);
+  }
+
+  return result;
 }
 
 const CatalogContext = createContext(null);
@@ -47,13 +94,23 @@ const CatalogContext = createContext(null);
 export function CatalogProvider({ children }) {
   const queryClient = useQueryClient();
 
-  const { data: syncRecords = [], isLoading } = useQuery({
-    queryKey: QUERY_KEY,
+  // Carrega CatalogSync
+  const { data: syncRecords = [], isLoading: syncLoading } = useQuery({
+    queryKey: QUERY_KEY_SYNC,
     queryFn: () => base44.entities.CatalogSync.list("-synced_at", 1000),
     staleTime: STALE_TIME,
   });
 
-  // Constrói o mapa slug → registro do banco
+  // Carrega DynamicWork
+  const { data: dynamicWorks = [], isLoading: dynamicLoading } = useQuery({
+    queryKey: QUERY_KEY_DYNAMIC,
+    queryFn: () => base44.entities.DynamicWork.list("popularity_rank", 5000),
+    staleTime: STALE_TIME,
+  });
+
+  const isLoading = syncLoading || dynamicLoading;
+
+  // Constrói mapa slug → CatalogSync
   const syncMap = useMemo(() => {
     const map = new Map();
     for (const r of syncRecords) {
@@ -62,11 +119,40 @@ export function CatalogProvider({ children }) {
     return map;
   }, [syncRecords]);
 
-  // Array mesclado completo
-  const catalog = useMemo(
-    () => CATALOG.map((work) => mergeItem(work, syncMap.get(work.slug))),
-    [syncMap]
-  );
+  // Constrói mapa para deduplicação de DynamicWork
+  const dynamicMap = useMemo(() => {
+    const map = new Map();
+    for (const dw of dynamicWorks) {
+      map.set(dw.slug, dw);
+    }
+    return map;
+  }, [dynamicWorks]);
+
+  // Array mesclado: static → CatalogSync → DynamicWork (prioridade inversa)
+  const catalog = useMemo(() => {
+    let merged = [];
+
+    // Fonte 1: Catálogo estático (base)
+    merged.push(...CATALOG.map((work) => mergeItem(work, syncMap.get(work.slug))));
+
+    // Fonte 3: DynamicWork (nova, sobrescreve estático)
+    for (const dw of dynamicWorks) {
+      const existsStatic = CATALOG.find(w => w.slug === dw.slug);
+      if (!existsStatic) {
+        merged.push(convertDynamicWork(dw));
+      } else {
+        // Se existe no estático, sobrescrever com DynamicWork se mais recente
+        const idx = merged.findIndex(w => w.slug === dw.slug);
+        if (idx >= 0) {
+          merged[idx] = { ...convertDynamicWork(dw), ...merged[idx] };
+        }
+      }
+    }
+
+    // Deduplicar
+    return deduplicateCatalog(merged)
+      .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  }, [syncMap, dynamicWorks]);
 
   const getBySlug = useCallback(
     (slug) => catalog.find((w) => w.slug === slug) || null,
@@ -81,8 +167,14 @@ export function CatalogProvider({ children }) {
     [catalog]
   );
 
+  const getByMalId = useCallback(
+    (malId) => catalog.find((w) => w.mal_id === malId || w.manga_mal_id === malId) || null,
+    [catalog]
+  );
+
   const refreshCatalog = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEY_SYNC });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEY_DYNAMIC });
   }, [queryClient]);
 
   const getCatalogStats = useCallback(() => {
@@ -96,8 +188,8 @@ export function CatalogProvider({ children }) {
   }, [catalog]);
 
   const value = useMemo(
-    () => ({ catalog, isLoading, getBySlug, getByCategory, refreshCatalog, getCatalogStats }),
-    [catalog, isLoading, getBySlug, getByCategory, refreshCatalog, getCatalogStats]
+    () => ({ catalog, isLoading, getBySlug, getByCategory, getByMalId, refreshCatalog, getCatalogStats }),
+    [catalog, isLoading, getBySlug, getByCategory, getByMalId, refreshCatalog, getCatalogStats]
   );
 
   return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;

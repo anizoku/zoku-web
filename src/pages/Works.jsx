@@ -1,4 +1,4 @@
-import { Library, Plus } from "lucide-react";
+import { Library, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useMemo } from "react";
@@ -16,6 +16,7 @@ import { useCatalog } from "@/contexts/CatalogContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
 import SuggestWorkModal from "@/components/catalog/SuggestWorkModal";
+import { searchAnime, searchManga } from "@/lib/jikan";
 
 const CATEGORIES = [
   { key: "all", label: "Todos" },
@@ -41,6 +42,8 @@ const SUGGEST_TYPE = {
   all: "anime",
 };
 
+const ITEMS_PER_PAGE = 48;
+
 function useViewMode(key, defaultValue = "grid") {
   const [view, setView] = useState(() => localStorage.getItem(key) || defaultValue);
   function onChange(v) {
@@ -53,6 +56,7 @@ function useViewMode(key, defaultValue = "grid") {
 export default function Works() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoria = searchParams.get("categoria") || "all";
+  const pagina = parseInt(searchParams.get("pagina") || "1");
 
   usePageTitle(`ZOKU — ${PAGE_TITLES[categoria] || "Obras"}`);
 
@@ -62,6 +66,8 @@ export default function Works() {
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
+  const [externalResults, setExternalResults] = useState([]);
+  const [searchTimeout, setSearchTimeout] = useState(null);
   const navigate = useNavigate();
   const { catalog, getByCategory, isLoading } = useCatalog();
   const filterVisibleAnime = useVisibilityFilter("anime");
@@ -76,7 +82,45 @@ export default function Works() {
   function setCategoria(key) {
     setSearchParams(key === "all" ? {} : { categoria: key });
     setSelectedGenres([]);
+    setExternalResults([]);
   }
+
+  function setPagina(p) {
+    const params = categoria === "all" ? {} : { categoria };
+    if (p > 1) params.pagina = p;
+    setSearchParams(params);
+  }
+
+  // Busca dinâmica externa após 800ms sem digitação
+  useEffect(() => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    if (search.trim().length < 2) {
+      setExternalResults([]);
+      return;
+    }
+
+    setSearchTimeout(
+      setTimeout(async () => {
+        try {
+          // Se não há resultados locais, buscar no Jikan
+          if (filtered.length === 0) {
+            const [animes, mangas] = await Promise.all([
+              searchAnime(search),
+              searchManga(search),
+            ]);
+            setExternalResults([...animes, ...mangas].slice(0, 6));
+          }
+        } catch (e) {
+          console.warn("Busca externa falhou:", e);
+        }
+      }, 800)
+    );
+
+    return () => {
+      if (searchTimeout) clearTimeout(searchTimeout);
+    };
+  }, [search, filtered.length]);
 
   const allWorks = useMemo(() => {
     if (categoria === "all") return catalog;
@@ -112,9 +156,49 @@ export default function Works() {
 
   const sorted = useSortedWorks(filtered, sort);
 
+  // Paginação
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+  const validPage = Math.max(1, Math.min(pagina, totalPages || 1));
+  const start = (validPage - 1) * ITEMS_PER_PAGE;
+  const paginatedWorks = sorted.slice(start, start + ITEMS_PER_PAGE);
+
   function getCategoryForCard(item) {
     if (categoria !== "all") return categoria;
     return item.categories?.[0] || "anime";
+  }
+
+  async function handleAddExternal(externalWork) {
+    try {
+      // Criar na DynamicWork
+      const slug = (externalWork.title || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s-]/g, "")
+        .trim()
+        .replace(/\s+/g, "-");
+
+      const workType = externalWork.type?.toLowerCase().includes("manga") ? "manga" : "anime";
+      const categories = workType === "manga" ? ["manga"] : ["anime"];
+
+      await base44.entities.DynamicWork.create({
+        slug,
+        title: externalWork.title_english || externalWork.title,
+        romaji_title: externalWork.title,
+        categories: JSON.stringify(categories),
+        genres: JSON.stringify((externalWork.genres || []).map(g => g.name)),
+        mal_id: workType === "anime" ? externalWork.mal_id : null,
+        manga_mal_id: workType === "manga" ? externalWork.mal_id : null,
+        score: externalWork.score || null,
+        image_url: externalWork.images?.jpg?.large_image_url || null,
+        source: "jikan",
+      });
+
+      setExternalResults([]);
+      setSearch("");
+    } catch (e) {
+      console.warn("Erro ao adicionar obra:", e);
+    }
   }
 
   return (
@@ -175,6 +259,33 @@ export default function Works() {
         <GenreFilter allGenres={allGenres} selectedGenres={selectedGenres} onChange={setSelectedGenres} />
       </div>
 
+      {/* Resultados externos */}
+      {externalResults.length > 0 && filtered.length < 3 && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-muted-foreground mb-3">Resultados externos (Jikan)</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {externalResults.map((work) => (
+              <button
+                key={work.mal_id}
+                onClick={() => handleAddExternal(work)}
+                className="rounded-lg border border-border bg-card p-2 hover:bg-secondary transition-all space-y-2"
+              >
+                <img
+                  src={work.images?.jpg?.small_image_url}
+                  alt={work.title}
+                  className="w-full aspect-[2/3] rounded object-cover"
+                />
+                <p className="text-xs font-medium line-clamp-2 text-foreground">{work.title}</p>
+                {work.score && <p className="text-[10px] text-primary">★ {work.score}/10</p>}
+                <Button size="sm" variant="outline" className="w-full text-xs">
+                  <Plus className="w-3 h-3 mr-1" /> Adicionar
+                </Button>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {Array.from({ length: 20 }).map((_, i) => (
@@ -187,7 +298,7 @@ export default function Works() {
         </div>
       ) : view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {sorted.map((work) => {
+          {paginatedWorks.map((work) => {
             const cat = getCategoryForCard(work);
             return (
               <AdminEditableCard key={`${work.slug}-${cat}`} item={work} isAdmin={isAdmin} category={cat}>
@@ -202,7 +313,7 @@ export default function Works() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {sorted.map((work) => {
+          {paginatedWorks.map((work) => {
             const cat = getCategoryForCard(work);
             return (
               <AdminEditableCard key={`${work.slug}-${cat}`} item={work} isAdmin={isAdmin} category={cat}>
@@ -220,6 +331,33 @@ export default function Works() {
       {!isLoading && sorted.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-sm">Nenhuma obra encontrada{search ? ` para "${search}"` : ""}.</p>
+        </div>
+      )}
+
+      {/* Paginação */}
+      {!isLoading && sorted.length > ITEMS_PER_PAGE && (
+        <div className="flex items-center justify-center gap-3 mt-8 pt-6 border-t border-border">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPagina(validPage - 1)}
+            disabled={validPage <= 1}
+            className="gap-2"
+          >
+            <ChevronLeft className="w-4 h-4" /> Anterior
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Página {validPage} de {totalPages} · Exibindo {start + 1}–{Math.min(start + ITEMS_PER_PAGE, sorted.length)} de {sorted.length}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPagina(validPage + 1)}
+            disabled={validPage >= totalPages}
+            className="gap-2"
+          >
+            Próxima <ChevronRight className="w-4 h-4" />
+          </Button>
         </div>
       )}
     </div>

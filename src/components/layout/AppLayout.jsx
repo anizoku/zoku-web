@@ -9,6 +9,28 @@ import PushPermissionPrompt from "@/components/pwa/PushPermissionPrompt";
 import { base44 } from "@/api/base44Client";
 
 export default function AppLayout() {
+  // Auto-sync background a cada 6 horas
+  useEffect(() => {
+    const lastAutoSync = sessionStorage.getItem("zoku_last_auto_sync");
+    const now = Date.now();
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+
+    if (!lastAutoSync || now - parseInt(lastAutoSync) > SIX_HOURS) {
+      sessionStorage.setItem("zoku_last_auto_sync", now.toString());
+
+      setTimeout(async () => {
+        try {
+          const { syncCurrentlyAiring, discoverNewSeason } = await import("@/lib/catalogAutoSync");
+          await syncCurrentlyAiring();
+          await discoverNewSeason();
+          // Refresh silencioso
+          const { useCatalog } = await import("@/contexts/CatalogContext");
+        } catch (e) {
+          console.warn("Auto-sync falhou:", e);
+        }
+      }, 5000);
+    }
+  }, []);
   useAutoImageRefresh();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
