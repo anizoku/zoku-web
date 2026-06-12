@@ -38,6 +38,10 @@
       "type": "number",
       "description": "Score do MAL (0-10)"
     },
+    "romaji_title": {
+      "type": "string",
+      "description": "T\u00edtulo em romaji/translitera\u00e7\u00e3o latina (ex: Shingeki no Kyojin)"
+    },
     "synced_at": {
       "type": "string",
       "format": "date-time",

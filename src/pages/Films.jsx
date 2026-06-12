@@ -41,6 +41,7 @@ export default function Films() {
   const q = normalizeStr(search);
   const filtered = allFilms.filter(filterVisible).filter((f) =>
     normalizeStr(f.title).includes(q) ||
+    normalizeStr(f.romaji_title).includes(q) ||
     f.genres.some((g) => normalizeStr(g).includes(q))
   );
   const sorted = useSortedWorks(filtered, sort);

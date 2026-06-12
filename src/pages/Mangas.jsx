@@ -54,7 +54,9 @@ export default function Mangas() {
   }, [allMangas]);
 
   const filtered = allMangas.filter(filterVisible).filter((m) => {
-    const textMatch = normalizeStr(m.title).includes(q) || m.genres.some((g) => normalizeStr(g).includes(q));
+    const textMatch = normalizeStr(m.title).includes(q) ||
+      normalizeStr(m.romaji_title).includes(q) ||
+      m.genres.some((g) => normalizeStr(g).includes(q));
     const genreMatch = selectedGenres.length === 0 || selectedGenres.every(g => m.genres?.includes(g));
     return textMatch && genreMatch;
   });

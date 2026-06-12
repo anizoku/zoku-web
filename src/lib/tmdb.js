@@ -99,6 +99,55 @@ export function invalidateTMDBCache(title, type) {
   } catch {}
 }
 
+/**
+ * Busca títulos alternativos no TMDB e retorna o melhor título em romaji/latim.
+ * Retorna null se nenhum título em caracteres latinos for encontrado.
+ */
+export async function getTMDBAlternativeTitles(tmdbId, mediaType) {
+  if (!tmdbId) return null;
+  try {
+    const path = mediaType === "movie"
+      ? `/movie/${tmdbId}/alternative_titles`
+      : `/tv/${tmdbId}/alternative_titles`;
+    const data = await tmdbFetch(path, "en-US");
+    const titles = mediaType === "movie"
+      ? (data.titles || []).map(t => t.title)
+      : (data.results || []).map(t => t.title);
+    return titles;
+  } catch {
+    return null;
+  }
+}
+
+const ASCII_ONLY = /^[\x20-\x7E]+$/;
+
+/**
+ * Dado o objeto tmdbData completo, encontra o melhor subtítulo em romaji.
+ * Prioridade: títulos alternativos latinos → original_name/title em latim → null.
+ */
+export function findRomajiTitle(tmdbData) {
+  if (!tmdbData) return null;
+  const mainTitle = (tmdbData.title || "").toLowerCase().trim();
+
+  // 1. Tentar nos títulos alternativos (devem ser passados separadamente)
+  const altTitles = tmdbData._altTitles || [];
+  const bestAlt = altTitles.find(t => {
+    if (!t || t.length < 4) return false;
+    if (!ASCII_ONLY.test(t)) return false;
+    if (t.toLowerCase().trim() === mainTitle) return false;
+    return true;
+  });
+  if (bestAlt) return bestAlt;
+
+  // 2. Verificar originalTitle da TMDB
+  const orig = tmdbData.originalTitle;
+  if (orig && ASCII_ONLY.test(orig) && orig.toLowerCase().trim() !== mainTitle && orig.length >= 4) {
+    return orig;
+  }
+
+  return null;
+}
+
 export async function getTMDBWorkDetails(title, type) {
   if (!TOKEN) return { found: false, error: "Token TMDB não configurado." };
 

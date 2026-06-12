@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCatalog } from "@/contexts/CatalogContext";
 import { XP_REWARDS } from "@/lib/xpSystem";
-import { getTMDBWorkDetails, invalidateTMDBCache } from "@/lib/tmdb";
+import { getTMDBWorkDetails, getTMDBAlternativeTitles, findRomajiTitle, invalidateTMDBCache } from "@/lib/tmdb";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
 import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Users, Sparkles } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
@@ -483,6 +483,7 @@ export default function ObraProfile() {
   const [tmdbData, setTmdbData] = useState(null);
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [tmdbError, setTmdbError] = useState(null);
+  const [romajiTitle, setRomajiTitle] = useState(null);
   const { getBySlug, isLoading: catalogLoading } = useCatalog();
 
   // Read ?tipo= from URL
@@ -510,8 +511,26 @@ export default function ObraProfile() {
     const type = media.categories.includes("movie") && !media.categories.includes("anime") ? "movie" : "tv";
     setTmdbLoading(true);
     setTmdbError(null);
+    setRomajiTitle(null);
+
+    // 1. Prefer static romaji_title from catalog
+    if (media.romaji_title) {
+      setRomajiTitle(media.romaji_title);
+    }
+
     getTMDBWorkDetails(media.title, type)
-      .then(setTmdbData)
+      .then(async (data) => {
+        setTmdbData(data);
+        // 2. If no static romaji, try TMDB alternative titles
+        if (!media.romaji_title && data?.tmdbId) {
+          try {
+            const altTitles = await getTMDBAlternativeTitles(data.tmdbId, type);
+            const enriched = { ...data, _altTitles: altTitles || [] };
+            const found = findRomajiTitle(enriched);
+            if (found) setRomajiTitle(found);
+          } catch {}
+        }
+      })
       .catch((e) => setTmdbError(e.message))
       .finally(() => setTmdbLoading(false));
   }, [media?.slug]);
@@ -523,8 +542,18 @@ export default function ObraProfile() {
     setTmdbLoading(true);
     setTmdbError(null);
     getTMDBWorkDetails(media.title, type)
-      .then(setTmdbData)
-      .catch((e) => setTmdbError("Não foi possível atualizar os dados pelo TMDB agora. Tente novamente mais tarde."))
+      .then(async (data) => {
+        setTmdbData(data);
+        if (!media.romaji_title && data?.tmdbId) {
+          try {
+            const altTitles = await getTMDBAlternativeTitles(data.tmdbId, type);
+            const enriched = { ...data, _altTitles: altTitles || [] };
+            const found = findRomajiTitle(enriched);
+            if (found) setRomajiTitle(found);
+          } catch {}
+        }
+      })
+      .catch(() => setTmdbError("Não foi possível atualizar os dados pelo TMDB agora. Tente novamente mais tarde."))
       .finally(() => setTmdbLoading(false));
   }
 
@@ -665,8 +694,8 @@ export default function ObraProfile() {
                 })}
               </div>
               <h1 className="font-space font-bold text-2xl sm:text-3xl text-foreground leading-tight">{media.title}</h1>
-              {tmdbData?.originalTitle && tmdbData.originalTitle !== media.title && (
-                <p className="text-sm text-muted-foreground/70 mt-1 truncate font-normal">{tmdbData.originalTitle}</p>
+              {romajiTitle && (
+                <p className="text-sm text-muted-foreground/70 mt-1 truncate font-normal italic">{romajiTitle}</p>
               )}
             </div>
 

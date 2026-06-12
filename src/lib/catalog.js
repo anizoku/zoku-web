@@ -2,6 +2,91 @@
 // Cada obra tem um slug único e pode ter múltiplas categorias (anime, movie, manga, series)
 // "series" = adaptação live-action/série real de uma obra já presente no catálogo
 
+// Mapa de romaji_title para obras populares buscadas pelo nome original
+export const ROMAJI_MAP = {
+  "attack-on-titan":              "Shingeki no Kyojin",
+  "attack-on-titan-manga":        "Shingeki no Kyojin",
+  "demon-slayer":                 "Kimetsu no Yaiba",
+  "demon-slayer-manga":           "Kimetsu no Yaiba",
+  "demon-slayer-movie":           "Mugen Ressha-hen",
+  "my-hero-academia":             "Boku no Hero Academia",
+  "my-hero-academia-manga":       "Boku no Hero Academia",
+  "jujutsu-kaisen":               "Jujutsu Kaisen",
+  "jujutsu-kaisen-s2":            "Jujutsu Kaisen",
+  "jjk-manga":                    "Jujutsu Kaisen",
+  "death-note":                   "Desu Noto",
+  "fmab":                         "Hagane no Renkinjutsushi",
+  "one-punch-man":                "Wanpanman",
+  "one-punch-man-manga":          "Wanpanman",
+  "your-lie-in-april":            "Shigatsu wa Kimi no Uso",
+  "a-silent-voice":               "Koe no Katachi",
+  "spirited-away":                "Sen to Chihiro no Kamikakushi",
+  "your-name":                    "Kimi no Na wa",
+  "weathering-with-you":          "Tenki no Ko",
+  "suzume":                       "Suzume no Tojimari",
+  "frieren":                      "Sousou no Frieren",
+  "frieren-manga-standalone":     "Sousou no Frieren",
+  "violet-evergarden":            "Vaioretto Evagaaden",
+  "mob-psycho-100":               "Mob Saiko Hyaku",
+  "anohana":                      "Ano Hi Mita Hana no Namae wo Bokutachi wa Mada Shiranai",
+  "steins-gate":                  "Shutainzu Geto",
+  "nge":                          "Shinseiki Evangelion",
+  "hunter-x-hunter":              "Hanta x Hanta",
+  "hunter-x-hunter-manga":        "Hanta x Hanta",
+  "dragon-ball-z":                "Doragon Boru Zetto",
+  "fairy-tail":                   "Fearī Teiru",
+  "bocchi-the-rock":              "Bocchi za Rokku",
+  "bocchi-manga":                 "Bocchi za Rokku",
+  "chainsaw-man":                 "Chensou Man",
+  "chainsaw-man-manga":           "Chensou Man",
+  "blue-lock":                    "Buru Rokku",
+  "blue-lock-manga":              "Buru Rokku",
+  "spy-x-family":                 "Supai Famiri",
+  "dandadan":                     "Dan Da Dan",
+  "oshi-no-ko":                   "Oshi no Ko",
+  "princess-mononoke":            "Mononoke Hime",
+  "my-neighbor-totoro":           "Tonari no Totoro",
+  "howls-moving-castle":          "Hauru no Ugoku Shiro",
+  "kikis-delivery":               "Majo no Takkyuubin",
+  "grave-fireflies":              "Hotaru no Haka",
+  "castle-sky":                   "Tenkuu no Shiro Laputa",
+  "nausicaa":                     "Kaze no Tani no Naushika",
+  "perfect-blue":                 "Paafekkuto Buruu",
+  "paprika":                      "Papurika",
+  "girl-leapt-time":              "Toki wo Kakeru Shoujo",
+  "wolf-children":                "Okami Kodomo no Ame to Yuki",
+  "berserk":                      "Berserk",
+  "berserk-manga":                "Berserk",
+  "vagabond":                     "Vagabondo",
+  "vinland-saga":                 "Vinrando Saga",
+  "attack-on-titan-la":           "Shingeki no Kyojin",
+  "death-note-la":                "Desu Noto",
+  "haikyu":                       "Haikyuu",
+  "evangelion-310":               "Evangelion Shin Gekijouban: Hasha",
+  "boy-and-heron":                "Kimitachi wa Dou Ikiru ka",
+  "5-centimeters":                "Byousoku 5 Centimeter",
+  "garden-words":                 "Kotonoha no Niwa",
+  "the-dangers-in-my-heart":      "Boku no Kokoro no Yabai Yatsu",
+  "summer-time-rendering":        "Summer Time Render",
+  "odd-taxi":                     "Oddo Takushii",
+  "banana-fish":                  "Banana Fisshu",
+  "erased":                       "Boku dake ga Inai Machi",
+  "monster":                      "Monsutaa",
+  "nana":                         "Nana",
+  "clannad":                      "Kuranado",
+  "angel-beats":                  "Enjeru Biitsu",
+  "plastic-memories":             "Purasuchikku Memoriiizu",
+  "land-of-lustrous":             "Houseki no Kuni",
+  "code-geass":                   "Koodo Giasu",
+  "pluto":                        "Puruuto",
+  "parasyte":                     "Kiseijuu: Sei no Kakuritsu",
+  "goodnight-punpun":             "Oyasumi Punpun",
+  "oyasumi-punpun":               "Oyasumi Punpun",
+  "i-want-pancreas":              "Kimi no Suizou wo Tabetai",
+  "a-place-further":              "Sora yori mo Tooi Basho",
+  "made-in-abyss":                "Meido in Abisu",
+};
+
 const COVERS = [
   "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&h=400&fit=crop",
   "https://images.unsplash.com/photo-1613376023733-0a73315d9b06?w=300&h=400&fit=crop",
@@ -450,6 +535,11 @@ export const CATALOG = [
 ];
 
 
+// Injeta romaji_title no CATALOG a partir do ROMAJI_MAP
+CATALOG.forEach(item => {
+  if (ROMAJI_MAP[item.slug]) item.romaji_title = ROMAJI_MAP[item.slug];
+});
+
 // Filtrar por categoria
 export function getByCategory(category) {
   return CATALOG.filter(item => item.categories.includes(category)).sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
@@ -460,11 +550,16 @@ export function getBySlug(slug) {
   return CATALOG.find(item => item.slug === slug);
 }
 
-// Busca textual
+function normalizeSearch(s) {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+// Busca textual — compara título, título PT e romaji_title
 export function searchCatalog(query) {
-  const q = query.toLowerCase();
+  const q = normalizeSearch(query);
   return CATALOG.filter(item =>
-    item.title.toLowerCase().includes(q) ||
-    item.genres.some(g => g.toLowerCase().includes(q))
+    normalizeSearch(item.title).includes(q) ||
+    normalizeSearch(item.romaji_title).includes(q) ||
+    item.genres.some(g => normalizeSearch(g).includes(q))
   ).sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 }

@@ -54,7 +54,9 @@ export default function Animes() {
   }, [allAnimes]);
 
   const filtered = allAnimes.filter(filterVisible).filter((a) => {
-    const textMatch = normalizeStr(a.title).includes(q) || a.genres.some((g) => normalizeStr(g).includes(q));
+    const textMatch = normalizeStr(a.title).includes(q) ||
+      normalizeStr(a.romaji_title).includes(q) ||
+      a.genres.some((g) => normalizeStr(g).includes(q));
     const genreMatch = selectedGenres.length === 0 || selectedGenres.every(g => a.genres?.includes(g));
     return textMatch && genreMatch;
   });

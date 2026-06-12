@@ -42,6 +42,7 @@ export default function Series() {
   const filtered = allLiveAction.filter(filterVisible).filter((s) =>
     normalizeStr(s.title).includes(q) ||
     normalizeStr(s.liveActionTitle || "").includes(q) ||
+    normalizeStr(s.romaji_title).includes(q) ||
     s.genres.some((g) => normalizeStr(g).includes(q))
   );
   const sorted = useSortedWorks(filtered, sort);

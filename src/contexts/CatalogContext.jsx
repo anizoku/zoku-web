@@ -35,6 +35,8 @@ function mergeItem(work, syncRecord) {
     mangaStatus: syncRecord.manga_status || work.mangaStatus,
     mal_id: syncRecord.mal_id || work.mal_id,
     manga_mal_id: syncRecord.manga_mal_id || work.manga_mal_id,
+    // romaji_title: preferir o do banco se disponível, senão manter o estático
+    romaji_title: syncRecord.romaji_title || work.romaji_title || null,
     _syncRecord: syncRecord,
     _isManualOverride: syncRecord.sync_status === "manual_override",
   };

@@ -13,15 +13,21 @@ function getContextCategory(pathname) {
   return null;
 }
 
+function normalizeQ(s) {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
 function scoreWork(item, query, contextCategory) {
-  const q = query.toLowerCase();
-  const title = item.title.toLowerCase();
+  const q = normalizeQ(query);
+  const title = normalizeQ(item.title);
+  const romaji = normalizeQ(item.romaji_title);
   let score = 0;
 
   if (title === q) score += 100;
   else if (title.startsWith(q)) score += 50;
   else if (title.includes(q)) score += 20;
-  if (item.genres?.some(g => g.toLowerCase().includes(q))) score += 5;
+  if (romaji && (romaji === q || romaji.startsWith(q) || romaji.includes(q))) score += 40;
+  if (item.genres?.some(g => normalizeQ(g).includes(q))) score += 5;
 
   if (contextCategory && item.categories?.includes(contextCategory)) score += 30;
 
@@ -46,10 +52,12 @@ export function useGlobalSearch(query) {
       const lq = q.toLowerCase();
 
       // Works from catalog (local, no async needed)
+      const nq = normalizeQ(q);
       const matchedWorks = CATALOG
         .filter(item =>
-          item.title.toLowerCase().includes(lq) ||
-          item.genres?.some(g => g.toLowerCase().includes(lq))
+          normalizeQ(item.title).includes(nq) ||
+          normalizeQ(item.romaji_title).includes(nq) ||
+          item.genres?.some(g => normalizeQ(g).includes(nq))
         )
         .map(item => ({ ...item, _score: scoreWork(item, q, context) }))
         .sort((a, b) => b._score - a._score)
