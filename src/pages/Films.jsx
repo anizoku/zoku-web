@@ -36,9 +36,11 @@ export default function Films() {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
 
+  const normalizeStr = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = normalizeStr(search);
   const filtered = allFilms.filter(filterVisible).filter((f) =>
-    f.title.toLowerCase().includes(search.toLowerCase()) ||
-    f.genres.some((g) => g.toLowerCase().includes(search.toLowerCase()))
+    normalizeStr(f.title).includes(q) ||
+    f.genres.some((g) => normalizeStr(g).includes(q))
   );
   const sorted = useSortedWorks(filtered, sort);
 

@@ -49,15 +49,16 @@ function getProgress(entry) {
   return total > 0 ? current / total : 0;
 }
 
+// Normaliza string para comparação ignorando acentos
+function normalizeStr(s) {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function filterEntries(entries, status, search) {
   let result = status === "all" ? entries : entries.filter(e => e.status === status);
   if (search.trim()) {
-    const q = search.trim().toLowerCase();
-    result = result.filter(e =>
-      e.title?.toLowerCase().includes(q) ||
-      getMediaType(e).includes(q) ||
-      ["anime", "mangá", "manga", "filme", "movie", "live-action", "liveaction"].some(t => t.includes(q) && getMediaType(e).includes(q.replace("mangá","manga").replace("filme","movie").replace("live-action","liveaction")))
-    );
+    const q = normalizeStr(search.trim());
+    result = result.filter(e => normalizeStr(e.title).includes(q));
   }
   return result;
 }
@@ -65,11 +66,11 @@ function filterEntries(entries, status, search) {
 function sortEntries(entries, sort) {
   const statusOrder = { watching: 0, reading: 1, on_hold: 2, planned: 3, completed: 4, dropped: 5 };
   return [...entries].sort((a, b) => {
-    if (sort === "title_az") return a.title.localeCompare(b.title, "pt-BR");
+    if (sort === "title_az") return normalizeStr(a.title).localeCompare(normalizeStr(b.title), "pt-BR", { sensitivity: "base" });
     if (sort === "updated_desc") return new Date(b.updated_date) - new Date(a.updated_date);
     if (sort === "progress_desc") return getProgress(b) - getProgress(a);
     if (sort === "status") return (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
-    return a.title.localeCompare(b.title, "pt-BR");
+    return normalizeStr(a.title).localeCompare(normalizeStr(b.title), "pt-BR", { sensitivity: "base" });
   });
 }
 

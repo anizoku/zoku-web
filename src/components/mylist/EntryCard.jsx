@@ -158,7 +158,7 @@ function CoverThumb({ entry, mediaType }) {
         />
       ) : null}
       <div
-        className="absolute inset-0 items-center justify-center flex-col"
+        className="absolute inset-0 flex items-center justify-center flex-col"
         style={{ display: finalImage ? "none" : "flex" }}
       >
         <Icon className={`w-6 h-6 ${iconColor} opacity-60`} />

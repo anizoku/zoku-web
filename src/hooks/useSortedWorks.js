@@ -8,6 +8,10 @@ export const SORT_OPTIONS = [
   { value: "rating_asc", label: "Pior avaliados" },
 ];
 
+function normalizeTitle(s) {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function getDisplayTitle(item, overrideMap) {
   const override = overrideMap?.get(item.slug);
   return override?.override_title || item.title || "";
@@ -23,11 +27,15 @@ export function useSortedWorks(works, sortMode) {
     switch (sortMode) {
       case "az":
         return arr.sort((a, b) =>
-          getDisplayTitle(a, overrideMap).localeCompare(getDisplayTitle(b, overrideMap), "pt-BR")
+          normalizeTitle(getDisplayTitle(a, overrideMap)).localeCompare(
+            normalizeTitle(getDisplayTitle(b, overrideMap)), "pt-BR", { sensitivity: "base" }
+          )
         );
       case "za":
         return arr.sort((a, b) =>
-          getDisplayTitle(b, overrideMap).localeCompare(getDisplayTitle(a, overrideMap), "pt-BR")
+          normalizeTitle(getDisplayTitle(b, overrideMap)).localeCompare(
+            normalizeTitle(getDisplayTitle(a, overrideMap)), "pt-BR", { sensitivity: "base" }
+          )
         );
       case "rating_desc":
         return arr.sort((a, b) => (b.rating || 0) - (a.rating || 0));

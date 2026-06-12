@@ -36,9 +36,11 @@ export default function Mangas() {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
 
+  const normalizeStr = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = normalizeStr(search);
   const filtered = allMangas.filter(filterVisible).filter((m) =>
-    m.title.toLowerCase().includes(search.toLowerCase()) ||
-    m.genres.some((g) => g.toLowerCase().includes(search.toLowerCase()))
+    normalizeStr(m.title).includes(q) ||
+    m.genres.some((g) => normalizeStr(g).includes(q))
   );
   const sorted = useSortedWorks(filtered, sort);
 

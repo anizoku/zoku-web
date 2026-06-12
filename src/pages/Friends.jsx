@@ -262,7 +262,9 @@ export default function Friends() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{u.full_name}</p>
-                        <p className="text-xs text-muted-foreground">{u.email}</p>
+                        {profiles.find(p => p.user_email === u.email)?.username && (
+                          <p className="text-xs text-primary/70">@{profiles.find(p => p.user_email === u.email).username}</p>
+                        )}
                       </div>
                       {!status ? (
                         <Button size="sm" className="bg-primary text-primary-foreground gap-1.5 text-xs"

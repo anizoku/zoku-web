@@ -36,10 +36,12 @@ export default function Series() {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
 
+  const normalizeStr = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = normalizeStr(search);
   const filtered = allLiveAction.filter(filterVisible).filter((s) =>
-    s.title.toLowerCase().includes(search.toLowerCase()) ||
-    (s.liveActionTitle || "").toLowerCase().includes(search.toLowerCase()) ||
-    s.genres.some((g) => g.toLowerCase().includes(search.toLowerCase()))
+    normalizeStr(s.title).includes(q) ||
+    normalizeStr(s.liveActionTitle || "").includes(q) ||
+    s.genres.some((g) => normalizeStr(g).includes(q))
   );
   const sorted = useSortedWorks(filtered, sort);
 
