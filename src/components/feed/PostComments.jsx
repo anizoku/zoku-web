@@ -6,11 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
+import AchievementBadge from "@/components/profile/AchievementBadge";
 
-function ReplyItem({ reply, userEmail, depth = 1 }) {
+function ReplyItem({ reply, userEmail, depth = 1, profiles = [] }) {
+  const navigate = useNavigate();
   const timeAgo = reply.created_date
     ? formatDistanceToNow(new Date(reply.created_date), { addSuffix: true, locale: ptBR })
     : "";
+  const replyProfile = profiles.find(p => p.user_email === reply.created_by);
   return (
     <div className={`flex gap-2.5 ${depth > 0 ? "ml-8 mt-2" : "mt-3"}`}>
       <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
@@ -20,7 +24,13 @@ function ReplyItem({ reply, userEmail, depth = 1 }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="bg-secondary/60 rounded-xl px-3 py-2">
-          <p className="text-xs font-semibold text-foreground mb-0.5">{reply.author_name || "Anônimo"}</p>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <button onClick={() => reply.created_by && navigate(`/u/${reply.created_by}`)}
+              className="text-xs font-semibold text-foreground hover:text-primary transition-colors">
+              {reply.author_name || "Anônimo"}
+            </button>
+            {replyProfile?.selected_badge_id && <AchievementBadge badgeId={replyProfile.selected_badge_id} size="xs" />}
+          </div>
           <p className="text-xs text-foreground/85 leading-relaxed whitespace-pre-wrap">{reply.content}</p>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1 ml-2">{timeAgo}</p>
@@ -29,11 +39,13 @@ function ReplyItem({ reply, userEmail, depth = 1 }) {
   );
 }
 
-function CommentItem({ comment, userEmail, postId, allComments }) {
+function CommentItem({ comment, userEmail, postId, allComments, profiles = [] }) {
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [showReplies, setShowReplies] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const commentProfile = profiles.find(p => p.user_email === comment.created_by);
 
   const replies = allComments.filter(c => c.parent_id === comment.id);
 
@@ -69,7 +81,13 @@ function CommentItem({ comment, userEmail, postId, allComments }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="bg-secondary/60 rounded-xl px-3 py-2">
-            <p className="text-xs font-semibold text-foreground mb-0.5">{comment.author_name || "Anônimo"}</p>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <button onClick={() => comment.created_by && navigate(`/u/${comment.created_by}`)}
+                className="text-xs font-semibold text-foreground hover:text-primary transition-colors">
+                {comment.author_name || "Anônimo"}
+              </button>
+              {commentProfile?.selected_badge_id && <AchievementBadge badgeId={commentProfile.selected_badge_id} size="xs" />}
+            </div>
             <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
           </div>
           <div className="flex items-center gap-2 mt-1 ml-2">
@@ -121,7 +139,7 @@ function CommentItem({ comment, userEmail, postId, allComments }) {
           )}
 
           {showReplies && replies.map(reply => (
-            <ReplyItem key={reply.id} reply={reply} userEmail={userEmail} />
+            <ReplyItem key={reply.id} reply={reply} userEmail={userEmail} profiles={profiles} />
           ))}
         </div>
       </div>
@@ -137,6 +155,13 @@ export default function PostComments({ postId, userEmail, onCountUpdate }) {
     queryKey: ["comments", postId],
     queryFn: () => base44.entities.Comment.filter({ post_id: postId }, "-created_date", 100),
     initialData: [],
+  });
+
+  const { data: profiles } = useQuery({
+    queryKey: ["user-profiles"],
+    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+    initialData: [],
+    staleTime: 60000,
   });
 
   // Top-level comments only (no parent_id)
@@ -195,6 +220,7 @@ export default function PostComments({ postId, userEmail, onCountUpdate }) {
               userEmail={userEmail}
               postId={postId}
               allComments={allComments}
+              profiles={profiles}
             />
           ))}
         </div>

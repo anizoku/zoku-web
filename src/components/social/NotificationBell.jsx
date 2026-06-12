@@ -54,14 +54,22 @@ export default function NotificationBell({ userEmail }) {
 
   const markAllRead = async () => {
     const unread = notifications.filter(n => !n.is_read);
+    // Optimistic update
+    queryClient.setQueryData(["notifications"], (old = []) =>
+      old.map(x => ({ ...x, is_read: true }))
+    );
     await Promise.all(unread.map(n => base44.entities.Notification.update(n.id, { is_read: true })));
-    queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 
   async function handleNotifClick(n) {
     if (!n.is_read) {
-      await base44.entities.Notification.update(n.id, { is_read: true });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      // Optimistic update — counter drops immediately
+      queryClient.setQueryData(["notifications"], (old = []) =>
+        old.map(x => x.id === n.id ? { ...x, is_read: true } : x)
+      );
+      base44.entities.Notification.update(n.id, { is_read: true }).catch(() => {
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      });
     }
     const route = getNotificationRoute(n);
     if (route) navigate(route);
@@ -106,9 +114,19 @@ export default function NotificationBell({ userEmail }) {
                 <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${color}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-foreground leading-snug">{n.message}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {n.created_date ? new Date(n.created_date).toLocaleDateString("pt-BR") : ""}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {n.from_email && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/u/${n.from_email}`); }}
+                        className="text-[10px] text-primary/70 hover:text-primary transition-colors font-medium"
+                      >
+                        {n.from_name || n.from_email}
+                      </button>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      {n.created_date ? new Date(n.created_date).toLocaleDateString("pt-BR") : ""}
+                    </p>
+                  </div>
                 </div>
                 {!n.is_read && <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />}
               </div>

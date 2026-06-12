@@ -111,7 +111,12 @@ export default function Trending() {
           { key: "liveaction", data: liveaction },
         ].map(({ key, data }) => (
           <TabsContent key={key} value={key}>
-            {view === "grid" ? renderGrid(data) : renderList(data)}
+            {data.length === 0 ? (
+              <div className="bg-card rounded-xl border border-border p-12 text-center">
+                <TrendingUp className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">Nenhuma obra em destaque nesta categoria</p>
+              </div>
+            ) : view === "grid" ? renderGrid(data) : renderList(data)}
           </TabsContent>
         ))}
       </Tabs>

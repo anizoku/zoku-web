@@ -190,15 +190,21 @@ export default function Friends() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Recebidas</p>
                 <div className="space-y-2">
-                  {pendingReceived.map((f) => (
-                    <div key={f.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
-                      <div className="w-10 h-10 rounded-full bg-chart-2/10 flex items-center justify-center font-bold text-chart-2">
-                        {(f.requester_name || "A")[0].toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{f.requester_name}</p>
-                        <p className="text-xs text-muted-foreground">{f.requester_email}</p>
-                      </div>
+                  {pendingReceived.map((f) => {
+                    const reqProfile = profiles.find(p => p.user_email === f.requester_email);
+                    return (
+                  <div key={f.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+                    <div className="w-10 h-10 rounded-full bg-chart-2/10 flex items-center justify-center font-bold text-chart-2 overflow-hidden">
+                      {reqProfile?.avatar_url
+                        ? <img src={reqProfile.avatar_url} className="w-full h-full object-cover" />
+                        : (f.requester_name || "A")[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{f.requester_name}</p>
+                      {reqProfile?.username
+                        ? <p className="text-xs text-primary/70">@{reqProfile.username}</p>
+                        : null}
+                    </div>
                       <div className="flex gap-2">
                         <Button size="icon" className="h-8 w-8 bg-primary text-primary-foreground" onClick={() => acceptMutation.mutate({ id: f.id, friendship: f })}>
                           <Check className="w-4 h-4" />
@@ -208,7 +214,7 @@ export default function Friends() {
                         </Button>
                       </div>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
             )}
@@ -216,18 +222,24 @@ export default function Friends() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Enviadas</p>
                 <div className="space-y-2">
-                  {pendingSent.map((f) => (
+                  {pendingSent.map((f) => {
+                    const recProfile = profiles.find(p => p.user_email === f.receiver_email);
+                    return (
                     <div key={f.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
-                      <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center font-bold text-muted-foreground">
-                        {(f.receiver_name || "A")[0].toUpperCase()}
+                      <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center font-bold text-muted-foreground overflow-hidden">
+                        {recProfile?.avatar_url
+                          ? <img src={recProfile.avatar_url} className="w-full h-full object-cover" />
+                          : (f.receiver_name || "A")[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{f.receiver_name}</p>
-                        <p className="text-xs text-muted-foreground">{f.receiver_email}</p>
+                        {recProfile?.username
+                          ? <p className="text-xs text-primary/70">@{recProfile.username}</p>
+                          : null}
                       </div>
                       <Badge variant="outline" className="text-xs border-border text-muted-foreground">Pendente</Badge>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
             )}

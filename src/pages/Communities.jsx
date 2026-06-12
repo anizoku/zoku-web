@@ -189,7 +189,9 @@ export default function Communities() {
   });
 
   const isFallback = (id) => id?.startsWith("f");
+  // Show real communities or fallback placeholder data when empty
   const displayCommunities = communities.length > 0 ? communities : fallbackCommunities;
+  const isShowingFallback = communities.length === 0;
 
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
@@ -205,6 +207,12 @@ export default function Communities() {
         </div>
         <CreateCommunityDialog onCreate={createMutation.mutate} userEmail={user?.email} />
       </div>
+
+      {isShowingFallback && (
+        <div className="mb-4 px-4 py-2 rounded-lg bg-secondary/50 border border-border text-xs text-muted-foreground text-center">
+          Nenhuma comunidade criada ainda — estas são sugestões de exemplo. Crie a primeira!
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {displayCommunities.map((community) => (

@@ -11,9 +11,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import LevelBadge from "@/components/profile/LevelBadge";
+import AchievementBadge from "@/components/profile/AchievementBadge";
 import WorkLink from "@/components/media/WorkLink";
 import { useNavigate } from "react-router-dom";
 import PostComments from "@/components/feed/PostComments";
+import { useQuery } from "@tanstack/react-query";
 
 const typeLabels = {
   general: null, review: "Review", reaction: "Reação",
@@ -33,6 +35,16 @@ export default function PostCard({ post, userEmail, userRole, communityCreatorEm
   const [showComments, setShowComments] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  // Load author profile to show achievement badge
+  const { data: authorProfiles } = useQuery({
+    queryKey: ["profile-by-email", post.created_by],
+    queryFn: () => base44.entities.UserProfile.filter({ user_email: post.created_by }),
+    enabled: !!post.created_by,
+    initialData: [],
+    staleTime: 60000,
+  });
+  const authorProfile = authorProfiles?.[0];
 
   const isLiked = (post.liked_by || []).includes(userEmail);
   const isOwner = post.created_by === userEmail;
@@ -100,6 +112,7 @@ export default function PostCard({ post, userEmail, userRole, communityCreatorEm
                 {post.author_name || "Anônimo"}
               </button>
               {post.author_level > 0 && <LevelBadge level={post.author_level} size="sm" />}
+              {authorProfile?.selected_badge_id && <AchievementBadge badgeId={authorProfile.selected_badge_id} />}
               {typeLabels[post.post_type] && (
                 <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${typeColors[post.post_type] || ""}`}>
                   {typeLabels[post.post_type]}
