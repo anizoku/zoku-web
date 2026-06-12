@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Tv, Film, BookOpen, List, MessageCircle, Clapperboard, Trophy } from "lucide-react";
+import { Home, Tv, Film, BookOpen, MessageCircle, Trophy, Sparkles } from "lucide-react";
 import MobileChatDrawer from "@/components/chat/MobileChatDrawer";
 
 const mobileItems = [
@@ -9,6 +9,7 @@ const mobileItems = [
   { icon: Film, label: "Filmes", path: "/films" },
   { icon: BookOpen, label: "Mangás", path: "/mangas" },
   { icon: Trophy, label: "Ranking", path: "/ranking" },
+  { icon: Sparkles, label: "Para você", path: "/recomendacoes" },
 ];
 
 export default function MobileNav() {

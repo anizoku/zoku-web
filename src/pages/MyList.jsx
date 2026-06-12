@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import EntryCard from "@/components/mylist/EntryCard";
+import ImportList from "@/components/mylist/ImportList";
 
 // ── Constantes ────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -329,7 +330,10 @@ export default function MyList() {
             <p className="text-sm text-muted-foreground">{myEntries.length} títulos</p>
           </div>
         </div>
-        <AddEntryDialog onAdd={handleAdd} existingTitles={existingTitles} />
+        <div className="flex items-center gap-2">
+          <ImportList existingEntries={myEntries} onImportDone={() => queryClient.invalidateQueries({ queryKey: ["anime-entries"] })} />
+          <AddEntryDialog onAdd={handleAdd} existingTitles={existingTitles} />
+        </div>
       </div>
 
       {/* Busca + ordenação */}

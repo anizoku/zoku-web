@@ -6,6 +6,7 @@ import PostCard from "@/components/feed/PostCard";
 import TrendingSection from "@/components/home/TrendingSection";
 import RecentEpisodesSection from "@/components/home/RecentEpisodesSection";
 import ActiveDebatesSection from "@/components/home/ActiveDebatesSection";
+import RecommendationsSection from "@/components/home/RecommendationsSection";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
@@ -18,6 +19,12 @@ export default function Home() {
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: () => base44.entities.Post.list("-created_date", 20),
+    initialData: [],
+  });
+
+  const { data: entries = [] } = useQuery({
+    queryKey: ["anime-entries"],
+    queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 500),
     initialData: [],
   });
 
@@ -57,6 +64,7 @@ export default function Home() {
 
         {/* Right Sidebar */}
         <div className="lg:col-span-4 space-y-4">
+          <RecommendationsSection entries={entries} userEmail={user?.email} />
           <TrendingSection />
           <RecentEpisodesSection />
           <ActiveDebatesSection />

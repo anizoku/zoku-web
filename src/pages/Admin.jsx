@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CatalogManager from "@/components/admin/CatalogManager";
 import CategoryManager from "@/components/admin/CategoryManager";
+import CatalogSync from "@/components/admin/CatalogSync";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -56,12 +57,16 @@ export default function Admin() {
           <TabsList className="bg-secondary">
             <TabsTrigger value="catalog">Catálogo</TabsTrigger>
             <TabsTrigger value="categories">Categorias</TabsTrigger>
+            <TabsTrigger value="sync">Sincronização</TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
             <CatalogManager />
           </TabsContent>
           <TabsContent value="categories" className="mt-6">
             <CategoryManager />
+          </TabsContent>
+          <TabsContent value="sync" className="mt-6">
+            <CatalogSync />
           </TabsContent>
         </Tabs>
       </div>

@@ -26,6 +26,7 @@ import CommunityPage from '@/pages/CommunityPage';
 import Series from '@/pages/Series';
 import Admin from '@/pages/Admin';
 import Ranking from '@/pages/Ranking';
+import Recommendations from '@/pages/Recommendations';
 import { useState, useEffect } from 'react';
 
 const AuthenticatedApp = () => {
@@ -108,6 +109,7 @@ const AuthenticatedApp = () => {
         <Route path="/communities/:communityId" element={<CommunityPage />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/ranking" element={<Ranking />} />
+        <Route path="/recomendacoes" element={<Recommendations />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

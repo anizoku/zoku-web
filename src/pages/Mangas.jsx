@@ -1,13 +1,13 @@
 import { BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getByCategory } from "@/lib/catalog";
 import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
 import CatalogCardList from "@/components/catalog/CatalogCardList";
 import ViewToggle from "@/components/catalog/ViewToggle";
 import AdminEditableCard from "@/components/admin/AdminEditableCard";
 import SortControl from "@/components/catalog/SortControl";
+import GenreFilter from "@/components/catalog/GenreFilter";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
@@ -28,6 +28,7 @@ export default function Mangas() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("az");
   const [view, setView] = useViewMode("mangasViewMode", "grid");
+  const [selectedGenres, setSelectedGenres] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const filterVisible = useVisibilityFilter("manga");
@@ -38,10 +39,18 @@ export default function Mangas() {
 
   const normalizeStr = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const q = normalizeStr(search);
-  const filtered = allMangas.filter(filterVisible).filter((m) =>
-    normalizeStr(m.title).includes(q) ||
-    m.genres.some((g) => normalizeStr(g).includes(q))
-  );
+
+  const allGenres = useMemo(() => {
+    const set = new Set();
+    allMangas.forEach(m => m.genres?.forEach(g => set.add(g)));
+    return [...set].sort();
+  }, []);
+
+  const filtered = allMangas.filter(filterVisible).filter((m) => {
+    const textMatch = normalizeStr(m.title).includes(q) || m.genres.some((g) => normalizeStr(g).includes(q));
+    const genreMatch = selectedGenres.length === 0 || selectedGenres.every(g => m.genres?.includes(g));
+    return textMatch && genreMatch;
+  });
   const sorted = useSortedWorks(filtered, sort);
 
   return (
@@ -58,7 +67,7 @@ export default function Mangas() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <Input
           placeholder="Buscar por título ou gênero..."
           value={search}
@@ -67,6 +76,9 @@ export default function Mangas() {
         />
         <SortControl value={sort} onChange={setSort} />
         <ViewToggle view={view} onChange={setView} />
+      </div>
+      <div className="mb-6">
+        <GenreFilter allGenres={allGenres} selectedGenres={selectedGenres} onChange={setSelectedGenres} />
       </div>
 
       {view === "grid" ? (

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Tv, Film, BookOpen, List, User, Users, Calendar, Clapperboard, Trophy } from "lucide-react";
+import { Home, TrendingUp, Tv, Film, BookOpen, List, User, Users, Calendar, Clapperboard, Trophy, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { computeStats, computeTotalXp, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
@@ -19,6 +19,7 @@ const navItems = [
   { icon: User,       label: "Amigos",      path: "/friends" },
   { icon: Calendar,   label: "Eventos",     path: "/events" },
   { icon: Trophy,     label: "Ranking",     path: "/ranking" },
+  { icon: Sparkles,   label: "Recomendações", path: "/recomendacoes" },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
