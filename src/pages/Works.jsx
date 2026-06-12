@@ -91,37 +91,6 @@ export default function Works() {
     setSearchParams(params);
   }
 
-  // Busca dinâmica externa após 800ms sem digitação
-  useEffect(() => {
-    if (searchTimeout) clearTimeout(searchTimeout);
-
-    if (search.trim().length < 2) {
-      setExternalResults([]);
-      return;
-    }
-
-    setSearchTimeout(
-      setTimeout(async () => {
-        try {
-          // Se não há resultados locais, buscar no Jikan
-          if (filtered.length === 0) {
-            const [animes, mangas] = await Promise.all([
-              searchAnime(search),
-              searchManga(search),
-            ]);
-            setExternalResults([...animes, ...mangas].slice(0, 6));
-          }
-        } catch (e) {
-          console.warn("Busca externa falhou:", e);
-        }
-      }, 800)
-    );
-
-    return () => {
-      if (searchTimeout) clearTimeout(searchTimeout);
-    };
-  }, [search, filtered.length]);
-
   const allWorks = useMemo(() => {
     if (categoria === "all") return catalog;
     return getByCategory(categoria);
@@ -153,6 +122,37 @@ export default function Works() {
     const genreMatch = selectedGenres.length === 0 || selectedGenres.every(g => w.genres?.includes(g));
     return textMatch && genreMatch;
   });
+
+  // Busca dinâmica externa após 800ms sem digitação
+  useEffect(() => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    if (search.trim().length < 2) {
+      setExternalResults([]);
+      return;
+    }
+
+    setSearchTimeout(
+      setTimeout(async () => {
+        try {
+          // Se não há resultados locais, buscar no Jikan
+          if (filtered.length === 0) {
+            const [animes, mangas] = await Promise.all([
+              searchAnime(search),
+              searchManga(search),
+            ]);
+            setExternalResults([...animes, ...mangas].slice(0, 6));
+          }
+        } catch (e) {
+          console.warn("Busca externa falhou:", e);
+        }
+      }, 800)
+    );
+
+    return () => {
+      if (searchTimeout) clearTimeout(searchTimeout);
+    };
+  }, [search, filtered.length]);
 
   const sorted = useSortedWorks(filtered, sort);
 
