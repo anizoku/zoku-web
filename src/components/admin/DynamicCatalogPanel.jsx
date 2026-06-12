@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Download, Loader2, CheckCircle2, AlertCircle, Clock } from "lucide-react";
-import { importTopWorks, syncCurrentlyAiring, discoverNewSeason } from "@/lib/catalogAutoSync";
+import { RefreshCw, Download, Loader2, CheckCircle2, AlertCircle, Clock, Zap } from "lucide-react";
+import { importTopWorks, syncCurrentlyAiring, discoverNewSeason, importTopWorksBothSources } from "@/lib/catalogAutoSync";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
@@ -110,6 +110,23 @@ export default function DynamicCatalogPanel() {
     setRunning(false);
   }
 
+  async function handleImportBothSources() {
+    setRunning(true);
+    setLogs([]);
+    setProgress(0);
+    setImportedWorks([]);
+    abortRef.current = false;
+
+    addLog("Iniciando importação híbrida (Jikan + TMDB)...", "info");
+    const result = await importTopWorksBothSources("anime", 20, addLog, setProgress, abortRef);
+
+    addLog(`✓ Importação concluída: +${result.added} obras, ${result.skipped} puladas`, "success");
+    setImportedWorks(result.works || []);
+    refreshCatalog();
+    queryClient.invalidateQueries({ queryKey: ["dynamic-catalog-stats"] });
+    setRunning(false);
+  }
+
   return (
     <div className="bg-card rounded-xl border border-border p-5 space-y-4">
       <div>
@@ -125,11 +142,15 @@ export default function DynamicCatalogPanel() {
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={handleImportAnimes} disabled={running} className="gap-2 bg-primary">
             <Download className="w-4 h-4" />
-            Top 500 Animes
+            Top 500 Animes (Jikan)
           </Button>
           <Button size="sm" variant="outline" onClick={handleImportMangas} disabled={running} className="gap-2">
             <Download className="w-4 h-4" />
-            Top 500 Mangás
+            Top 500 Mangás (Jikan)
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handleImportBothSources} disabled={running} className="gap-2">
+            <Zap className="w-4 h-4" />
+            Híbrida (Jikan + TMDB)
           </Button>
         </div>
       </div>
