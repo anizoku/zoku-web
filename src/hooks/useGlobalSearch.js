@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { CATALOG, searchCatalog } from "@/lib/catalog";
 import { base44 } from "@/api/base44Client";
+import { useCatalog } from "@/contexts/CatalogContext";
 
 function getContextCategory(pathname) {
   if (pathname.startsWith("/animes")) return "anime";
@@ -38,6 +38,7 @@ function scoreWork(item, query, contextCategory) {
 export function useGlobalSearch(query) {
   const location = useLocation();
   const context = getContextCategory(location.pathname);
+  const { catalog } = useCatalog();
 
   const [results, setResults] = useState({ works: [], users: [], events: [], communities: [] });
   const [isLoading, setIsLoading] = useState(false);
@@ -51,9 +52,9 @@ export function useGlobalSearch(query) {
     try {
       const lq = q.toLowerCase();
 
-      // Works from catalog (local, no async needed)
+      // Works from unified catalog (static + sync + dynamic)
       const nq = normalizeQ(q);
-      const matchedWorks = CATALOG
+      const matchedWorks = catalog
         .filter(item =>
           normalizeQ(item.title).includes(nq) ||
           normalizeQ(item.romaji_title).includes(nq) ||
@@ -111,7 +112,7 @@ export function useGlobalSearch(query) {
     } finally {
       setIsLoading(false);
     }
-  }, [context]);
+  }, [context, catalog]);
 
   useEffect(() => {
     if (!query || query.length < 2) {
