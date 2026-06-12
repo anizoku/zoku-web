@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getBySlug } from "@/lib/catalog";
-import { useCatalogSyncMap, mergeCatalogWithSync } from "@/hooks/useCatalogSync";
+import { useCatalog } from "@/contexts/CatalogContext";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { getTMDBWorkDetails, invalidateTMDBCache } from "@/lib/tmdb";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
@@ -436,7 +435,7 @@ export default function ObraProfile() {
   const [tmdbData, setTmdbData] = useState(null);
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [tmdbError, setTmdbError] = useState(null);
-  const syncMap = useCatalogSyncMap();
+  const { getBySlug, isLoading: catalogLoading } = useCatalog();
 
   // Read ?tipo= from URL
   useEffect(() => {
@@ -449,9 +448,8 @@ export default function ObraProfile() {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const rawMedia = getBySlug(slug);
-  // Mesclar com dados persistidos do CatalogSync (banco tem prioridade para campos dinâmicos)
-  const media = rawMedia ? mergeCatalogWithSync(rawMedia, syncMap) : rawMedia;
+  // getBySlug já retorna o item mesclado com CatalogSync via CatalogContext
+  const media = getBySlug(slug);
 
   // Fetch TMDB data — skip manga-only works
   useEffect(() => {
@@ -508,6 +506,22 @@ export default function ObraProfile() {
     queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
     initialData: [],
   });
+
+  if (catalogLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6 space-y-4">
+        <div className="h-8 w-24 bg-secondary rounded animate-pulse" />
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="h-52 sm:h-64 bg-secondary animate-pulse" />
+          <div className="px-5 py-3 flex gap-3">
+            <div className="h-5 w-16 bg-secondary rounded animate-pulse" />
+            <div className="h-5 w-20 bg-secondary rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="h-32 bg-card rounded-xl border border-border animate-pulse" />
+      </div>
+    );
+  }
 
   if (!media) {
     return (

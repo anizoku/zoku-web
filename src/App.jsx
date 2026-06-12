@@ -9,6 +9,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import AppLayout from '@/components/layout/AppLayout';
 import { CardOverridesProvider } from '@/context/CardOverridesContext';
+import { CatalogProvider } from '@/contexts/CatalogContext';
 import ProfileSetup from '@/pages/ProfileSetup';
 import Home from '@/pages/Home';
 import Trending from '@/pages/Trending';
@@ -120,11 +121,13 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <CardOverridesProvider>
-            <AuthenticatedApp />
-          </CardOverridesProvider>
-        </Router>
+        <CatalogProvider>
+          <Router>
+            <CardOverridesProvider>
+              <AuthenticatedApp />
+            </CardOverridesProvider>
+          </Router>
+        </CatalogProvider>
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>

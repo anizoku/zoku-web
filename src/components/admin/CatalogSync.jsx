@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle2, AlertCircle, Loader2, Info, BookOpen, Layers, Clock } from "lucide-react";
 import { CATALOG } from "@/lib/catalog";
 import { syncWorkFromJikan, syncAllMangas, delay } from "@/lib/jikan";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { useCatalog } from "@/contexts/CatalogContext";
 
 function getAnimeSyncableWorks() {
   return CATALOG.filter((w) => {
@@ -92,6 +93,7 @@ export default function CatalogSync() {
   const [animeSummary, setAnimeSummary] = useState(null);
   const [mangaSummary, setMangaSummary] = useState(null);
   const abortRef = useRef(false);
+  const { refreshCatalog } = useCatalog();
 
   function addLog(message, type = "info") {
     setLogs((prev) => [...prev, { message, type, ts: Date.now() }]);
@@ -149,6 +151,7 @@ export default function CatalogSync() {
     setRunning(true); setLogs([]); setAnimeSummary(null); setMangaSummary(null);
     abortRef.current = false;
     await runAnimeSync();
+    refreshCatalog();
     setRunning(false);
   }
 
@@ -156,6 +159,7 @@ export default function CatalogSync() {
     setRunning(true); setLogs([]); setAnimeSummary(null); setMangaSummary(null);
     abortRef.current = false;
     await runMangaSync();
+    refreshCatalog();
     setRunning(false);
   }
 
@@ -171,6 +175,7 @@ export default function CatalogSync() {
       await runMangaSync();
     }
     addLog("Sincronização completa!", "success");
+    refreshCatalog();
     setRunning(false);
   }
 

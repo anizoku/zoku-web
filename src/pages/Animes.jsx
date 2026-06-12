@@ -11,9 +11,8 @@ import GenreFilter from "@/components/catalog/GenreFilter";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
 import { base44 } from "@/api/base44Client";
-import { CATALOG } from "@/lib/catalog";
-
-const allAnimes = CATALOG.filter(item => item.categories?.includes("anime"));
+import { useCatalog } from "@/contexts/CatalogContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function useViewMode(key, defaultValue = "grid") {
   const [view, setView] = useState(() => localStorage.getItem(key) || defaultValue);
@@ -32,10 +31,13 @@ export default function Animes() {
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const filterVisible = useVisibilityFilter("anime");
+  const { getByCategory, isLoading } = useCatalog();
 
   useEffect(() => {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
   }, []);
+
+  const allAnimes = useMemo(() => getByCategory("anime"), [getByCategory]);
 
   const normalizeStr = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const q = normalizeStr(search);
@@ -44,7 +46,7 @@ export default function Animes() {
     const set = new Set();
     allAnimes.forEach(a => a.genres?.forEach(g => set.add(g)));
     return [...set].sort();
-  }, []);
+  }, [allAnimes]);
 
   const filtered = allAnimes.filter(filterVisible).filter((a) => {
     const textMatch = normalizeStr(a.title).includes(q) || a.genres.some((g) => normalizeStr(g).includes(q));
@@ -81,7 +83,17 @@ export default function Animes() {
         <GenreFilter allGenres={allGenres} selectedGenres={selectedGenres} onChange={setSelectedGenres} />
       </div>
 
-      {view === "grid" ? (
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="aspect-[2/3] w-full rounded-lg" />
+              <Skeleton className="h-3 w-3/4 rounded" />
+              <Skeleton className="h-3 w-1/2 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {sorted.map((anime) => (
             <AdminEditableCard key={anime.slug} item={anime} isAdmin={isAdmin} category="anime">
@@ -107,7 +119,7 @@ export default function Animes() {
         </div>
       )}
 
-      {sorted.length === 0 && (
+      {!isLoading && sorted.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-sm">Nenhum anime encontrado para "{search}"</p>
         </div>

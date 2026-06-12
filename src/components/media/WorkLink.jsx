@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CATALOG } from "@/lib/catalog";
+import { useCatalog } from "@/contexts/CatalogContext";
 
 /**
  * Renders a clickable work title that navigates to /obra/:slug
@@ -7,9 +7,10 @@ import { CATALOG } from "@/lib/catalog";
  */
 export default function WorkLink({ title, className = "", prefix = "" }) {
   const navigate = useNavigate();
+  const { catalog } = useCatalog();
   if (!title) return null;
 
-  const entry = CATALOG.find(c => c.title.toLowerCase() === title.toLowerCase());
+  const entry = catalog.find(c => c.title.toLowerCase() === title.toLowerCase());
 
   if (!entry) {
     return <span className={className}>{prefix}{title}</span>;
