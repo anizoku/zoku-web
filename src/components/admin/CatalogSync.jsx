@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle2, AlertCircle, Loader2, Info, BookOpen, Layers } from "lucide-react";
+import { RefreshCw, CheckCircle2, AlertCircle, Loader2, Info, BookOpen, Layers, Clock } from "lucide-react";
 import { CATALOG } from "@/lib/catalog";
 import { syncWorkFromJikan, syncAllMangas, delay } from "@/lib/jikan";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 
 function getAnimeSyncableWorks() {
   return CATALOG.filter((w) => {
@@ -39,6 +41,47 @@ function SummaryBar({ summary }) {
       <div><p className="font-bold text-primary text-sm">{summary.updated}</p><p className="text-[10px] text-muted-foreground">Atualizadas</p></div>
       <div><p className="font-bold text-muted-foreground text-sm">{summary.unchanged}</p><p className="text-[10px] text-muted-foreground">Sem alteração</p></div>
       <div><p className="font-bold text-chart-4 text-sm">{summary.notFound}</p><p className="text-[10px] text-muted-foreground">Não encontradas</p></div>
+    </div>
+  );
+}
+
+function SyncStatusTable() {
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ["catalog-sync-records"],
+    queryFn: () => base44.entities.CatalogSync.list("-synced_at", 100),
+    staleTime: 30 * 1000,
+  });
+
+  if (isLoading) return <div className="text-xs text-muted-foreground animate-pulse">Carregando registros...</div>;
+  if (records.length === 0) return <div className="text-xs text-muted-foreground">Nenhuma obra sincronizada ainda.</div>;
+
+  // Mostrar apenas as 10 mais recentes
+  const recent = records.slice(0, 10);
+
+  return (
+    <div className="space-y-1">
+      {recent.map((r) => (
+        <div key={r.id} className="flex items-center justify-between text-xs py-1 border-b border-border/30 last:border-0">
+          <div className="flex items-center gap-2">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              r.sync_status === "synced" ? "bg-primary" :
+              r.sync_status === "manual_override" ? "bg-chart-4" : "bg-muted-foreground"
+            }`} />
+            <span className="text-foreground font-medium truncate max-w-[140px]">{r.slug}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {r.total_episodes && <span className="text-muted-foreground">{r.total_episodes} eps</span>}
+            {r.total_chapters && <span className="text-muted-foreground">{r.total_chapters} caps</span>}
+            <span className="text-muted-foreground/70 flex items-center gap-1">
+              <Clock className="w-2.5 h-2.5" />
+              {r.synced_at ? new Date(r.synced_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+            </span>
+          </div>
+        </div>
+      ))}
+      {records.length > 10 && (
+        <p className="text-[10px] text-muted-foreground pt-1">+ {records.length - 10} obras sincronizadas</p>
+      )}
     </div>
   );
 }
@@ -200,8 +243,16 @@ export default function CatalogSync() {
         </div>
       )}
 
+      {/* Última sincronização */}
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+          <Clock className="w-3 h-3" /> Última sincronização (recentes)
+        </p>
+        <SyncStatusTable />
+      </div>
+
       <p className="text-[10px] text-muted-foreground">
-        ⚠️ A sincronização atualiza o log em tempo real. Para persistir alterações no catálogo, use CardOverride para obras desatualizadas.
+        ✅ Dados sincronizados são persistidos no banco e mesclados automaticamente com o catálogo.
       </p>
     </div>
   );

@@ -176,7 +176,12 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
   const isAnime = mediaType === "anime" || mediaType === "liveaction";
   const isMovie = mediaType === "movie";
   const current = isAnime ? (entry.current_episode || 0) : (entry.current_chapter || 0);
-  const total = isAnime ? (entry.total_episodes || 0) : (entry.total_chapters || 0);
+  const entryTotal = isAnime ? (entry.total_episodes || 0) : (entry.total_chapters || 0);
+  // Risco 4: usar catálogo como fallback quando total_episodes/chapters é 0
+  const catalogItem = getCatalogEntry(entry.title);
+  const catalogFallback = isAnime ? (catalogItem?.totalEpisodes || 0) : (catalogItem?.totalChapters || 0);
+  // Risco 1 clamp fix: Math.max para não travar no total antigo
+  const total = Math.max(entryTotal, catalogFallback);
   const progress = calculateProgress(current, total);
   const releaseStatus = getReleaseStatusLabel(entry, mediaType);
   const xpPerAction = isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read;
@@ -187,6 +192,11 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
     const newVal = total > 0 ? Math.min(current + 1, total) : current + 1;
     const updates = { [field]: newVal };
     if (total > 0 && newVal >= total) updates.status = "completed";
+    // Se o total do catálogo é maior que o salvo, atualizar silenciosamente
+    if (total > entryTotal && entryTotal >= 0) {
+      const totalField = isAnime ? "total_episodes" : "total_chapters";
+      updates[totalField] = total;
+    }
     onUpdate(entry.id, updates);
   }
 

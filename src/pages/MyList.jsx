@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import EntryCard from "@/components/mylist/EntryCard";
 import ImportList from "@/components/mylist/ImportList";
+import { CATALOG } from "@/lib/catalog";
 
 // ── Constantes ────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -101,12 +102,16 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
 
   function handleSubmit() {
     if (!title.trim()) return;
+    // Risco 4: puxar total do catálogo automaticamente se disponível
+    const catalogItem = CATALOG.find(c => c.title.toLowerCase() === title.trim().toLowerCase());
+    const autoEpisodes = type === "anime" ? (catalogItem?.totalEpisodes || parseInt(totalCount) || 0) : 0;
+    const autoChapters = type === "manga" ? (catalogItem?.totalChapters || parseInt(totalCount) || 0) : 0;
     onAdd({
       title: title.trim(),
       type,
       status,
-      total_episodes: type === "anime" ? parseInt(totalCount) || 0 : 0,
-      total_chapters: type === "manga" ? parseInt(totalCount) || 0 : 0,
+      total_episodes: autoEpisodes,
+      total_chapters: autoChapters,
       current_episode: 0,
       current_chapter: 0,
       rating: 0,

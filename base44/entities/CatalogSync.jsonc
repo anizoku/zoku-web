@@ -1,0 +1,78 @@
+{
+  "name": "CatalogSync",
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Slug \u00fanico da obra no cat\u00e1logo (chave de jun\u00e7\u00e3o)"
+    },
+    "total_episodes": {
+      "type": "number",
+      "description": "Total de epis\u00f3dios (anime)"
+    },
+    "total_chapters": {
+      "type": "number",
+      "description": "Total de cap\u00edtulos (mang\u00e1)"
+    },
+    "total_volumes": {
+      "type": "number",
+      "description": "Total de volumes (mang\u00e1)"
+    },
+    "anime_status": {
+      "type": "string",
+      "description": "Status do anime em PT-BR (Em exibi\u00e7\u00e3o, Finalizado, Em breve)"
+    },
+    "manga_status": {
+      "type": "string",
+      "description": "Status do mang\u00e1 em PT-BR (Em publica\u00e7\u00e3o, Finalizado, Em hiato)"
+    },
+    "mal_id": {
+      "type": "number",
+      "description": "ID do anime no MyAnimeList"
+    },
+    "manga_mal_id": {
+      "type": "number",
+      "description": "ID do mang\u00e1 no MyAnimeList"
+    },
+    "score": {
+      "type": "number",
+      "description": "Score do MAL (0-10)"
+    },
+    "synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp do \u00faltimo sync bem-sucedido"
+    },
+    "sync_status": {
+      "type": "string",
+      "enum": [
+        "synced",
+        "not_found",
+        "manual_override"
+      ],
+      "default": "synced",
+      "description": "Status do sync desta obra"
+    }
+  },
+  "required": [
+    "slug"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

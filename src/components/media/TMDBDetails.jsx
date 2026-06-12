@@ -180,8 +180,10 @@ export function OverviewSection({ data }) {
 }
 
 // ── Info Block ────────────────────────────────────────────────────────────────
-export function InfoSection({ data }) {
+export function InfoSection({ data, catalogTotalEpisodes, catalogTotalChapters }) {
   if (!data) return null;
+  // Risco 3: omitir numberOfEpisodes da TMDB se o catálogo já fornece o dado
+  const showTmdbEpisodes = !!(data.numberOfEpisodes && !(catalogTotalEpisodes > 0) && !(catalogTotalChapters > 0));
   return (
     <div className="bg-card rounded-xl border border-border p-4 space-y-3">
       {data.genres && data.genres.length > 0 && (
@@ -210,7 +212,7 @@ export function InfoSection({ data }) {
         {data.numberOfSeasons && (
           <span className="text-muted-foreground">{data.numberOfSeasons} temporada{data.numberOfSeasons !== 1 ? "s" : ""}</span>
         )}
-        {data.numberOfEpisodes && (
+        {showTmdbEpisodes && (
           <span className="text-muted-foreground">{data.numberOfEpisodes} eps no total</span>
         )}
       </div>

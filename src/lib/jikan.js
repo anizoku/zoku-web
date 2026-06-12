@@ -1,7 +1,24 @@
 // Jikan API v4 — wrapper gratuito do MyAnimeList
 // Rate limit: ~3 req/s, sem autenticação
+import { base44 } from "@/api/base44Client";
 
 const JIKAN_BASE = "https://api.jikan.moe/v4";
+
+// ── Persistência no banco (entidade CatalogSync) ──────────────────────────────
+async function upsertCatalogSync(slug, data) {
+  try {
+    const existing = await base44.entities.CatalogSync.filter({ slug });
+    if (existing && existing.length > 0) {
+      // Não sobrescrever manual_override
+      if (existing[0].sync_status === "manual_override") return;
+      await base44.entities.CatalogSync.update(existing[0].id, data);
+    } else {
+      await base44.entities.CatalogSync.create({ slug, ...data });
+    }
+  } catch (e) {
+    console.warn(`CatalogSync upsert falhou para ${slug}:`, e.message);
+  }
+}
 
 // Delay helper
 export function delay(ms) {
@@ -62,6 +79,16 @@ export async function syncWorkFromJikan(work) {
         results.airing = data.airing;
         results.animeScore = data.score;
         results.animeStatus = mapAnimeStatus(data.status);
+
+        // Persistir no banco
+        await upsertCatalogSync(work.slug, {
+          mal_id: data.mal_id || work.mal_id || null,
+          total_episodes: data.episodes || null,
+          anime_status: mapAnimeStatus(data.status) || null,
+          score: data.score || null,
+          synced_at: new Date().toISOString(),
+          sync_status: "synced",
+        });
       }
     } catch {}
   }
@@ -80,6 +107,17 @@ export async function syncWorkFromJikan(work) {
         results.publishing = data.publishing;
         results.mangaScore = data.score;
         results.mangaStatus = mapMangaStatus(data.status);
+
+        // Persistir no banco
+        await upsertCatalogSync(work.slug, {
+          manga_mal_id: data.mal_id || work.manga_mal_id || null,
+          total_chapters: data.chapters || null,
+          total_volumes: data.volumes || null,
+          manga_status: mapMangaStatus(data.status) || null,
+          score: data.score || null,
+          synced_at: new Date().toISOString(),
+          sync_status: "synced",
+        });
       }
     } catch {}
   }
@@ -135,6 +173,19 @@ export async function syncMangaData(work, onLog) {
   } else {
     onLog?.(`${title}: sem alterações`, "info");
   }
+
+  const syncPayload = {
+    manga_mal_id: data.mal_id || work.manga_mal_id || null,
+    total_chapters: newChapters || null,
+    total_volumes: newVolumes || null,
+    manga_status: newStatus || null,
+    score: data.score || null,
+    synced_at: new Date().toISOString(),
+    sync_status: "synced",
+  };
+
+  // Persistir no banco
+  await upsertCatalogSync(work.slug, syncPayload);
 
   return {
     manga_mal_id: data.mal_id,

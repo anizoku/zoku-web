@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBySlug } from "@/lib/catalog";
+import { useCatalogSyncMap, mergeCatalogWithSync } from "@/hooks/useCatalogSync";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { getTMDBWorkDetails, invalidateTMDBCache } from "@/lib/tmdb";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
@@ -126,6 +127,7 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   const Icon = cfg.icon;
   const queryClient = useQueryClient();
   const [toast, setToast] = useState(null);
+  const [showUpdateHint, setShowUpdateHint] = useState(false);
 
   // Each format stored with a marker in the `genre` field: "__format:anime", "__format:manga", "__format:movie"
   const formatMarker = `__format:${format}`;
@@ -209,11 +211,10 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   function handleIncrement() {
     if (!entry) return;
     const field = cfg.progressKey;
-    const total = entry[cfg.totalKey] || 0;
-    const current = entry[field] || 0;
-    const newVal = current + 1;
+    const cur = entry[field] || 0;
+    const newVal = cur + 1;
     const updates = { [field]: newVal };
-    if (total > 0 && newVal >= total) updates.status = "completed";
+    if (effectiveTotal > 0 && newVal >= effectiveTotal) updates.status = "completed";
     updateMutation.mutate({ id: entry.id, data: updates });
     const xp = XP_REWARDS[cfg.xpKey];
     showToast(`${cfg.unit} ${newVal}! +${xp} XP`, Zap, "bg-card border-primary/30 text-primary");
@@ -222,9 +223,9 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   function handleDecrement() {
     if (!entry) return;
     const field = cfg.progressKey;
-    const current = entry[field] || 0;
-    if (current <= 0) return;
-    updateMutation.mutate({ id: entry.id, data: { [field]: current - 1 } });
+    const cur = entry[field] || 0;
+    if (cur <= 0) return;
+    updateMutation.mutate({ id: entry.id, data: { [field]: cur - 1 } });
   }
 
   function handleJumpTo(newVal) {
@@ -232,9 +233,8 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     const field = cfg.progressKey;
     const prev = entry[field] || 0;
     if (newVal === prev) return;
-    const totalVal = entry[cfg.totalKey] || 0;
     const updates = { [field]: newVal };
-    if (totalVal > 0 && newVal >= totalVal) updates.status = "completed";
+    if (effectiveTotal > 0 && newVal >= effectiveTotal) updates.status = "completed";
     updateMutation.mutate({ id: entry.id, data: updates });
     const diff = Math.max(0, newVal - prev);
     const xp = XP_REWARDS[cfg.xpKey];
@@ -246,11 +246,22 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   }
 
   const current = entry ? (entry[cfg.progressKey] || 0) : 0;
-  const total = entry ? (entry[cfg.totalKey] || 0) : catalogTotal;
+  const entryTotal = entry ? (entry[cfg.totalKey] || 0) : 0;
+  // Risco 1 fix: usar Math.max para não travar no total antigo
+  const effectiveTotal = Math.max(entryTotal, catalogTotal);
+  const total = entry ? effectiveTotal : catalogTotal;
   const progress = total > 0 ? Math.min((current / total) * 100, 100) : 0;
   const isMutating = createMutation.isPending || updateMutation.isPending;
   const catalogStatus = media[cfg.catalogStatusKey];
   const isMovie = format === "movie";
+
+  // Risco 2 fix: detectar quando catalogTotal cresceu além do total salvo no entry
+  const totalOutdated = entry && entryTotal > 0 && catalogTotal > entryTotal;
+  const totalField = format === "manga" ? "total_chapters" : "total_episodes";
+
+  useEffect(() => {
+    setShowUpdateHint(!!totalOutdated);
+  }, [totalOutdated]);
 
   return (
     <>
@@ -334,6 +345,21 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
                       <p className="text-[10px] text-muted-foreground text-right">{Math.round(progress)}% concluído</p>
                     </>
                   )}
+                  {/* Risco 2: aviso quando total do catálogo é maior que o salvo */}
+                  {showUpdateHint && (
+                    <div className="flex items-center justify-between bg-chart-4/10 border border-chart-4/30 rounded-lg px-2.5 py-1.5 mt-1">
+                      <p className="text-[10px] text-chart-4">Total atualizado para {catalogTotal}. Atualizar?</p>
+                      <button
+                        onClick={() => {
+                          updateMutation.mutate({ id: entry.id, data: { [totalField]: catalogTotal } });
+                          setShowUpdateHint(false);
+                        }}
+                        className="text-[10px] font-semibold text-chart-4 hover:underline ml-2 shrink-0"
+                      >
+                        Atualizar
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <Button variant="outline" size="icon" className="h-8 w-8 border-border" onClick={handleDecrement} disabled={isMutating || current <= 0}>
@@ -410,6 +436,7 @@ export default function ObraProfile() {
   const [tmdbData, setTmdbData] = useState(null);
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [tmdbError, setTmdbError] = useState(null);
+  const syncMap = useCatalogSyncMap();
 
   // Read ?tipo= from URL
   useEffect(() => {
@@ -422,7 +449,9 @@ export default function ObraProfile() {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const media = getBySlug(slug);
+  const rawMedia = getBySlug(slug);
+  // Mesclar com dados persistidos do CatalogSync (banco tem prioridade para campos dinâmicos)
+  const media = rawMedia ? mergeCatalogWithSync(rawMedia, syncMap) : rawMedia;
 
   // Fetch TMDB data — skip manga-only works
   useEffect(() => {
@@ -638,7 +667,13 @@ export default function ObraProfile() {
         {tmdbData && <OverviewSection data={tmdbData} />}
 
         {/* 2. Informações */}
-        {tmdbData && <InfoSection data={tmdbData} />}
+        {tmdbData && (
+          <InfoSection
+            data={tmdbData}
+            catalogTotalEpisodes={media?.totalEpisodes}
+            catalogTotalChapters={media?.totalChapters}
+          />
+        )}
 
         {/* 3. Trailer */}
         {tmdbData?.trailerUrl && <TrailerSection trailerUrl={tmdbData.trailerUrl} />}
