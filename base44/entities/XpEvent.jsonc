@@ -1,0 +1,52 @@
+{
+  "name": "XpEvent",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio que recebeu o XP"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "achievement_unlocked",
+        "level_up",
+        "episode_watched",
+        "chapter_read",
+        "post_created",
+        "work_completed"
+      ],
+      "description": "Tipo do evento"
+    },
+    "achievement_id": {
+      "type": "string",
+      "description": "ID da conquista (se event_type = achievement_unlocked)"
+    },
+    "xp_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade de XP concedida"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp do evento (para ranking mensal/semanal)"
+    }
+  },
+  "required": [
+    "user_email",
+    "event_type"
+  ],
+  "rls": {
+    "create": {
+      "data.user_email": "{{user.email}}"
+    },
+    "read": {},
+    "update": {
+      "data.user_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.user_email": "{{user.email}}"
+    }
+  }
+}

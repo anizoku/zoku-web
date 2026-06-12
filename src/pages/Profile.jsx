@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tv, BookOpen, Star, Trophy, Zap, Flame, Twitter, Instagram, Globe, Calendar, Users } from "lucide-react";
@@ -11,12 +11,13 @@ import XpProgressBar from "@/components/profile/XpProgressBar";
 import AchievementsPanel from "@/components/profile/AchievementsPanel";
 import RankCard from "@/components/profile/RankCard";
 import LevelBadge from "@/components/profile/LevelBadge";
-import LevelUpToast from "@/components/profile/LevelUpToast";
+import AchievementToastQueue from "@/components/profile/AchievementToast";
+import { useAchievementToasts } from "@/hooks/useAchievementToasts";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
 import AchievementBadgeSelector from "@/components/profile/AchievementBadgeSelector";
 import FriendManagement from "@/components/profile/FriendManagement";
 import ActivityFeedSection from "@/components/profile/ActivityFeedSection";
-import { computeStats, computeTotalXp, getUnlockedAchievements, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
+import { computeStats, computeTotalXp, getUnlockedAchievements, getXpProgress, getRankForLevel, getLevelFromXp } from "@/lib/xpSystem";
 import { getAchievementIcon } from "@/lib/achievementIcons";
 import { getAchievementColor, ACHIEVEMENTS } from "@/lib/achievements";
 import { getMyFriends } from "@/lib/social";
@@ -33,8 +34,6 @@ const statusColors = {
 
 export default function Profile() {
   const [user, setUser] = useState(null);
-  const [levelUpNotif, setLevelUpNotif] = useState(null);
-  const prevLevelRef = useRef(null);
   const queryClient = useQueryClient();
 
   useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
@@ -51,20 +50,32 @@ export default function Profile() {
   const myFriends = user ? getMyFriends(friendships, user.email) : [];
   const myEvents = events.filter(e => e.organizer_email === user?.email || e.participants?.includes(user?.email));
 
-  const stats = computeStats(myEntries, myPosts, friendships, myEvents, myProfile);
+  // Compute communities stats
+  const { data: allCommunities = [] } = useQuery({ queryKey: ["all-communities-profile"], queryFn: () => base44.entities.Community.list("-created_date", 200), initialData: [] });
+  const joinedCommunities = allCommunities.filter(c => c.members?.includes(user?.email));
+  const createdCommunities = allCommunities.filter(c => c.creator_email === user?.email);
+  const maxMembersInMyCommunity = createdCommunities.reduce((m, c) => Math.max(m, c.members_count || c.members?.length || 0), 0);
+
+  // XP for current level (needed for level achievements)
+  const tempStats0 = computeStats(myEntries, myPosts, friendships, myEvents, myProfile);
+  const tempXp0 = computeTotalXp(tempStats0);
+  const currentLevel0 = getLevelFromXp(tempXp0);
+
+  const stats = computeStats(myEntries, myPosts, friendships, myEvents, myProfile, {
+    communitiesJoined: joinedCommunities.length,
+    communitiesCreated: createdCommunities.length,
+    communityMaxMembers: maxMembersInMyCommunity,
+    currentLevel: currentLevel0,
+  });
   const totalXp = computeTotalXp(stats);
   const { level, percent } = getXpProgress(totalXp);
   const rank = getRankForLevel(level);
   const unlockedAchievements = getUnlockedAchievements(stats);
   const unlockedIds = unlockedAchievements.map(a => a.id);
 
-  useEffect(() => {
-    if (prevLevelRef.current !== null && level > prevLevelRef.current) {
-      setLevelUpNotif(level);
-      setTimeout(() => setLevelUpNotif(null), 5000);
-    }
-    prevLevelRef.current = level;
-  }, [level]);
+  const { queue: toastQueue, dismiss: dismissToast } = useAchievementToasts({
+    stats, totalXp, userEmail: user?.email, enabled: !!user,
+  });
 
   // Save selected badge
   const saveBadgeMutation = useMutation({
@@ -343,7 +354,13 @@ export default function Profile() {
         </TabsContent>
 
         <TabsContent value="achievements" className="mt-4">
-          <AchievementsPanel unlockedIds={unlockedIds} />
+          <AchievementsPanel
+            unlockedIds={unlockedIds}
+            unlockedDates={{}}
+            isOwn={true}
+            selectedBadgeId={selectedBadgeId}
+            onSelectBadge={(id) => saveBadgeMutation.mutate(id === selectedBadgeId ? "" : id)}
+          />
         </TabsContent>
 
         <TabsContent value="ranks" className="mt-4">
@@ -361,7 +378,7 @@ export default function Profile() {
         </TabsContent>
       </Tabs>
 
-      <LevelUpToast level={levelUpNotif} onClose={() => setLevelUpNotif(null)} />
+      <AchievementToastQueue queue={toastQueue} onDismiss={dismissToast} />
     </div>
   );
 }

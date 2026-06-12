@@ -73,51 +73,107 @@ export function getRankForLevel(level) {
 }
 
 // ── STATS ────────────────────────────────────────────────────
-export function computeStats(entries, posts, friendships = [], events = [], profile = null) {
-  const myAnime = entries.filter((e) => e.type === "anime");
-  const myManga = entries.filter((e) => e.type === "manga");
-  const myMovies = entries.filter((e) => e.type === "movie");
+export function computeStats(entries, posts, friendships = [], events = [], profile = null, extra = {}) {
+  const myAnime    = entries.filter((e) => e.type === "anime");
+  const myManga    = entries.filter((e) => e.type === "manga");
+  const myMovies   = entries.filter((e) => e.type === "movie" || e.type === "movie");
+  const myLiveact  = entries.filter((e) => e.type === "liveaction");
 
-  const totalEpisodes = myAnime.reduce((s, e) => s + (e.current_episode || 0), 0);
-  const totalChapters = myManga.reduce((s, e) => s + (e.current_chapter || 0), 0);
-  const totalMovies = myMovies.filter((e) => e.status === "completed").length;
+  const totalEpisodes  = myAnime.reduce((s, e) => s + (e.current_episode || 0), 0);
+  const totalChapters  = myManga.reduce((s, e) => s + (e.current_chapter || 0), 0);
+  const totalMovies    = myMovies.filter((e) => e.status === "completed").length;
   const completedTitles = entries.filter((e) => e.status === "completed").length;
-  const totalTitles = entries.length;
-  const plannedTitles = entries.filter((e) => e.status === "planned").length;
-  const updatedStatuses = entries.filter((e) => e.status !== "planned").length;
-  const hasAnime = myAnime.length > 0;
-  const hasManga = myManga.length > 0;
-  const hasMovie = myMovies.length > 0;
-  const totalPosts = posts.length;
-  const theoryPosts = posts.filter((p) => p.post_type === "theory").length;
-  const reviewPosts = posts.filter((p) => p.post_type === "review").length;
-  const likesGiven = 0; // not tracked yet
+  const totalTitles    = entries.length;
+  const plannedTitles  = entries.filter((e) => e.status === "planned").length;
+  const hasAnime       = myAnime.length > 0;
+  const hasManga       = myManga.length > 0;
+  const hasMovie       = myMovies.length > 0;
+  const hasLiveaction  = myLiveact.length > 0;
+
+  // Category count (for four_categories achievement)
+  const categoryCount  = [hasAnime, hasManga, hasMovie, hasLiveaction].filter(Boolean).length;
+
+  // Genre diversity
+  const allGenres = new Set(entries.flatMap(e => e.genre ? [e.genre] : []));
+  const uniqueGenres = allGenres.size;
+
+  // Same work in both types (title appears in both anime and manga entries)
+  const animeTitles = new Set(myAnime.map(e => e.title?.toLowerCase().trim()));
+  const mangaTitles = new Set(myManga.map(e => e.title?.toLowerCase().trim()));
+  const sameWorkBothTypes = [...animeTitles].filter(t => mangaTitles.has(t)).length;
+
+  // Long completed works
+  const completedLongAnime = myAnime.filter(e => e.status === "completed" && (e.total_episodes || 0) >= 100).length;
+  const completedLongManga = myManga.filter(e => e.status === "completed" && (e.total_chapters || 0) >= 100).length;
+
+  const totalPosts    = posts.length;
+  const theoryPosts   = posts.filter((p) => p.post_type === "theory").length;
+  const reviewPosts   = posts.filter((p) => p.post_type === "review").length;
+  const likesGiven    = extra.likesGiven || 0;
   const likesReceived = posts.reduce((s, p) => s + (p.likes_count || 0), 0);
   const maxLikesOnPost = posts.reduce((m, p) => Math.max(m, p.likes_count || 0), 0);
-  const friendsCount = friendships.filter((f) => f.status === "accepted").length;
-  const communitiesJoined = 0; // extend when needed
-  const communitiesCreated = 0;
-  const communityMaxMembers = 0;
-  const eventsJoined = events.length;
+  const commentsReceived = posts.reduce((s, p) => s + (p.comments_count || 0), 0);
+
+  const friendsCount  = friendships.filter((f) => f.status === "accepted").length;
+  const friendRequestsSent = friendships.filter((f) => f.requester_email === (profile?.user_email || "")).length;
+
+  // Communities — from extra data passed in
+  const communitiesJoined  = extra.communitiesJoined  || 0;
+  const communitiesCreated = extra.communitiesCreated || 0;
+  const communityMaxMembers = extra.communityMaxMembers || 0;
+  const communityPosts     = posts.filter(p => p.community_id).length;
+
+  // Events
+  const eventsJoined  = events.length;
+  const eventsCreated = events.filter(e => e.organizer_email === (profile?.user_email || "")).length;
   const animeEventsJoined = events.filter((e) => e.media_type === "anime").length;
   const mangaEventsJoined = events.filter((e) => e.media_type === "manga").length;
-  const currentStreak = 0; // extend when needed
-  const activeWeeks = 0;
-  const totalComments = 0; // extend when needed
+
+  // Watch Together
+  const watchTogetherCount     = extra.watchTogetherCount || 0;
+  const watchTogetherCompleted = extra.watchTogetherCompleted || 0;
+
+  // Streak & login
+  const currentStreak = extra.currentStreak || profile?.progress_streak || 0;
+  const loginStreak   = extra.loginStreak   || profile?.login_streak    || 0;
+  const activeWeeks   = extra.activeWeeks   || 0;
+
+  // Comments (from extra)
+  const totalComments = extra.totalComments || 0;
+
+  // Profile
+  const profileComplete    = !!(profile?.username && profile?.avatar_url && profile?.bio);
+  const hasAvatar          = !!profile?.avatar_url;
+  const hasBanner          = !!profile?.banner_url;
+  const hasSelectedBadge   = !!(profile?.selected_badge_id && profile.selected_badge_id !== "");
+  const favoritesCount     = (profile?.favorite_animes?.length || 0) + (profile?.favorite_mangas?.length || 0);
+
+  // Misc
+  const updatedStatuses = entries.filter((e) => e.status !== "planned").length;
   const resumedFromHold = entries.filter((e) => e.status === "watching" || e.status === "reading").length > 0 ? 1 : 0;
-  const completedFromHold = 0;
-  const movedFromPlanned = entries.filter((e) => ["watching","reading","completed"].includes(e.status)).length;
-  const favoritesCount = (profile?.favorite_animes?.length || 0) + (profile?.favorite_mangas?.length || 0);
-  const profileComplete = !!(profile?.username && profile?.avatar_url && profile?.bio);
+  const completedFromHold = extra.completedFromHold || 0;
+  const movedFromPlanned  = entries.filter((e) => ["watching","reading","completed"].includes(e.status)).length;
+  const sameDayComplete   = extra.sameDayComplete || 0;
+
+  // Founder
+  const isFounder = extra.isFounder || false;
+
+  // Level (needed for level achievements — computed externally and passed via extra)
+  const currentLevel = extra.currentLevel || 1;
 
   return {
     totalEpisodes, totalChapters, totalMovies, completedTitles, totalTitles,
-    plannedTitles, updatedStatuses, hasAnime, hasManga, hasMovie,
+    plannedTitles, updatedStatuses, hasAnime, hasManga, hasMovie, hasLiveaction,
+    categoryCount, uniqueGenres, sameWorkBothTypes, completedLongAnime, completedLongManga,
     totalPosts, theoryPosts, reviewPosts, likesGiven, likesReceived, maxLikesOnPost,
-    friendsCount, communitiesJoined, communitiesCreated, communityMaxMembers,
-    eventsJoined, animeEventsJoined, mangaEventsJoined, currentStreak, activeWeeks,
-    totalComments, resumedFromHold, completedFromHold, movedFromPlanned,
-    favoritesCount, profileComplete,
+    commentsReceived, friendsCount, friendRequestsSent,
+    communitiesJoined, communitiesCreated, communityMaxMembers, communityPosts,
+    eventsJoined, eventsCreated, animeEventsJoined, mangaEventsJoined,
+    watchTogetherCount, watchTogetherCompleted,
+    currentStreak, loginStreak, activeWeeks, totalComments,
+    profileComplete, hasAvatar, hasBanner, hasSelectedBadge, favoritesCount,
+    resumedFromHold, completedFromHold, movedFromPlanned, sameDayComplete,
+    isFounder, currentLevel,
   };
 }
 

@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Tv, BookOpen, Star, Trophy, Twitter, Instagram, Globe, Calendar, Users, Zap } from "lucide-react";
+import AchievementsPanel from "@/components/profile/AchievementsPanel";
+import { computeStats as cs2, getUnlockedAchievements } from "@/lib/xpSystem";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -60,8 +62,9 @@ export default function PublicProfile() {
     return false;
   });
 
-  const stats = computeStats(userEntries, userPosts);
+  const stats = computeStats(userEntries, userPosts, [], [], profile);
   const totalXp = computeTotalXp(stats);
+  const publicUnlocked = getUnlockedAchievements(stats).map(a => a.id);
   const { level, percent } = getXpProgress(totalXp);
   const rank = getRankForLevel(level);
 
@@ -169,6 +172,7 @@ export default function PublicProfile() {
           <TabsTrigger value="list"><Tv className="w-3.5 h-3.5 mr-1" />Lista</TabsTrigger>
           <TabsTrigger value="friends"><Users className="w-3.5 h-3.5 mr-1" />Amigos ({userFriends.length})</TabsTrigger>
           <TabsTrigger value="events"><Calendar className="w-3.5 h-3.5 mr-1" />Eventos</TabsTrigger>
+          <TabsTrigger value="achievements"><Trophy className="w-3.5 h-3.5 mr-1" />Conquistas ({publicUnlocked.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="mt-4">
@@ -257,6 +261,14 @@ export default function PublicProfile() {
                 ))}
               </div>
             )}
+        </TabsContent>
+
+        <TabsContent value="achievements" className="mt-4">
+          <AchievementsPanel
+            unlockedIds={publicUnlocked}
+            unlockedDates={{}}
+            isOwn={false}
+          />
         </TabsContent>
       </Tabs>
     </div>

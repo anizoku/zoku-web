@@ -15,9 +15,11 @@ import {
   Swords, CalendarRange,
   UserCircle, Bookmark, BookmarkCheck,
   Shield, Tickets,
+  PlusCircle, Repeat, Tags, Shuffle, ScrollText,
+  Image, PanelTop, BadgeCheck, Rocket, Sparkles,
+  PartyPopper,
 } from "lucide-react";
 
-// Note: ShieldStar doesn't exist in lucide-react, use Shield instead
 export const ACHIEVEMENT_ICONS = {
   Play, Tv, Clapperboard, Flame, Zap, Crown,
   BookOpen, Book, BookMarked, Library, Scroll,
@@ -33,9 +35,15 @@ export const ACHIEVEMENT_ICONS = {
   Calendar, Tv2, BookCopy, CalendarCheck,
   Swords, CalendarRange,
   UserCircle, Bookmark, BookmarkCheck,
-  ShieldStar: Shield, // fallback
-  Tickets,
-  Speech: MessageCircle, // fallback
+  Shield, Tickets,
+  PlusCircle, Repeat, Tags, Shuffle, ScrollText,
+  ImageIcon: Image,
+  PanelTop, BadgeCheck, Rocket, Sparkles,
+  PartyPopper,
+  // Fallbacks for icons that don't exist
+  ShieldStar: Shield,
+  Speech: MessageCircle,
+  CalendarPlus2: CalendarPlus,
 };
 
 export function getAchievementIcon(iconName) {

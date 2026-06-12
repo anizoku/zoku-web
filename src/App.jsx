@@ -25,6 +25,7 @@ import PublicProfile from '@/pages/PublicProfile';
 import CommunityPage from '@/pages/CommunityPage';
 import Series from '@/pages/Series';
 import Admin from '@/pages/Admin';
+import Ranking from '@/pages/Ranking';
 import { useState, useEffect } from 'react';
 
 const AuthenticatedApp = () => {
@@ -106,6 +107,7 @@ const AuthenticatedApp = () => {
         <Route path="/u/:userEmail" element={<PublicProfile />} />
         <Route path="/communities/:communityId" element={<CommunityPage />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/ranking" element={<Ranking />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
