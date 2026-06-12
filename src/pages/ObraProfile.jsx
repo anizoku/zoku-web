@@ -245,18 +245,25 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
 
   async function handleStatusChange(newStatus) {
     if (!entry) return;
-    if (newStatus === "completed" && effectiveTotal > 0) {
+    if (newStatus === "completed") {
+      // effectiveTotal pode ser 0 se catalogTotal ainda não foi sincronizado.
+      // Usa Math.max entre o salvo no entry E o catálogo para garantir fallback.
+      const resolvedTotal = Math.max(
+        effectiveTotal,
+        entry[cfg.totalKey] || 0,
+        catalogTotal || 0
+      );
       const prev = entry[cfg.progressKey] || 0;
-      const missing = effectiveTotal - prev;
+      const missing = resolvedTotal > 0 ? Math.max(0, resolvedTotal - prev) : 0;
       const xpPerUnit = XP_REWARDS[cfg.xpKey];
       const xpEarned = missing > 0 ? missing * xpPerUnit : 0;
       const bonusXp = 125;
       const totalXp = xpEarned + bonusXp;
-      const updates = {
-        status: "completed",
-        [cfg.progressKey]: effectiveTotal,
-        [cfg.totalKey]: effectiveTotal,
-      };
+      const updates = { status: "completed" };
+      if (resolvedTotal > 0) {
+        updates[cfg.progressKey] = resolvedTotal;
+        updates[cfg.totalKey] = resolvedTotal;
+      }
       updateMutation.mutate({ id: entry.id, data: updates });
       if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
       recordXpEvent("work_completed", 125);

@@ -232,11 +232,18 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
         open={statusDialogOpen}
         onOpenChange={setStatusDialogOpen}
         currentStatus={entry.status}
+        mediaType={mediaType}
         onConfirm={(s) => {
-          if (s === "completed" && total > 0) {
+          if (s === "completed") {
             const field = isAnime ? "current_episode" : "current_chapter";
             const totalField = isAnime ? "total_episodes" : "total_chapters";
-            onUpdate(entry.id, { status: "completed", [field]: total, [totalField]: total });
+            // total já inclui o fallback do catálogo (Math.max(entryTotal, catalogFallback))
+            if (total > 0) {
+              onUpdate(entry.id, { status: "completed", [field]: total, [totalField]: total });
+            } else {
+              // Sem total conhecido, apenas muda status
+              onUpdate(entry.id, { status: "completed" });
+            }
           } else {
             onUpdate(entry.id, { status: s });
           }

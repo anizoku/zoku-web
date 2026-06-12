@@ -11,6 +11,7 @@ import CategoryManager from "@/components/admin/CategoryManager";
 import CatalogSync from "@/components/admin/CatalogSync";
 import SuggestionsPanel from "@/components/admin/SuggestionsPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
+import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -89,6 +90,7 @@ export default function Admin() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="maintenance">Manutenção</TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
             <CatalogManager />
@@ -104,6 +106,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="moderation" className="mt-6">
             <ModerationPanel />
+          </TabsContent>
+          <TabsContent value="maintenance" className="mt-6">
+            <MigrateEntriesPanel />
           </TabsContent>
         </Tabs>
       </div>
