@@ -24,18 +24,7 @@
     "create": {
       "data.user_email": "{{user.email}}"
     },
-    "read": {
-      "$or": [
-        {
-          "data.user_email": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
+    "read": {},
     "update": {
       "data.user_email": "{{user.email}}"
     },
