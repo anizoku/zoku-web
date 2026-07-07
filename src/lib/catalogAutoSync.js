@@ -8,6 +8,31 @@ import { getFranchiseRootViaJikan, buildSeasonsArray, parseSeasons } from "@/lib
 // Persistido em CatalogSync para não reconsultar relations de temporadas já conhecidas.
 const franchiseCache = new Map();
 
+/**
+ * CORREÇÃO 3: Invalida o cache stale de franchise_id no CatalogSync.
+ * O cache antigo pode conter raízes erradas (ex: Re:Zero S2 em vez de S1).
+ * Limpa franchise_id de todos os CatalogSync records para forçar re-detecção.
+ */
+export async function invalidateStaleFranchiseCache(queryClient) {
+  // Limpa o cache em memória
+  franchiseCache.clear();
+
+  // Limpa franchise_id de todos os CatalogSync records
+  try {
+    const allSyncs = await base44.entities.CatalogSync.list("-updated_date", 5000);
+    const withFranchise = allSyncs.filter((s) => s.franchise_id);
+    for (const sync of withFranchise) {
+      try {
+        await base44.entities.CatalogSync.update(sync.id, { franchise_id: null });
+      } catch {}
+    }
+  } catch {}
+
+  if (queryClient) {
+    queryClient.invalidateQueries({ queryKey: ["catalog-sync-records"] });
+  }
+}
+
 async function getFranchiseId(malId) {
   if (franchiseCache.has(malId)) return franchiseCache.get(malId);
 

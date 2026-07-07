@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Check, X, Crown, Trash2, Network, AlertTriangle } from "lucide-react";
+import { Loader2, Check, X, Crown, Trash2, Network, AlertTriangle, Download } from "lucide-react";
 
 /**
  * FranchiseGroupCard — displays a single franchise group for admin review.
@@ -81,6 +81,54 @@ export default function FranchiseGroupCard({ group, index, onAction, verifying }
             </div>
           )}
         </div>
+
+        {/* CORREÇÃO 2: Heurística — raiz provavelmente faltante (baseada em título) */}
+        {group.rootLikelyMissing && !group.rootMissing && isPending && (
+          <div className="mt-2 rounded-md border border-chart-4/30 bg-chart-4/10 p-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-chart-4 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-chart-4">
+                  Raiz real pode não estar no catálogo
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Título sugere temporada posterior. Clique "Verificar Jikan" para confirmar.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CORREÇÃO 2: Aviso de raiz real não importada (confirmada via Jikan) */}
+        {group.rootMissing && isPending && (
+          <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-destructive">
+                  Raiz real (mal_id {group.rootMissingMalId}) não está no catálogo
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {group.rootMissingTitle || "Título desconhecido"}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 mt-1.5 gap-1 text-xs"
+                  disabled={verifying}
+                  onClick={() => onAction(index, "importRoot")}
+                >
+                  {verifying ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Download className="w-3 h-3" />
+                  )}
+                  Importar raiz
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showRootInput && isPending && (
           <div className="mt-2 flex gap-2">

@@ -10,7 +10,9 @@ import {
   detectFranchiseGroups,
   getFranchiseRootViaJikan,
   buildSeasonsArray,
+  checkWorkExistsInDb,
 } from "@/lib/franchiseDetection";
+import { invalidateStaleFranchiseCache } from "@/lib/catalogAutoSync";
 
 const BACKUP_KEY = "franchise_merge_backup";
 
@@ -42,30 +44,57 @@ export default function FranchiseMerger() {
 
   useEffect(() => {
     if (dynamicWorks.length === 0) return;
-    const animeWorks = dynamicWorks
-      .filter((w) => {
-        try {
-          const cats = w.categories ? JSON.parse(w.categories) : [];
-          return cats.includes("anime") && w.mal_id;
-        } catch {
-          return false;
-        }
-      })
-      .map((w) => ({
-        ...w,
-        categories: w.categories ? JSON.parse(w.categories) : [],
-      }));
-    const detected = detectFranchiseGroups(animeWorks);
-    setGroups(
-      detected.map((g) => ({
-        ...g,
-        status: "pending",
-        removedSeasons: [],
-        rootOverride: null,
-        verificationResult: null,
-      }))
-    );
-  }, [dynamicWorks]);
+
+    // CORREÇÃO 3: Invalidar cache stale de CatalogSync antes de re-detectar
+    invalidateStaleFranchiseCache(queryClient).then(() => {
+      const animeWorks = dynamicWorks
+        .filter((w) => {
+          try {
+            const cats = w.categories ? JSON.parse(w.categories) : [];
+            return cats.includes("anime") && w.mal_id;
+          } catch {
+            return false;
+          }
+        })
+        .map((w) => ({
+          ...w,
+          categories: w.categories ? JSON.parse(w.categories) : [],
+        }));
+      const detected = detectFranchiseGroups(animeWorks);
+
+      // CORREÇÃO 2: A raiz detectada é sempre do próprio grupo (menor mal_id do grupo).
+      // A sinalização de "raiz real não importada" só pode ser feita após verificar Jikan,
+      // porque a detecção por título não sabe se existe uma temporada anterior fora do banco.
+      // Grupos onde a raiz detectada NÃO é o menor ano podem indicar raiz faltante — mas
+      // a verificação definitiva é via "Verificar Jikan".
+      const groupsWithFlags = detected.map((g) => {
+        // Heurística: se a raiz detectada tem "Season 2", "2nd", "III" etc. no título,
+        // é provável que a 1ª temporada não esteja no banco.
+        const rootTitle = (g.root.title || "").toLowerCase();
+        const likelyMissingRoot =
+          rootTitle.includes("season 2") ||
+          rootTitle.includes("season 3") ||
+          rootTitle.includes("season 4") ||
+          rootTitle.includes("2nd") ||
+          rootTitle.includes("3rd") ||
+          rootTitle.includes("4th") ||
+          rootTitle.includes(" ii") ||
+          rootTitle.includes(" iii");
+        return {
+          ...g,
+          status: "pending",
+          removedSeasons: [],
+          rootOverride: null,
+          verificationResult: null,
+          rootMissing: false,
+          rootLikelyMissing: likelyMissingRoot,
+          rootMissingMalId: null,
+          rootMissingTitle: null,
+        };
+      });
+      setGroups(groupsWithFlags);
+    });
+  }, [dynamicWorks, queryClient]);
 
   const pendingCount = groups.filter((g) => g.status === "pending").length;
   const mergedCount = groups.filter((g) => g.status === "merged").length;
@@ -133,28 +162,127 @@ export default function FranchiseMerger() {
               (w) => w.mal_id === result.franchise_id
             );
             if (newRoot) {
+              // Raiz encontrada está no banco — corrigir automaticamente
               const newAbsorbed = group.allItems.filter(
                 (w) => w.mal_id !== result.franchise_id
               );
               setGroups((prev) =>
                 prev.map((g, i) =>
                   i === index
-                    ? { ...g, root: newRoot, absorbed: newAbsorbed, rootOverride: newRoot }
+                    ? { ...g, root: newRoot, absorbed: newAbsorbed, rootOverride: newRoot, rootMissing: false }
                     : g
                 )
               );
               toast.success(`Raiz corrigida via Jikan: ${newRoot.title}`);
             } else {
-              toast(
-                `Jikan indica raiz mal_id ${result.franchise_id} (não está no grupo — corrija manualmente)`,
-                { icon: "⚠️" }
-              );
+              // CORREÇÃO 2: Raiz real NÃO está no banco — sinalizar, não importar sozinho
+              const exists = await checkWorkExistsInDb(result.franchise_id, dynamicWorks);
+              if (!exists) {
+                setGroups((prev) =>
+                  prev.map((g, i) =>
+                    i === index
+                      ? {
+                          ...g,
+                          rootMissing: true,
+                          rootMissingMalId: result.franchise_id,
+                          rootMissingTitle: result.rootTitle || `mal_id ${result.franchise_id}`,
+                          verificationResult: result,
+                        }
+                      : g
+                  )
+                );
+                toast(
+                  `Raiz real (mal_id ${result.franchise_id} — ${result.rootTitle}) não está no catálogo. Use "Importar raiz".`,
+                  { icon: "⚠️", duration: 6000 }
+                );
+              } else {
+                toast(
+                  `Jikan indica raiz mal_id ${result.franchise_id} (existe no banco mas não neste grupo — corrija manualmente)`,
+                  { icon: "⚠️" }
+                );
+              }
             }
           } else {
             toast.success("Raiz confirmada via Jikan");
           }
         } catch {
           toast.error("Erro ao verificar raiz via Jikan");
+        } finally {
+          setVerifyingIdx(null);
+        }
+      } else if (action === "importRoot") {
+        // CORREÇÃO 2: Importar a raiz real via Jikan /anime/{id}/full
+        const rootMalId = group.rootMissingMalId;
+        if (!rootMalId) {
+          toast.error("mal_id da raiz faltante não disponível");
+          return;
+        }
+        setVerifyingIdx(index);
+        try {
+          const res = await fetch(`https://api.jikan.moe/v4/anime/${rootMalId}/full`);
+          if (res.status === 429) {
+            toast.error("Rate limit do Jikan. Aguarde e tente novamente.");
+            return;
+          }
+          if (!res.ok) {
+            toast.error(`Jikan retornou ${res.status} para mal_id ${rootMalId}`);
+            return;
+          }
+          const json = await res.json();
+          const workData = json.data;
+          if (!workData) {
+            toast.error("Dados da raiz não encontrados no Jikan");
+            return;
+          }
+
+          // Check if already exists
+          const existing = await base44.entities.DynamicWork.filter({ mal_id: rootMalId });
+          if (existing.length > 0) {
+            toast("Raiz já existe no catálogo", { icon: "ℹ️" });
+            return;
+          }
+
+          const slug = (workData.title_english || workData.title)
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-");
+
+          const newWork = {
+            slug,
+            title: workData.title_english || workData.title,
+            title_pt: null,
+            romaji_title: workData.title !== (workData.title_english || workData.title) ? workData.title : null,
+            categories: JSON.stringify(workData.type === "Movie" ? ["anime", "filme"] : ["anime"]),
+            genres: JSON.stringify((workData.genres || []).map((g) => g.name)),
+            synopsis: workData.synopsis || null,
+            episodes: workData.episodes || null,
+            chapters: null,
+            volumes: null,
+            anime_status: workData.status === "Currently Airing" ? "Em exibição" : workData.status === "Finished Airing" ? "Finalizado" : workData.status === "Not yet aired" ? "Em breve" : null,
+            manga_status: null,
+            mal_id: workData.mal_id,
+            manga_mal_id: null,
+            score: workData.score || null,
+            year: workData.year || null,
+            duration: workData.duration || null,
+            image_url: workData.images?.jpg?.large_image_url || null,
+            source: "jikan",
+            sync_status: "synced",
+            last_synced_at: new Date().toISOString(),
+            popularity_rank: workData.popularity || null,
+            is_currently_airing: workData.airing || false,
+            season: workData.season ? `${workData.season}_${workData.year}` : null,
+            season_year: workData.year || null,
+          };
+
+          await base44.entities.DynamicWork.create(newWork);
+          toast.success(`Raiz importada: ${newWork.title}`);
+          queryClient.invalidateQueries({ queryKey: ["catalog-dynamic-works"] });
+        } catch (e) {
+          toast.error(`Erro ao importar raiz: ${e.message}`);
         } finally {
           setVerifyingIdx(null);
         }

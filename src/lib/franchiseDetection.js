@@ -14,6 +14,7 @@
  */
 
 import { delay } from "@/lib/jikan";
+import { base44 } from "@/api/base44Client";
 
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
@@ -101,11 +102,14 @@ export async function getFranchiseRootViaJikan(malId) {
   let currentId = malId;
   const visited = new Set();
 
+  // Types that are clearly NOT a season (filme, OVA, especial, música)
+  const NON_SEASON_TYPES = ["movie", "ova", "special", "music", "cm", "pv", "tv_special"];
+
   while (currentId && !visited.has(currentId)) {
     visited.add(currentId);
 
     try {
-      // Fetch full entry to get title and type
+      // Fetch full entry to get title, type, and relations
       const entryRes = await fetch(`${JIKAN_BASE}/anime/${currentId}/full`);
       if (entryRes.status === 429) {
         await delay(1000);
@@ -115,25 +119,42 @@ export async function getFranchiseRootViaJikan(malId) {
 
       const entryJson = await entryRes.json();
       const entryData = entryJson.data;
+      if (!entryData) break;
 
       chain.push({
         mal_id: currentId,
-        title: entryData?.title_english || entryData?.title || "",
-        type: entryData?.type,
-        year: entryData?.year,
+        title: entryData.title_english || entryData.title || "",
+        type: entryData.type,
+        year: entryData.year,
       });
 
-      // Find Prequel of type anime (TV only — not Movie/OVA/Special)
-      const relations = entryData?.relations || [];
-      const prequel = relations.find(
-        (r) => r.relation === "Prequel" && r.type === "anime"
-      );
+      const relations = entryData.relations || [];
+
+      // CORREÇÃO 1: Aceitar Prequel de qualquer type que NÃO seja claramente não-temporada.
+      // O Jikan v4 retorna entry como ARRAY: r.entry = [{mal_id, type, name, url}]
+      // O type que importa (anime vs manga) está em r.entry[0].type, NÃO em r.type.
+      // Antes exigia r.type === "anime" — mas r.type não existe no Jikan v4, então
+      // o .find() nunca casava e o loop parava cedo, coroando temporada intermediária como raiz.
+      const prequel = relations.find((r) => {
+        const rel = (r.relation || "").toLowerCase().trim();
+        if (rel !== "prequel") return false;
+
+        // Jikan v4: entry é um array — pegar o primeiro item
+        const entries = Array.isArray(r.entry) ? r.entry : [r.entry];
+        const firstEntry = entries[0];
+        if (!firstEntry?.mal_id) return false;
+
+        // O type do prequel está no entry, não na relation
+        const entryType = (firstEntry.type || "").toLowerCase().trim();
+        // Segue o prequel a menos que seja de um tipo claramente não-temporada
+        return !NON_SEASON_TYPES.includes(entryType);
+      });
 
       if (!prequel) break;
 
-      // Only follow TV-type prequels (skip Movies, OVAs, Specials)
-      // We check the prequel entry's type by fetching it in the next iteration
-      currentId = prequel.entry.mal_id;
+      // Extrair mal_id do primeiro entry do prequel
+      const prequelEntries = Array.isArray(prequel.entry) ? prequel.entry : [prequel.entry];
+      currentId = prequelEntries[0]?.mal_id;
       await delay(400); // Jikan rate limit ~3 req/s
     } catch {
       break;
@@ -145,7 +166,28 @@ export async function getFranchiseRootViaJikan(malId) {
   return {
     franchise_id: root?.mal_id || malId,
     chain,
+    rootTitle: root?.title || "",
+    rootType: root?.type || "",
   };
+}
+
+/**
+ * Checks whether a given mal_id exists as a DynamicWork in the database.
+ * Used to signal "raiz real não importada" in the FranchiseMerger.
+ */
+export async function checkWorkExistsInDb(malId, dynamicWorks = null) {
+  if (!malId) return false;
+  // If a preloaded list is available, use it (avoids extra API calls)
+  if (dynamicWorks && Array.isArray(dynamicWorks)) {
+    return dynamicWorks.some((w) => w.mal_id === malId);
+  }
+  // Otherwise, query the database
+  try {
+    const results = await base44.entities.DynamicWork.filter({ mal_id: malId });
+    return results.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
