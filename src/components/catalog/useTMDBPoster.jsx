@@ -83,8 +83,30 @@ export function useTMDBPoster(item, forceCategory) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Manga-only: no TMDB
+    // Manga-only: never use TMDB — fetch Jikan manga image via manga_mal_id
     if (isMangaOnly) {
+      // Prefer pre-populated image_url, then cover, then fetch from Jikan
+      if (item.image_url) {
+        setPosterUrl(item.image_url);
+        return;
+      }
+      if (item.manga_mal_id) {
+        const jikanKey = `jikan-manga-${item.manga_mal_id}`;
+        const cached = getPosterFromStorage(jikanKey);
+        if (cached !== undefined) { posterCache.set(jikanKey, cached); setPosterUrl(cached || item.cover || null); return; }
+        setLoading(true);
+        fetch(`https://api.jikan.moe/v4/manga/${item.manga_mal_id}/full`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            const url = data?.data?.images?.jpg?.large_image_url || null;
+            posterCache.set(jikanKey, url);
+            savePosterToStorage(jikanKey, url);
+            setPosterUrl(url || item.cover || null);
+          })
+          .catch(() => setPosterUrl(item.cover || null))
+          .finally(() => setLoading(false));
+        return;
+      }
       setPosterUrl(item.cover || null);
       return;
     }
@@ -113,13 +135,17 @@ export function useTMDBPoster(item, forceCategory) {
       return;
     }
 
-    // Anime (default): search as tv
+    // Anime (default): prefer Jikan image_url from DynamicWork, fallback to TMDB
+    if (item.image_url) {
+      setPosterUrl(item.image_url);
+      return;
+    }
     setLoading(true);
     fetchPoster(item.title, "tv").then((url) => {
       setPosterUrl(url || item.cover || null);
       setLoading(false);
     });
-  }, [item.slug, isLiveActionContext]);
+  }, [item.slug, isLiveActionContext, item.image_url]);
 
   return { posterUrl, loading };
 }

@@ -154,10 +154,10 @@ export function CatalogProvider({ children }) {
       if (!existsStatic) {
         merged.push(convertDynamicWork(dw));
       } else {
-        // Se existe no estático, sobrescrever com DynamicWork se mais recente
+        // Se existe no estático, sobrescrever com DynamicWork (camados do DW têm prioridade)
         const idx = merged.findIndex(w => w.slug === dw.slug);
         if (idx >= 0) {
-          merged[idx] = { ...convertDynamicWork(dw), ...merged[idx] };
+          merged[idx] = { ...merged[idx], ...convertDynamicWork(dw) };
         }
       }
     }
