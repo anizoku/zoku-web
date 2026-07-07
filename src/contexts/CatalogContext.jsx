@@ -30,7 +30,12 @@ function convertDynamicWork(dw) {
     mal_id: dw.mal_id,
     manga_mal_id: dw.manga_mal_id,
     score: dw.score,
+    rating: dw.score, // normaliza para o campo usado no catálogo
     year: dw.year,
+    popularity_rank: dw.popularity_rank,
+    is_trending: dw.is_trending || false,
+    trending_rank: dw.trending_rank,
+    is_currently_airing: dw.is_currently_airing || false,
     cover: null, // DynamicWork usa image_url diretamente
     image_url: dw.image_url,
     _source: "dynamic",

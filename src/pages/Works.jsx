@@ -17,6 +17,7 @@ import { useCatalog } from "@/contexts/CatalogContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
 import SuggestWorkModal from "@/components/catalog/SuggestWorkModal";
+import TrendingStrip from "@/components/catalog/TrendingStrip";
 import { hybridSearch } from "@/lib/hybridSearch";
 
 const CATEGORIES = [
@@ -62,7 +63,13 @@ export default function Works() {
   usePageTitle(`ZOKU — ${PAGE_TITLES[categoria] || "Obras"}`);
 
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("az");
+  const sort = searchParams.get("ordenar") || "rating";
+  function setSort(value) {
+    const params = {};
+    if (categoria !== "all") params.categoria = categoria;
+    if (value !== "rating") params.ordenar = value;
+    setSearchParams(params);
+  }
   const [view, setView] = useViewMode("worksViewMode", "grid");
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -249,6 +256,11 @@ export default function Works() {
       <div className="mb-6">
         <GenreFilter allGenres={allGenres} selectedGenres={selectedGenres} onChange={setSelectedGenres} />
       </div>
+
+      {/* Em Alta — trending strip (only when browsing, not searching) */}
+      {!search.trim() && selectedGenres.length === 0 && !isLoading && (
+        <TrendingStrip works={allWorks} isAdmin={isAdmin} />
+      )}
 
       {/* Resultados externos */}
       {externalResults.length > 0 && filtered.length < 3 && (

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { getLevelFromXp } from "@/lib/xpSystem";
 import { ACHIEVEMENTS } from "@/lib/achievements";
+import { useAchievementSound } from "@/hooks/useAchievementSound";
 
 // Check if user is among first 10 registered users
 export async function checkIsFounder(userEmail) {
@@ -17,6 +18,7 @@ export function useAchievementToasts({ stats, totalXp, userEmail, enabled = true
   const [queue, setQueue] = useState([]);
   const prevUnlockedRef = useRef(null);
   const prevLevelRef = useRef(null);
+  const { play: playAchievementSound } = useAchievementSound(userEmail);
 
   const dismiss = useCallback((id) => {
     setQueue(q => {
@@ -81,6 +83,9 @@ export function useAchievementToasts({ stats, totalXp, userEmail, enabled = true
     prevUnlockedRef.current = new Set(currentUnlocked);
 
     if (newItems.length > 0) {
+      // Toca o som apenas uma vez por batch de desbloqueios (evita sobreposição)
+      const hasNewAchievement = newItems.some(i => i.type === "achievement");
+      if (hasNewAchievement) playAchievementSound();
       setQueue(q => [...newItems, ...q]);
     }
   }, [stats, totalXp, enabled, userEmail]);

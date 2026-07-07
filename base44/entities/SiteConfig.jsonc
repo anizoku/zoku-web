@@ -14,6 +14,10 @@
       "type": "string",
       "description": "URL da logo completa (\u00edcone + texto)"
     },
+    "achievement_sound_url": {
+      "type": "string",
+      "description": "URL do som de conquista personalizado (vazio = usar som padr\u00e3o)"
+    },
     "updated_by": {
       "type": "string",
       "description": "Email do admin que editou"

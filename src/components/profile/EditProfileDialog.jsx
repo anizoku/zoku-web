@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit2, Save, Upload, Eye, Loader2, Camera, Crop } from "lucide-react";
+import { Edit2, Save, Upload, Eye, Loader2, Camera, Crop, Volume2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CropImageModal from "./CropImageModal";
 
@@ -98,6 +99,7 @@ export default function EditProfileDialog({ user, onSaved }) {
     list_visibility: "public", profile_visibility: "public",
     favorite_animes: "", favorite_mangas: "",
     avatar_crop: null, banner_crop: null,
+    achievement_sound_enabled: true,
   });
   const queryClient = useQueryClient();
 
@@ -125,6 +127,7 @@ export default function EditProfileDialog({ user, onSaved }) {
         favorite_mangas: (myProfile.favorite_mangas || []).join(", "),
         avatar_crop: myProfile.avatar_crop || null,
         banner_crop: myProfile.banner_crop || null,
+        achievement_sound_enabled: myProfile.achievement_sound_enabled !== false,
       });
     }
   }, [myProfile, open]);
@@ -146,6 +149,7 @@ export default function EditProfileDialog({ user, onSaved }) {
         profile_visibility: form.profile_visibility,
         favorite_animes: form.favorite_animes.split(",").map(s => s.trim()).filter(Boolean),
         favorite_mangas: form.favorite_mangas.split(",").map(s => s.trim()).filter(Boolean),
+        achievement_sound_enabled: form.achievement_sound_enabled,
       };
       return myProfile
         ? base44.entities.UserProfile.update(myProfile.id, data)
@@ -231,6 +235,15 @@ export default function EditProfileDialog({ user, onSaved }) {
           </TabsContent>
 
           <TabsContent value="privacy" className="space-y-3 pt-3">
+            <div className="flex items-center justify-between bg-secondary/50 rounded-lg p-3">
+              <div>
+                <label className="text-xs text-foreground font-medium flex items-center gap-1">
+                  <Volume2 className="w-3 h-3" /> Sons de Conquista
+                </label>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Toca um som ao desbloquear conquistas</p>
+              </div>
+              <Switch checked={form.achievement_sound_enabled} onCheckedChange={(v) => set("achievement_sound_enabled", v)} />
+            </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
                 <Eye className="w-3 h-3" /> Visibilidade do Perfil

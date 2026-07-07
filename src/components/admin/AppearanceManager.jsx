@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Upload, Save, Image as ImageIcon } from "lucide-react";
+import SoundUploader from "@/components/admin/SoundUploader";
 
 const VALID_TYPES = ["image/png", "image/svg+xml", "image/webp", "image/jpeg"];
 const MAX_SIZE_MB = 2;
@@ -77,7 +78,7 @@ function LogoUploader({ label, hint, value, onChange }) {
 
 export default function AppearanceManager() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ logo_compact_url: "", logo_full_url: "" });
+  const [form, setForm] = useState({ logo_compact_url: "", logo_full_url: "", achievement_sound_url: "" });
   const [loaded, setLoaded] = useState(false);
 
   const { data: config, isLoading } = useQuery({
@@ -92,7 +93,8 @@ export default function AppearanceManager() {
   if (config && !loaded) {
     setForm({
       logo_compact_url: config.logo_compact_url || "",
-      logo_full_url: config.logo_full_url || ""
+      logo_full_url: config.logo_full_url || "",
+      achievement_sound_url: config.achievement_sound_url || ""
     });
     setLoaded(true);
   }
@@ -104,6 +106,7 @@ export default function AppearanceManager() {
         label: "default",
         logo_compact_url: form.logo_compact_url,
         logo_full_url: form.logo_full_url,
+        achievement_sound_url: form.achievement_sound_url,
         updated_by: me?.email || ""
       };
       if (config?.id) {
@@ -146,6 +149,13 @@ export default function AppearanceManager() {
           value={form.logo_full_url}
           onChange={(v) => setForm((f) => ({ ...f, logo_full_url: v }))} />
         
+      </div>
+
+      <div className="space-y-6 bg-card border border-border rounded-xl p-5">
+        <SoundUploader
+          value={form.achievement_sound_url}
+          onChange={(v) => setForm((f) => ({ ...f, achievement_sound_url: v }))}
+        />
       </div>
 
       <Button

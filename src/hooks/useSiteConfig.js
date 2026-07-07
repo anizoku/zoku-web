@@ -17,6 +17,7 @@ export function useSiteConfig() {
 
   const logo_compact_url = config?.logo_compact_url || FALLBACK_LOGO_ICON;
   const logo_full_url = config?.logo_full_url || FALLBACK_LOGO_HORIZONTAL;
+  const achievement_sound_url = config?.achievement_sound_url || "";
 
-  return { config, logo_compact_url, logo_full_url };
+  return { config, logo_compact_url, logo_full_url, achievement_sound_url };
 }

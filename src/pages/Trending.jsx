@@ -21,7 +21,7 @@ const trending = [...CATALOG]
 export default function Trending() {
   const navigate = useNavigate();
   const [view, setView] = useState(() => localStorage.getItem("trendingViewMode") || "grid");
-  const [sort, setSort] = useState("default");
+  const [sort, setSort] = useState("rating");
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {

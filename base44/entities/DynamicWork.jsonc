@@ -107,6 +107,15 @@
     "season_year": {
       "type": "number",
       "description": "Ano da temporada"
+    },
+    "is_trending": {
+      "type": "boolean",
+      "default": false,
+      "description": "Marcado manualmente como 'Em Alta' pelo admin"
+    },
+    "trending_rank": {
+      "type": "number",
+      "description": "Ordem de prioridade no 'Em Alta' (menor = mais alto)"
     }
   },
   "required": [
