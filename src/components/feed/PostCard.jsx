@@ -185,6 +185,15 @@ export default function PostCard({ post, userEmail, userRole, communityCreatorEm
         <p className="text-sm text-foreground/90 leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
       )}
 
+      {post.image_url && (
+        <img
+          src={post.image_url}
+          alt=""
+          className="w-full max-h-96 object-cover rounded-lg border border-border mb-3"
+          loading="lazy"
+        />
+      )}
+
       {post.anime_title && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-secondary/50 border border-border text-xs text-muted-foreground">
           🎬 Sobre: <WorkLink title={post.anime_title} className="text-foreground font-medium hover:text-primary transition-colors" />

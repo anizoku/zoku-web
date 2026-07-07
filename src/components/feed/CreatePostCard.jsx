@@ -1,17 +1,33 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, ImagePlus } from "lucide-react";
+import { Send, ImagePlus, X, Loader2 } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { computeStats, computeTotalXp, getXpProgress } from "@/lib/xpSystem";
 
 export default function CreatePostCard({ user }) {
   const [content, setContent] = useState("");
   const [postType, setPostType] = useState("general");
+  const [imageUrl, setImageUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const queryClient = useQueryClient();
+  const fileInputRef = useRef();
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setImageUrl(file_url);
+    } catch {}
+    setUploading(false);
+    e.target.value = "";
+  };
 
   const { data: entries } = useQuery({
     queryKey: ["sidebar-entries"],
@@ -34,6 +50,7 @@ export default function CreatePostCard({ user }) {
     setIsPosting(true);
     await base44.entities.Post.create({
       content,
+      image_url: imageUrl || undefined,
       post_type: postType,
       author_name: user?.full_name || "Anônimo",
       author_avatar: user?.avatar_url || "",
@@ -43,6 +60,7 @@ export default function CreatePostCard({ user }) {
       liked_by: [],
     });
     setContent("");
+    setImageUrl("");
     setPostType("general");
     queryClient.invalidateQueries({ queryKey: ["posts"] });
     setIsPosting(false);
@@ -63,6 +81,17 @@ export default function CreatePostCard({ user }) {
             onChange={(e) => setContent(e.target.value)}
             className="min-h-[80px] bg-secondary border-none resize-none text-sm placeholder:text-muted-foreground/50"
           />
+          {imageUrl && (
+            <div className="relative rounded-lg overflow-hidden border border-border">
+              <img src={imageUrl} alt="preview" className="w-full max-h-64 object-cover" />
+              <button
+                onClick={() => setImageUrl("")}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Select value={postType} onValueChange={setPostType}>
@@ -77,8 +106,15 @@ export default function CreatePostCard({ user }) {
                   <SelectItem value="discussion">Discussão</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                <ImagePlus className="w-4 h-4" />
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
               </Button>
             </div>
             <Button

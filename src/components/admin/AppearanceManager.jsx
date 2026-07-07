@@ -136,13 +136,13 @@ export default function AppearanceManager() {
       <div className="space-y-6 bg-card border border-border rounded-xl p-5">
         <LogoUploader
           label="Logo compacta (ícone)"
-          hint="Recomendado: quadrada, fundo transparente (PNG/SVG/WebP). Usada no menu lateral reduzido."
+          hint="Recomendado: quadrada, fundo transparente (PNG/SVG/WebP). Usada no menu lateral reduzido. Proporção 1:1. Usada no menu compacto."
           value={form.logo_compact_url}
           onChange={(v) => setForm((f) => ({ ...f, logo_compact_url: v }))} />
         
         <LogoUploader
           label="Logo completa (ícone + texto)"
-          hint="Recomendado: proporção horizontal (~4:1). Usada no menu expandido e cabeçalho."
+          hint="Recomendado: proporção horizontal (4:1). Usada no menu expandido e cabeçalho."
           value={form.logo_full_url}
           onChange={(v) => setForm((f) => ({ ...f, logo_full_url: v }))} />
         
