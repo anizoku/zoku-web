@@ -5,13 +5,19 @@ import { useSiteConfig } from "@/hooks/useSiteConfig";
 
 /**
  * Hook que gerencia o som de conquista.
- * - Pré-carrega o áudio customizado (se configurado pelo admin).
+ * - Pré-carrega uma ÚNICA instância de Audio (reutilizada, não cria nova a cada disparo).
  * - Se não houver som customizado, usa um "plim plim" gerado via Web Audio API.
  * - Respeita a preferência do usuário (achievement_sound_enabled).
- * - Toca apenas uma vez por batch de desbloqueios.
+ * - ANTI-EMPILHAMENTO: se várias conquistas desbloqueiam num intervalo < 2s, toca o som
+ *   apenas UMA vez (debounce). Isso evita múltiplos áudios sobrepostos quando o usuário
+ *   desbloqueia várias conquistas simultaneamente (ex: bônus de maratona + nível + conquista).
+ * - Rejeição de play() tratada silenciosamente (política de autoplay do navegador).
  */
+const DEBOUNCE_MS = 2000;
+
 export function useAchievementSound(userEmail) {
   const audioRef = useRef(null);
+  const lastPlayRef = useRef(0);
   const { config } = useSiteConfig();
   const soundUrl = config?.achievement_sound_url;
 
@@ -23,7 +29,7 @@ export function useAchievementSound(userEmail) {
   });
   const soundEnabled = profiles?.[0]?.achievement_sound_enabled !== false;
 
-  // Pré-carrega o áudio customizado
+  // Pré-carrega o áudio customizado (instância única, reutilizada)
   useEffect(() => {
     if (!soundUrl) {
       audioRef.current = null;
@@ -67,6 +73,12 @@ export function useAchievementSound(userEmail) {
 
   const play = useCallback(() => {
     if (!soundEnabled) return;
+
+    // ANTI-EMPILHAMENTO: debounce — ignora disparos dentro de 2s do último
+    const now = Date.now();
+    if (now - lastPlayRef.current < DEBOUNCE_MS) return;
+    lastPlayRef.current = now;
+
     if (soundUrl && audioRef.current) {
       try {
         audioRef.current.currentTime = 0;

@@ -1,12 +1,14 @@
 {
-  "name": "ZOKU",
+  "name": "ZOKU — Anime Community",
   "short_name": "ZOKU",
-  "description": "Sua rede social de anime, mangá e cultura japonesa",
+  "description": "Your ultimate community hub to track anime progress, discover new series, and discuss your favorite moments.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#1A1B1E",
-  "theme_color": "#6DFF3C",
   "orientation": "portrait-primary",
+  "theme_color": "#6DFF3C",
+  "background_color": "#1E1F22",
+  "categories": ["entertainment", "social"],
   "icons": [
     {
       "src": "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/21dd49c1e_generated_image.png",
@@ -21,12 +23,16 @@
       "purpose": "any"
     },
     {
-      "src": "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/21dd49c1e_generated_image.png",
+      "src": "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/bdf8541d5_generated_image.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/bdf8541d5_generated_image.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "screenshots": [],
-  "categories": ["entertainment", "social", "lifestyle"]
+  ]
 }

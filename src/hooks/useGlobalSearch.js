@@ -13,8 +13,26 @@ function getContextCategory(pathname) {
   return null;
 }
 
+// Mapa de sinônimos ordinais — aplicado a tokens isolados (não dentro de palavras)
+const ORDINAL_MAP = {
+  first: "1", "1st": "1",
+  second: "2", "2nd": "2",
+  third: "3", "3rd": "3",
+  fourth: "4", "4th": "4",
+  fifth: "5", "5th": "5",
+  ii: "2", iii: "3", iv: "4", v: "5",
+};
+
 function normalizeQ(s) {
-  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[:;!?.,'"\-–—]/g, " ").replace(/\s+/g, " ").trim();
+  const base = (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[:;!?.,'"\-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Substitui tokens isolados de ordinais/romanos por forma canônica (dígito)
+  return base.split(" ").map((t) => ORDINAL_MAP[t] || t).join(" ");
 }
 
 function scoreWork(item, query, contextCategory) {
