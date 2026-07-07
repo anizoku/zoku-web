@@ -46,6 +46,9 @@ export default function Profile() {
   const { data: profiles } = useQuery({ queryKey: ["user-profiles"], queryFn: () => base44.entities.UserProfile.list("-created_date", 100), initialData: [] });
   const { data: friendships } = useQuery({ queryKey: ["friendships"], queryFn: () => base44.entities.Friendship.list("-created_date", 200), initialData: [] });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => base44.entities.SocialEvent.list("-event_date", 20), initialData: [] });
+  const { data: myUserAchievements = [] } = useQuery({ queryKey: ["my-user-achievements"], queryFn: () => base44.entities.UserAchievement.filter({ user_email: user?.email }, "-unlocked_at", 200), enabled: !!user?.email, staleTime: 60000 });
+  const { data: allUserAchievements = [] } = useQuery({ queryKey: ["all-user-achievements"], queryFn: () => base44.entities.UserAchievement.list("-unlocked_at", 2000), staleTime: 5 * 60 * 1000 });
+  const { data: userCount = 1 } = useQuery({ queryKey: ["user-count"], queryFn: async () => (await base44.entities.User.list()).length, staleTime: 5 * 60 * 1000 });
 
   const myEntries = entries.filter((e) => e.created_by === user?.email);
   const myPosts = posts.filter((p) => p.created_by === user?.email);
@@ -87,6 +90,19 @@ export default function Profile() {
   const rank = getRankForLevel(level);
   const unlockedAchievements = getUnlockedAchievements(stats);
   const unlockedIds = unlockedAchievements.map(a => a.id);
+
+  // Real unlock dates (from UserAchievement records)
+  const unlockedDates = {};
+  for (const r of (myUserAchievements || [])) {
+    if (r.user_email === user?.email && r.unlocked_at) unlockedDates[r.achievement_key] = r.unlocked_at;
+  }
+  // Real percentage: (users with this achievement) / (total users)
+  const achievementPercentages = {};
+  const tUsers = userCount || 1;
+  for (const a of ACHIEVEMENTS) {
+    const count = (allUserAchievements || []).filter(r => r.achievement_key === a.id).length;
+    achievementPercentages[a.id] = tUsers > 0 ? Math.round((count / tUsers) * 100) : 0;
+  }
 
   const { queue: toastQueue, dismiss: dismissToast } = useAchievementToasts({
     stats, totalXp, userEmail: user?.email, enabled: !!user,
@@ -385,7 +401,8 @@ export default function Profile() {
         <TabsContent value="achievements" className="mt-4">
           <AchievementsPanel
             unlockedIds={unlockedIds}
-            unlockedDates={{}}
+            unlockedDates={unlockedDates}
+            achievementPercentages={achievementPercentages}
             isOwn={true}
             selectedBadgeId={selectedBadgeId}
             onSelectBadge={(id) => saveBadgeMutation.mutate(id === selectedBadgeId ? "" : id)}

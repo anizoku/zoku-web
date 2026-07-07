@@ -1,9 +1,11 @@
-const CACHE_NAME = 'zoku-v1';
-const STATIC_ASSETS = ['/', '/index.html'];
+// ZOKU Service Worker — caches only the static app shell.
+// Dynamic data (API, jikan, TMDB, base44) is NEVER cached.
+const CACHE_NAME = 'zoku-v2';
+const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).catch(() => {})
   );
   self.skipWaiting();
 });
@@ -18,37 +20,30 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Never cache dynamic / API requests
   if (
     event.request.url.includes('/api/') ||
     event.request.url.includes('jikan.moe') ||
     event.request.url.includes('themoviedb.org') ||
     event.request.url.includes('base44') ||
+    event.request.url.includes('media.base44.com') ||
     event.request.method !== 'GET'
   ) {
-    return;
+    return; // let the network handle it
   }
+
+  // Static shell: cache-first, fallback to network
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
-  );
-});
-
-// Push notification support
-self.addEventListener('push', (event) => {
-  const data = event.data?.json() || {};
-  const title = data.title || 'ZOKU';
-  const options = {
-    body: data.body || '',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
-    data: { url: data.url || '/' },
-    vibrate: [200, 100, 200]
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(
-    clients.openWindow(event.notification.data.url || '/')
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
+        // Cache same-origin GET responses for static assets
+        if (response && response.status === 200 && event.request.url.startsWith(self.location.origin)) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
+        }
+        return response;
+      }).catch(() => caches.match('/index.html'));
+    })
   );
 });

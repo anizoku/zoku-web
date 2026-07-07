@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-function AchievementItem({ achievement, unlocked, unlockedAt, isOwn, selectedBadgeId, onSelectBadge }) {
+function AchievementItem({ achievement, unlocked, unlockedAt, isOwn, selectedBadgeId, onSelectBadge, percentage }) {
   const IconComp  = getAchievementIcon(achievement.icon);
   const colorClass = unlocked ? getAchievementColor(achievement.id) : "text-muted-foreground/40";
   const isSelected = selectedBadgeId === achievement.id;
@@ -60,6 +60,9 @@ function AchievementItem({ achievement, unlocked, unlockedAt, isOwn, selectedBad
           )}
         </div>
       )}
+      {typeof percentage === "number" && (
+        <span className="mt-1 text-[9px] text-muted-foreground/50">{percentage}% dos jogadores</span>
+      )}
     </motion.div>
   );
 }
@@ -67,6 +70,7 @@ function AchievementItem({ achievement, unlocked, unlockedAt, isOwn, selectedBad
 export default function AchievementsPanel({
   unlockedIds = [],
   unlockedDates = {},
+  achievementPercentages = {},
   isOwn = false,         // true = próprio perfil (mostra todas + badge selector)
   selectedBadgeId = null,
   onSelectBadge = null,
@@ -129,6 +133,7 @@ export default function AchievementsPanel({
                   achievement={a}
                   unlocked={unlockedSet.has(a.id)}
                   unlockedAt={unlockedDates[a.id]}
+                  percentage={achievementPercentages[a.id]}
                   isOwn={isOwn}
                   selectedBadgeId={selectedBadgeId}
                   onSelectBadge={onSelectBadge}

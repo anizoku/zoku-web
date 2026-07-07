@@ -20,8 +20,8 @@ export default function TopBar() {
       <div className="flex items-center gap-3 px-4 lg:px-6 h-14">
         {/* Mobile logo */}
         <Link to="/" className="lg:hidden flex items-center gap-2 shrink-0">
-          <img src={LOGO_ICON} alt="AniZoku" className="w-8 h-8 rounded-lg object-contain" />
-          <img src={LOGO_HORIZONTAL} alt="AniZoku" className="h-6 object-contain" />
+          <img src={LOGO_ICON} alt="ZOKU" className="w-8 h-8 rounded-lg object-contain" />
+          <img src={LOGO_HORIZONTAL} alt="ZOKU" className="h-6 object-contain" />
         </Link>
 
         {/* Search */}

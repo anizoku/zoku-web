@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import CreatePostCard from "@/components/feed/CreatePostCard";
 import PostCard from "@/components/feed/PostCard";
 import TrendingSection from "@/components/home/TrendingSection";
+import HeroCarousel from "@/components/home/HeroCarousel";
 import RecentEpisodesSection from "@/components/home/RecentEpisodesSection";
 import ActiveDebatesSection from "@/components/home/ActiveDebatesSection";
 import RecommendationsSection from "@/components/home/RecommendationsSection";
@@ -32,6 +33,7 @@ export default function Home() {
 
   return (
     <div className="w-full px-4 lg:px-6 py-6 max-w-[1400px] mx-auto">
+      <HeroCarousel />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Main Feed */}
         <div className="lg:col-span-8 space-y-4">

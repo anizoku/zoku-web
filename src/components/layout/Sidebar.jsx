@@ -101,9 +101,9 @@ export default function Sidebar({ collapsed, onToggle }) {
         onClick={onToggle}
         className="flex items-center gap-2 px-4 h-14 border-b border-sidebar-border hover:bg-sidebar-accent transition-colors shrink-0 w-full"
       >
-        <img src={LOGO_ICON} alt="AniZoku" className="w-8 h-8 rounded-lg object-contain shrink-0" />
+        <img src={LOGO_ICON} alt="ZOKU" className="w-8 h-8 rounded-lg object-contain shrink-0" />
         {!collapsed && (
-          <img src={LOGO_HORIZONTAL} alt="AniZoku" className="h-6 object-contain flex-1" />
+          <img src={LOGO_HORIZONTAL} alt="ZOKU" className="h-6 object-contain flex-1" />
         )}
       </button>
 

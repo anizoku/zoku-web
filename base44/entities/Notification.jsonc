@@ -18,7 +18,9 @@
         "watch_together_invite",
         "watch_together_near_5",
         "watch_together_near_1",
-        "direct_message"
+        "direct_message",
+        "mention",
+        "event_message"
       ]
     },
     "message": {

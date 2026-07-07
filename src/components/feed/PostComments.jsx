@@ -8,6 +8,21 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import AchievementBadge from "@/components/profile/AchievementBadge";
+import MentionTextarea from "@/components/feed/MentionTextarea";
+import MentionText from "@/components/feed/MentionText";
+
+function extractMentions(content, profiles, authorEmail) {
+  const matches = content.match(/@[\w.]+/g) || [];
+  const usernameToEmail = new Map();
+  for (const p of profiles) if (p.username) usernameToEmail.set(p.username.toLowerCase(), p.user_email);
+  const emails = new Set();
+  for (const m of matches) {
+    const username = m.slice(1).toLowerCase();
+    const email = usernameToEmail.get(username);
+    if (email && email !== authorEmail) emails.add(email);
+  }
+  return [...emails];
+}
 
 function ReplyItem({ reply, userEmail, depth = 1, profiles = [] }) {
   const navigate = useNavigate();
@@ -31,7 +46,7 @@ function ReplyItem({ reply, userEmail, depth = 1, profiles = [] }) {
             </button>
             {replyProfile?.selected_badge_id && <AchievementBadge badgeId={replyProfile.selected_badge_id} size="xs" />}
           </div>
-          <p className="text-xs text-foreground/85 leading-relaxed whitespace-pre-wrap">{reply.content}</p>
+          <p className="text-xs text-foreground/85 leading-relaxed whitespace-pre-wrap"><MentionText content={reply.content} profiles={profiles} /></p>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1 ml-2">{timeAgo}</p>
       </div>
@@ -56,15 +71,28 @@ function CommentItem({ comment, userEmail, postId, allComments, profiles = [] })
   const replyMutation = useMutation({
     mutationFn: async () => {
       const me = await base44.auth.me();
-      return base44.entities.Comment.create({
+      const created = await base44.entities.Comment.create({
         post_id: postId,
         parent_id: comment.id,
         content: replyText.trim(),
         author_name: me.full_name || me.email,
       });
+      return { created, me };
     },
-    onSuccess: () => {
+    onSuccess: ({ created, me }) => {
       queryClient.invalidateQueries({ queryKey: ["comments", postId] });
+      const mentionedEmails = extractMentions(replyText, profiles, me.email);
+      for (const email of mentionedEmails) {
+        base44.entities.Notification.create({
+          recipient_email: email,
+          type: "mention",
+          message: `${me.full_name || me.email} mencionou você em uma resposta`,
+          from_name: me.full_name || "ZOKU",
+          from_email: me.email,
+          reference_id: created.id,
+          is_read: false,
+        }).catch(() => {});
+      }
       setReplyText("");
       setShowReplyBox(false);
       setShowReplies(true);
@@ -88,7 +116,7 @@ function CommentItem({ comment, userEmail, postId, allComments, profiles = [] })
               </button>
               {commentProfile?.selected_badge_id && <AchievementBadge badgeId={commentProfile.selected_badge_id} size="xs" />}
             </div>
-            <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+            <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap"><MentionText content={comment.content} profiles={profiles} /></p>
           </div>
           <div className="flex items-center gap-2 mt-1 ml-2">
             <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
@@ -111,11 +139,13 @@ function CommentItem({ comment, userEmail, postId, allComments, profiles = [] })
 
           {showReplyBox && (
             <div className="mt-2 ml-1 flex gap-2">
-              <Textarea
+              <MentionTextarea
                 placeholder={`Responder ${comment.author_name}...`}
                 value={replyText}
-                onChange={e => setReplyText(e.target.value)}
-                className="bg-secondary border-none text-xs resize-none h-14 flex-1"
+                onChange={setReplyText}
+                profiles={profiles}
+                currentEmail={userEmail}
+                className="bg-secondary border-none text-xs resize-none h-14"
               />
               <div className="flex flex-col gap-1">
                 <Button
@@ -170,18 +200,30 @@ export default function PostComments({ postId, userEmail, onCountUpdate }) {
   const createMutation = useMutation({
     mutationFn: async () => {
       const me = await base44.auth.me();
-      return base44.entities.Comment.create({
+      const created = await base44.entities.Comment.create({
         post_id: postId,
         content: commentText.trim(),
         author_name: me.full_name || me.email,
       });
+      return { created, me };
     },
-    onSuccess: () => {
+    onSuccess: ({ created, me }) => {
       queryClient.invalidateQueries({ queryKey: ["comments", postId] });
-      // Also update the post's comments_count
       base44.entities.Post.update(postId, { comments_count: topLevel.length + 1 }).then(() => {
         queryClient.invalidateQueries({ queryKey: ["posts"] });
       });
+      const mentionedEmails = extractMentions(commentText, profiles, me.email);
+      for (const email of mentionedEmails) {
+        base44.entities.Notification.create({
+          recipient_email: email,
+          type: "mention",
+          message: `${me.full_name || me.email} mencionou você em um comentário`,
+          from_name: me.full_name || "ZOKU",
+          from_email: me.email,
+          reference_id: created.id,
+          is_read: false,
+        }).catch(() => {});
+      }
       setCommentText("");
     },
   });
@@ -190,11 +232,13 @@ export default function PostComments({ postId, userEmail, onCountUpdate }) {
     <div className="mt-3 pt-3 border-t border-border/50">
       {/* New comment input */}
       <div className="flex gap-2 mb-4">
-        <Textarea
-          placeholder="Escreva um comentário..."
+        <MentionTextarea
+          placeholder="Escreva um comentário... use @ para mencionar"
           value={commentText}
-          onChange={e => setCommentText(e.target.value)}
-          className="bg-secondary border-none text-sm resize-none h-16 flex-1"
+          onChange={setCommentText}
+          profiles={profiles}
+          currentEmail={userEmail}
+          className="bg-secondary border-none text-sm resize-none h-16"
         />
         <Button
           size="icon"

@@ -341,7 +341,7 @@ export default function ProfileSetup() {
             {submitting ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Criando perfil...</>
             ) : (
-              <><Sparkles className="w-4 h-4" /> Entrar no anizoku</>
+              <><Sparkles className="w-4 h-4" /> Entrar no ZOKU</>
             )}
           </Button>
 

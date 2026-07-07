@@ -60,7 +60,7 @@ export function useAchievementToasts({ stats, totalXp, userEmail, enabled = true
           type: "achievement",
           achievement,
         });
-        // Fire achievement notification
+        // Fire achievement notification + persist unlock record (with real timestamp)
         if (userEmail) {
           base44.entities.Notification.create({
             recipient_email: userEmail,
@@ -69,6 +69,11 @@ export function useAchievementToasts({ stats, totalXp, userEmail, enabled = true
             from_name: "ZOKU",
             reference_id: "achievements",
             is_read: false,
+          }).catch(() => {});
+          base44.entities.UserAchievement.create({
+            user_email: userEmail,
+            achievement_key: id,
+            unlocked_at: new Date().toISOString(),
           }).catch(() => {});
         }
       }
