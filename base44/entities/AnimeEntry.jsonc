@@ -3,7 +3,8 @@
   "type": "object",
   "properties": {
     "title": {
-      "type": "string"
+      "type": "string",
+      "description": "T\u00edtulo da obra can\u00f4nica (franchise title ap\u00f3s merge de temporadas)"
     },
     "type": {
       "type": "string",
@@ -51,6 +52,10 @@
     },
     "genre": {
       "type": "string"
+    },
+    "season_mal_id": {
+      "type": "number",
+      "description": "mal_id da temporada espec\u00edfica \u00e0 qual o progresso se refere (ap\u00f3s merge de franchise). Null = raiz/\u00fanica temporada."
     }
   },
   "required": [

@@ -2,6 +2,46 @@ import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
 import { syncWorkFromJikan, delay } from "@/lib/jikan";
 import { getTMDBWorkDetails } from "@/lib/tmdb";
+import { getFranchiseRootViaJikan, buildSeasonsArray, parseSeasons } from "@/lib/franchiseDetection";
+
+// ─── FRANCHISE CACHE (mal_id → franchise_id) ───────────────────────────────
+// Persistido em CatalogSync para não reconsultar relations de temporadas já conhecidas.
+const franchiseCache = new Map();
+
+async function getFranchiseId(malId) {
+  if (franchiseCache.has(malId)) return franchiseCache.get(malId);
+
+  // Tenta buscar do cache persistente (CatalogSync)
+  try {
+    const existing = await base44.entities.CatalogSync.filter({ mal_id: malId });
+    if (existing?.[0]?.franchise_id) {
+      franchiseCache.set(malId, existing[0].franchise_id);
+      return existing[0].franchise_id;
+    }
+  } catch {}
+
+  // Consulta Jikan relations para descobrir a raiz
+  try {
+    const result = await getFranchiseRootViaJikan(malId);
+    const franchiseId = String(result.franchise_id);
+    franchiseCache.set(malId, franchiseId);
+
+    // Persiste no CatalogSync para futuras consultas
+    try {
+      const existing = await base44.entities.CatalogSync.filter({ mal_id: malId });
+      if (existing?.[0]) {
+        await base44.entities.CatalogSync.update(existing[0].id, { franchise_id: franchiseId });
+      }
+    } catch {}
+
+    return franchiseId;
+  } catch {
+    // Fallback: o próprio mal_id é a raiz
+    const fallback = String(malId);
+    franchiseCache.set(malId, fallback);
+    return fallback;
+  }
+}
 
 // ─── NORMALIZAÇÃO DE OBRA DO JIKAN ───────────────────────────────────────
 function mapAnimeStatus(status) {
@@ -61,10 +101,11 @@ export function normalizeJikanWork(data, type) {
   };
 }
 
-// ─── IMPORTAÇÃO EM MASSA (Top N) ─────────────────────────────────────────
+// ─── IMPORTAÇÃO EM MASSA (Top N) — FRANCHISE-AWARE ─────────────────────────
 export async function importTopWorks(type, totalPages, onLog, onProgress, abortRef) {
   let added = 0;
   let skipped = 0;
+  let merged = 0;
   let errors = 0;
   const importedWorks = [];
 
@@ -92,7 +133,7 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
         if (abortRef?.current) break;
 
         try {
-          // Verificar se já existe na DynamicWork
+          // Verificar se já existe na DynamicWork (por mal_id — nível temporada)
           const malIdField = type === "anime" ? "mal_id" : "manga_mal_id";
           const exists = await base44.entities.DynamicWork.filter({ [malIdField]: work.mal_id });
           if (exists.length > 0) { 
@@ -110,8 +151,79 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
             continue; 
           }
 
-          // Criar na DynamicWork
           const normalized = normalizeJikanWork(work, type);
+
+          // ── FRANCHISE-AWARE: apenas para anime TV ───────────────────────
+          // Filmes/OVAs/Specials ficam como obra à parte com related_franchise_id.
+          // Apenas tipo TV se funde em seasons[].
+          if (type === "anime" && work.type === "TV") {
+            const franchiseId = await getFranchiseId(work.mal_id);
+
+            // Buscar obra canônica existente com este franchise_id
+            const canonicalWorks = await base44.entities.DynamicWork.filter({
+              franchise_id: franchiseId,
+            });
+
+            if (canonicalWorks.length > 0) {
+              // ANEXAR como temporada na obra canônica existente
+              const canonical = canonicalWorks[0];
+              const existingSeasons = parseSeasons(canonical.seasons);
+
+              // Não adicionar se já existe na seasons[] (dedup por mal_id)
+              if (existingSeasons.some((s) => s.mal_id === work.mal_id)) {
+                skipped++;
+                continue;
+              }
+
+              const newSeason = {
+                mal_id: work.mal_id,
+                season_number: null,
+                season_title: work.title_english || work.title,
+                sort_order: existingSeasons.length + 1,
+                episodes: work.episodes || null,
+                year: work.year || null,
+                poster_url: work.images?.jpg?.large_image_url || null,
+                synopsis: work.synopsis || null,
+                score: work.score || null,
+              };
+
+              const updatedSeasons = [...existingSeasons, newSeason].sort(
+                (a, b) => (a.mal_id || 0) - (b.mal_id || 0)
+              );
+
+              await base44.entities.DynamicWork.update(canonical.id, {
+                seasons: JSON.stringify(updatedSeasons),
+              });
+
+              merged++;
+              onLog?.(`+ Temporada anexada: ${work.title_english || work.title} → ${canonical.title}`);
+              continue;
+            }
+
+            // Não existe obra canônica ainda — criar nova com franchise_id + seasons[]
+            normalized.franchise_id = franchiseId;
+            normalized.franchise_title = work.title_english || work.title;
+            normalized.franchise_score = work.score || null;
+            normalized.franchise_poster_url = work.images?.jpg?.large_image_url || null;
+            normalized.seasons = JSON.stringify(
+              buildSeasonsArray([{
+                mal_id: work.mal_id,
+                title: work.title_english || work.title,
+                episodes: work.episodes || null,
+                year: work.year || null,
+                image_url: work.images?.jpg?.large_image_url || null,
+                synopsis: work.synopsis || null,
+                score: work.score || null,
+              }])
+            );
+          } else if (type === "anime" && work.type !== "TV") {
+            // Filme/OVA/Special — fica como obra à parte, com related_franchise_id
+            try {
+              const franchiseId = await getFranchiseId(work.mal_id);
+              normalized.related_franchise_id = franchiseId;
+            } catch {}
+          }
+
           await base44.entities.DynamicWork.create(normalized);
           
           const categories = JSON.parse(normalized.categories);
@@ -131,7 +243,7 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
       }
 
       onProgress?.(page / totalPages);
-      onLog?.(`Página ${page}: +${added} adicionadas, ${skipped} puladas`);
+      onLog?.(`Página ${page}: +${added} adicionadas, ${merged} fundidas, ${skipped} puladas`);
       await delay(1000);
     } catch (e) {
       onLog?.(`Erro na página ${page}: ${e.message}`);
@@ -139,7 +251,7 @@ export async function importTopWorks(type, totalPages, onLog, onProgress, abortR
     }
   }
 
-  return { added, skipped, errors, works: importedWorks };
+  return { added, merged, skipped, errors, works: importedWorks };
 }
 
 // ─── SYNC HÍBRIDO POR TIPO ──────────────────────────────────────────────────
@@ -321,15 +433,16 @@ export async function syncWorkBothSources(work, type = "anime") {
   return null;
 }
 
-// ─── IMPORTAÇÃO HÍBRIDA (JIKAN + TMDB) ──────────────────────────────────
+// ─── IMPORTAÇÃO HÍBRIDA (JIKAN + TMDB) — FRANCHISE-AWARE ────────────────
 export async function importTopWorksBothSources(type, totalPages, onLog, onProgress, abortRef) {
   let added = 0;
   let skipped = 0;
+  let merged = 0;
   let errors = 0;
   const importedWorks = [];
   const existingSlugs = new Set();
 
-  // Primeiro: importar do Jikan (como antes)
+  // Primeiro: importar do Jikan (franchise-aware)
   for (let page = 1; page <= totalPages; page++) {
     if (abortRef?.current) break;
 
@@ -371,6 +484,65 @@ export async function importTopWorksBothSources(type, totalPages, onLog, onProgr
           }
 
           const normalized = normalizeJikanWork(work, type);
+
+          // ── FRANCHISE-AWARE: apenas anime TV se funde ─────────────────
+          if (type === "anime" && work.type === "TV") {
+            const franchiseId = await getFranchiseId(work.mal_id);
+            const canonicalWorks = await base44.entities.DynamicWork.filter({
+              franchise_id: franchiseId,
+            });
+
+            if (canonicalWorks.length > 0) {
+              const canonical = canonicalWorks[0];
+              const existingSeasons = parseSeasons(canonical.seasons);
+
+              if (!existingSeasons.some((s) => s.mal_id === work.mal_id)) {
+                const newSeason = {
+                  mal_id: work.mal_id,
+                  season_number: null,
+                  season_title: work.title_english || work.title,
+                  sort_order: existingSeasons.length + 1,
+                  episodes: work.episodes || null,
+                  year: work.year || null,
+                  poster_url: work.images?.jpg?.large_image_url || null,
+                  synopsis: work.synopsis || null,
+                  score: work.score || null,
+                };
+
+                const updatedSeasons = [...existingSeasons, newSeason].sort(
+                  (a, b) => (a.mal_id || 0) - (b.mal_id || 0)
+                );
+
+                await base44.entities.DynamicWork.update(canonical.id, {
+                  seasons: JSON.stringify(updatedSeasons),
+                });
+                merged++;
+                onLog?.(`+ Temporada anexada: ${work.title_english || work.title} → ${canonical.title}`);
+              }
+              continue;
+            }
+
+            normalized.franchise_id = franchiseId;
+            normalized.franchise_title = work.title_english || work.title;
+            normalized.franchise_score = work.score || null;
+            normalized.franchise_poster_url = work.images?.jpg?.large_image_url || null;
+            normalized.seasons = JSON.stringify(
+              buildSeasonsArray([{
+                mal_id: work.mal_id,
+                title: work.title_english || work.title,
+                episodes: work.episodes || null,
+                year: work.year || null,
+                image_url: work.images?.jpg?.large_image_url || null,
+                synopsis: work.synopsis || null,
+                score: work.score || null,
+              }])
+            );
+          } else if (type === "anime" && work.type !== "TV") {
+            try {
+              normalized.related_franchise_id = await getFranchiseId(work.mal_id);
+            } catch {}
+          }
+
           await base44.entities.DynamicWork.create(normalized);
           
           const categories = JSON.parse(normalized.categories);
@@ -392,8 +564,8 @@ export async function importTopWorksBothSources(type, totalPages, onLog, onProgr
         await delay(100);
       }
 
-      onProgress?.(page / (totalPages + 5)); // +5 para deixar espaço pro TMDB
-      onLog?.(`[Jikan] Página ${page}: +${added} adicionadas, ${skipped} puladas`);
+      onProgress?.(page / (totalPages + 5));
+      onLog?.(`[Jikan] Página ${page}: +${added} novas, +${merged} fundidas, ${skipped} puladas`);
       await delay(1000);
     } catch (e) {
       onLog?.(`[Jikan] Erro na página ${page}: ${e.message}`);

@@ -21,12 +21,15 @@ function scoreWork(item, query, contextCategory) {
   const q = normalizeQ(query);
   const title = normalizeQ(item.title);
   const romaji = normalizeQ(item.romaji_title);
+  const franchiseTitle = normalizeQ(item.franchise_title);
   let score = 0;
 
   if (title === q) score += 100;
   else if (title.startsWith(q)) score += 50;
   else if (title.includes(q)) score += 20;
   if (romaji && (romaji === q || romaji.startsWith(q) || romaji.includes(q))) score += 40;
+  if (franchiseTitle && franchiseTitle.includes(q)) score += 30;
+  if (item.seasons?.some(s => normalizeQ(s.season_title).includes(q))) score += 25;
   if (item.genres?.some(g => normalizeQ(g).includes(q))) score += 5;
 
   if (contextCategory && item.categories?.includes(contextCategory)) score += 30;
@@ -58,6 +61,8 @@ export function useGlobalSearch(query) {
         .filter(item =>
           normalizeQ(item.title).includes(nq) ||
           normalizeQ(item.romaji_title).includes(nq) ||
+          normalizeQ(item.franchise_title).includes(nq) ||
+          (item.seasons || []).some(s => normalizeQ(s.season_title).includes(nq)) ||
           item.genres?.some(g => normalizeQ(g).includes(nq))
         )
         .map(item => ({ ...item, _score: scoreWork(item, q, context) }))

@@ -19,7 +19,8 @@ function getDisplayTitle(item, overrideMap) {
 }
 
 function getRating(item) {
-  return item.rating || item.score || 0;
+  // Usa franchise_score (canônico) quando disponível, senão score/rating
+  return item.franchise_score || item.rating || item.score || 0;
 }
 
 function getPopularity(item) {

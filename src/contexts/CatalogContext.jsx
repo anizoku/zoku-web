@@ -7,6 +7,7 @@ import { createContext, useContext, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
+import { parseSeasons } from "@/lib/franchiseDetection";
 
 const QUERY_KEY_SYNC = ["catalog-sync-records"];
 const QUERY_KEY_DYNAMIC = ["catalog-dynamic-works"];
@@ -36,8 +37,15 @@ function convertDynamicWork(dw) {
     is_trending: dw.is_trending || false,
     trending_rank: dw.trending_rank,
     is_currently_airing: dw.is_currently_airing || false,
-    cover: null, // DynamicWork usa image_url diretamente
-    image_url: dw.image_url,
+    franchise_id: dw.franchise_id || null,
+    franchise_title: dw.franchise_title || null,
+    franchise_score: dw.franchise_score || null,
+    franchise_poster_url: dw.franchise_poster_url || null,
+    seasons: parseSeasons(dw.seasons),
+    related_franchise_id: dw.related_franchise_id || null,
+    cover: null,
+    image_url: dw.franchise_poster_url || dw.image_url,
+    rating: dw.franchise_score || dw.score,
     _source: "dynamic",
     _dynamicRecord: dw,
   };

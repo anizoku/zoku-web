@@ -14,6 +14,7 @@ import SuggestionsPanel from "@/components/admin/SuggestionsPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
 import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
 import AppearanceManager from "@/components/admin/AppearanceManager";
+import FranchiseMerger from "@/components/admin/FranchiseMerger";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -94,6 +95,7 @@ export default function Admin() {
               )}
             </TabsTrigger>
             <TabsTrigger value="maintenance">Manutenção</TabsTrigger>
+            <TabsTrigger value="franchise">Unificar Obras</TabsTrigger>
             <TabsTrigger value="appearance">Aparência</TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
@@ -119,6 +121,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="appearance" className="mt-6">
             <AppearanceManager />
+          </TabsContent>
+          <TabsContent value="franchise" className="mt-6">
+            <FranchiseMerger />
           </TabsContent>
         </Tabs>
       </div>

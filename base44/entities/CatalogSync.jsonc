@@ -56,6 +56,10 @@
       ],
       "default": "synced",
       "description": "Status do sync desta obra"
+    },
+    "franchise_id": {
+      "type": "string",
+      "description": "mal_id da raiz do franchise (cache persistente para n\u00e3o reconsultar Jikan relations a cada sync)"
     }
   },
   "required": [
