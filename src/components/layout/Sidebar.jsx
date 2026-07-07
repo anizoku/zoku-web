@@ -2,10 +2,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, TrendingUp, Library, List, User, Users, Calendar, Trophy, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useSiteConfig } from "@/hooks/useSiteConfig";
 import { computeStats, computeTotalXp, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
-
-const LOGO_ICON       = "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/deb2fc23d_LOGOAZ.png";
-const LOGO_HORIZONTAL = "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/c61581414_aniZoku.png";
 
 const navItems = [
   { icon: Home,       label: "Início",        path: "/" },
@@ -22,6 +20,7 @@ const navItems = [
 export default function Sidebar({ collapsed, onToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logo_compact_url: LOGO_ICON, logo_full_url: LOGO_HORIZONTAL } = useSiteConfig();
 
   const [user,    setUser]    = useState(null);
   const [profile, setProfile] = useState(null);

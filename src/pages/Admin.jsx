@@ -13,6 +13,7 @@ import DynamicCatalogPanel from "@/components/admin/DynamicCatalogPanel";
 import SuggestionsPanel from "@/components/admin/SuggestionsPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
 import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
+import AppearanceManager from "@/components/admin/AppearanceManager";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -93,6 +94,7 @@ export default function Admin() {
               )}
             </TabsTrigger>
             <TabsTrigger value="maintenance">Manutenção</TabsTrigger>
+            <TabsTrigger value="appearance">Aparência</TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
             <CatalogManager />
@@ -114,6 +116,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="maintenance" className="mt-6">
             <MigrateEntriesPanel />
+          </TabsContent>
+          <TabsContent value="appearance" className="mt-6">
+            <AppearanceManager />
           </TabsContent>
         </Tabs>
       </div>

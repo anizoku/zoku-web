@@ -4,12 +4,11 @@ import { base44 } from "@/api/base44Client";
 import NotificationBell from "@/components/social/NotificationBell";
 import UserMenuButton from "@/components/layout/UserMenuButton";
 import GlobalSearchBar from "@/components/search/GlobalSearchBar";
-
-const LOGO_ICON = "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/deb2fc23d_LOGOAZ.png";
-const LOGO_HORIZONTAL = "https://media.base44.com/images/public/69f36ad625ae768ae51fc819/c61581414_aniZoku.png";
+import { useSiteConfig } from "@/hooks/useSiteConfig";
 
 export default function TopBar() {
   const [userEmail, setUserEmail] = useState(null);
+  const { logo_compact_url: LOGO_ICON, logo_full_url: LOGO_HORIZONTAL } = useSiteConfig();
 
   useEffect(() => {
     base44.auth.me().then(u => setUserEmail(u.email)).catch(() => {});
