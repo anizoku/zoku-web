@@ -1,6 +1,7 @@
 import { Library, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import CatalogCardGrid from "@/components/catalog/CatalogCardGrid";
@@ -214,22 +215,14 @@ export default function Works() {
         </div>
       </div>
 
-      {/* Category pills */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat.key}
-            onClick={() => setCategoria(cat.key)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
-              categoria === cat.key
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-secondary text-secondary-foreground border-transparent hover:border-primary/30"
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      {/* Category selector — uniform with Trending page */}
+      <Tabs value={categoria} onValueChange={setCategoria} className="mb-5">
+        <TabsList className="bg-secondary">
+          {CATEGORIES.map(cat => (
+            <TabsTrigger key={cat.key} value={cat.key}>{cat.label}</TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Search + controls */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">

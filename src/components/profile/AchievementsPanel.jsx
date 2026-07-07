@@ -61,7 +61,7 @@ function AchievementItem({ achievement, unlocked, unlockedAt, isOwn, selectedBad
         </div>
       )}
       {typeof percentage === "number" && (
-        <span className="mt-1 text-[9px] text-muted-foreground/50">{percentage}% dos jogadores</span>
+        <span className="mt-1 text-[9px] text-muted-foreground/50">{percentage}% dos usuários têm isso</span>
       )}
     </motion.div>
   );
