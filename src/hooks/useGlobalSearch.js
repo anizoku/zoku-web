@@ -14,7 +14,7 @@ function getContextCategory(pathname) {
 }
 
 function normalizeQ(s) {
-  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[:;!?.,'"\-–—]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function scoreWork(item, query, contextCategory) {
