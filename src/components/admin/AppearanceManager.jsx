@@ -41,18 +41,18 @@ function LogoUploader({ label, hint, value, onChange }) {
     <div className="space-y-2">
       <div>
         <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p className="text-muted-foreground text-sm">{hint}</p>
       </div>
       <div className="flex items-center gap-4">
         <div
           className="relative cursor-pointer group border-2 border-dashed border-border hover:border-primary/50 rounded-xl overflow-hidden transition-colors w-28 h-28 flex items-center justify-center bg-secondary/50"
-          onClick={() => inputRef.current?.click()}
-        >
-          {value ? (
-            <img src={value} alt="preview" className="w-full h-full object-contain p-2" />
-          ) : (
-            <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
-          )}
+          onClick={() => inputRef.current?.click()}>
+          
+          {value ?
+          <img src={value} alt="preview" className="w-full h-full object-contain p-2" /> :
+
+          <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
+          }
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
             {uploading ? <Loader2 className="w-5 h-5 text-primary animate-spin" /> : <Upload className="w-5 h-5 text-primary" />}
           </div>
@@ -63,16 +63,16 @@ function LogoUploader({ label, hint, value, onChange }) {
             placeholder="URL da imagem..."
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-secondary border-none text-sm"
-          />
+            className="bg-secondary border-none text-sm" />
+          
           <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => inputRef.current?.click()} disabled={uploading}>
             <Upload className="w-3 h-3" /> Enviar arquivo
           </Button>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 }
 
 export default function AppearanceManager() {
@@ -85,14 +85,14 @@ export default function AppearanceManager() {
     queryFn: async () => {
       const list = await base44.entities.SiteConfig.list("-updated_date", 1);
       return list?.[0] || null;
-    },
+    }
   });
 
   // Populate form once when config loads
   if (config && !loaded) {
     setForm({
       logo_compact_url: config.logo_compact_url || "",
-      logo_full_url: config.logo_full_url || "",
+      logo_full_url: config.logo_full_url || ""
     });
     setLoaded(true);
   }
@@ -104,7 +104,7 @@ export default function AppearanceManager() {
         label: "default",
         logo_compact_url: form.logo_compact_url,
         logo_full_url: form.logo_full_url,
-        updated_by: me?.email || "",
+        updated_by: me?.email || ""
       };
       if (config?.id) {
         return base44.entities.SiteConfig.update(config.id, data);
@@ -113,15 +113,15 @@ export default function AppearanceManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["site-config"] });
-    },
+    }
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 text-primary animate-spin" />
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -138,21 +138,21 @@ export default function AppearanceManager() {
           label="Logo compacta (ícone)"
           hint="Recomendado: quadrada, fundo transparente (PNG/SVG/WebP). Usada no menu lateral reduzido."
           value={form.logo_compact_url}
-          onChange={(v) => setForm((f) => ({ ...f, logo_compact_url: v }))}
-        />
+          onChange={(v) => setForm((f) => ({ ...f, logo_compact_url: v }))} />
+        
         <LogoUploader
           label="Logo completa (ícone + texto)"
           hint="Recomendado: proporção horizontal (~4:1). Usada no menu expandido e cabeçalho."
           value={form.logo_full_url}
-          onChange={(v) => setForm((f) => ({ ...f, logo_full_url: v }))}
-        />
+          onChange={(v) => setForm((f) => ({ ...f, logo_full_url: v }))} />
+        
       </div>
 
       <Button
         className="gap-2"
         onClick={() => saveMutation.mutate()}
-        disabled={saveMutation.isPending}
-      >
+        disabled={saveMutation.isPending}>
+        
         {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
         Salvar Logos
       </Button>
@@ -164,6 +164,6 @@ export default function AppearanceManager() {
           e exigirá um novo deploy para refletir a nova logo no dispositivo do usuário.
         </p>
       </div>
-    </div>
-  );
+    </div>);
+
 }
