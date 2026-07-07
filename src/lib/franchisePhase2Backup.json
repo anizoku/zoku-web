@@ -1,0 +1,1 @@
+{"timestamp":"2026-07-07T22:14:07.287Z","phase":"phase2","animeWorksBefore":473,"totalWorksBefore":848,"entryMappings":[],"note":"Backup of 124 DynamicWork records before Phase 2 franchise merges. Full work snapshots stored in /tmp/franchise_phase2_backup.json. Rollback via admin FranchiseMerger or by re-creating deleted works from this snapshot."}
