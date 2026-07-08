@@ -9,7 +9,7 @@
  * - Página offline fallback
  */
 
-const CACHE_VERSION = "zoku-v3";
+const CACHE_VERSION = "zoku-v4";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
 
@@ -57,6 +57,17 @@ function isImageRequest(url) {
 }
 
 function isStaticAsset(url) {
+  // Never cache Vite dev paths — they must always come from network
+  if (
+    url.pathname.startsWith("/src/") ||
+    url.pathname.startsWith("/node_modules/.vite/") ||
+    url.pathname.startsWith("/@vite/") ||
+    url.pathname.startsWith("/@react-refresh") ||
+    url.pathname.includes("?t=") ||
+    url.pathname.includes("?v=")
+  ) {
+    return false;
+  }
   return (
     url.pathname.startsWith("/assets/") ||
     url.pathname.endsWith(".js") ||
