@@ -57,24 +57,14 @@ function isImageRequest(url) {
 }
 
 function isStaticAsset(url) {
-  // Never cache Vite dev paths — they must always come from network
-  if (
-    url.pathname.startsWith("/src/") ||
-    url.pathname.startsWith("/node_modules/.vite/") ||
-    url.pathname.startsWith("/@vite/") ||
-    url.pathname.startsWith("/@react-refresh") ||
-    url.pathname.includes("?t=") ||
-    url.pathname.includes("?v=")
-  ) {
-    return false;
-  }
+  // Only cache production build assets (hashed files in /assets/)
+  // NEVER cache Vite dev paths or any other JS/CSS — they change on every HMR/rebuild
   return (
-    url.pathname.startsWith("/assets/") ||
-    url.pathname.endsWith(".js") ||
-    url.pathname.endsWith(".css") ||
-    url.pathname.endsWith(".woff") ||
-    url.pathname.endsWith(".woff2") ||
-    url.pathname.includes("/icons/")
+    url.pathname.startsWith("/assets/") &&
+    (url.pathname.endsWith(".js") ||
+     url.pathname.endsWith(".css") ||
+     url.pathname.endsWith(".woff") ||
+     url.pathname.endsWith(".woff2"))
   );
 }
 
