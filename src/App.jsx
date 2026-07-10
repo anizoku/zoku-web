@@ -10,7 +10,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from '@/components/layout/AppLayout';
 import { CardOverridesProvider } from '@/context/CardOverridesContext';
 import { CatalogProvider } from '@/contexts/CatalogContext';
-import ScrollToTop from '@/components/ScrollToTop';
+import ScrollMemory from '@/components/ScrollMemory';
 import InstallBanner from '@/components/pwa/InstallBanner';
 import PushPermissionPrompt from '@/components/pwa/PushPermissionPrompt';
 import NotFound from '@/pages/NotFound';
@@ -133,7 +133,7 @@ function App() {
         <CatalogProvider>
           <Router>
             <CardOverridesProvider>
-              <ScrollToTop />
+              <ScrollMemory />
               <AuthenticatedApp />
               <InstallBanner />
             </CardOverridesProvider>

@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useSiteConfig } from "@/hooks/useSiteConfig";
 import { computeStats, computeTotalXp, getXpProgress, getRankForLevel } from "@/lib/xpSystem";
+import { scrollMemory } from "@/lib/scrollMemory";
 
 const navItems = [
-  { icon: Home,       label: "Início",        path: "/" },
+  { icon: Home,       label: "Início",        path: "/", reset: true },
   { icon: TrendingUp, label: "Trending",      path: "/trending" },
   { icon: Newspaper,  label: "Notícias",      path: "/noticias" },
   { icon: Library,    label: "Obras",         path: "/obras" },
@@ -115,6 +116,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             <Link
               key={item.path}
               to={item.path}
+              onClick={item.reset ? () => scrollMemory.requestReset() : undefined}
               title={collapsed ? item.label : undefined}
               className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-sm font-medium
                 ${isActive

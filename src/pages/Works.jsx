@@ -12,6 +12,7 @@ import SortControl from "@/components/catalog/SortControl";
 import GenreFilter from "@/components/catalog/GenreFilter";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useVisibilityFilter } from "@/hooks/useVisibilityFilter";
+import { useUrlParam, useUrlArrayParam } from "@/hooks/useUrlParam";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -62,16 +63,16 @@ export default function Works() {
 
   usePageTitle(`ZOKU — ${PAGE_TITLES[categoria] || "Obras"}`);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useUrlParam("q", "");
   const sort = searchParams.get("ordenar") || "rating";
   function setSort(value) {
-    const params = {};
-    if (categoria !== "all") params.categoria = categoria;
-    if (value !== "rating") params.ordenar = value;
-    setSearchParams(params);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value !== "rating") params.set("ordenar", value); else params.delete("ordenar");
+    params.delete("pagina");
+    setSearchParams(params, { replace: true });
   }
   const [view, setView] = useViewMode("worksViewMode", "grid");
-  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [selectedGenres, setSelectedGenres] = useUrlArrayParam("generos");
   const [isAdmin, setIsAdmin] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
   const [externalResults, setExternalResults] = useState([]);
@@ -88,15 +89,20 @@ export default function Works() {
   }, []);
 
   function setCategoria(key) {
-    setSearchParams(key === "all" ? {} : { categoria: key });
-    setSelectedGenres([]);
     setExternalResults([]);
+    const params = new URLSearchParams(searchParams.toString());
+    if (key === "all") params.delete("categoria"); else params.set("categoria", key);
+    params.delete("pagina");
+    params.delete("ordenar");
+    params.delete("q");
+    params.delete("generos");
+    setSearchParams(params, { replace: true });
   }
 
   function setPagina(p) {
-    const params = categoria === "all" ? {} : { categoria };
-    if (p > 1) params.pagina = p;
-    setSearchParams(params);
+    const params = new URLSearchParams(searchParams.toString());
+    if (p > 1) params.set("pagina", p); else params.delete("pagina");
+    setSearchParams(params, { replace: true });
   }
 
   const allWorks = useMemo(() => {

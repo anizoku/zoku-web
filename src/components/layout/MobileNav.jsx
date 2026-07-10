@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, Library, MessageCircle, Trophy, Sparkles } from "lucide-react";
 import MobileChatDrawer from "@/components/chat/MobileChatDrawer";
+import { scrollMemory } from "@/lib/scrollMemory";
 
 const mobileItems = [
-  { icon: Home, label: "Home", path: "/" },
+  { icon: Home, label: "Home", path: "/", reset: true },
   { icon: Library, label: "Obras", path: "/obras" },
   { icon: Trophy, label: "Ranking", path: "/ranking" },
   { icon: Sparkles, label: "Para você", path: "/recomendacoes" },
@@ -24,6 +25,7 @@ export default function MobileNav() {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={item.reset ? () => scrollMemory.requestReset() : undefined}
                 className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors flex-1
                   ${isActive ? "text-primary" : "text-muted-foreground"}`}
               >
