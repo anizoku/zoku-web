@@ -50,8 +50,8 @@ export default function HeroCarousel() {
           className="absolute inset-0 w-full h-full object-cover object-[center_35%] transition-opacity duration-700"
         />
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/50 via-transparent to-transparent" />
 
         {/* Content */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
