@@ -45,11 +45,11 @@ export default function HeroCarousel() {
         src={current.image_url}
         alt={current.title}
         loading="lazy"
-        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 opacity-90"
       />
-      {/* Gradient overlay — covers only the bottom half of the container */}
-      <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-background via-background/70 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-r from-background/80 via-transparent to-transparent" />
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-transparent" />
 
       {/* Content */}
       <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 flex items-end justify-between gap-4">
