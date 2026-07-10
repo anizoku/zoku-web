@@ -9,6 +9,8 @@ import HeroCarousel from "@/components/home/HeroCarousel";
 import RecentEpisodesSection from "@/components/home/RecentEpisodesSection";
 import ActiveDebatesSection from "@/components/home/ActiveDebatesSection";
 import RecommendationsSection from "@/components/home/RecommendationsSection";
+import NewsSection from "@/components/home/NewsSection";
+import FeaturedNewsStrip from "@/components/home/FeaturedNewsStrip";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
@@ -34,6 +36,7 @@ export default function Home() {
   return (
     <div className="w-full px-4 lg:px-6 py-6 max-w-[1400px] mx-auto">
       <HeroCarousel />
+      <FeaturedNewsStrip />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Main Feed */}
         <div className="lg:col-span-8 space-y-4">
@@ -69,6 +72,7 @@ export default function Home() {
         {/* Right Sidebar */}
         <div className="lg:col-span-4 space-y-4">
           <RecommendationsSection entries={entries} userEmail={user?.email} />
+          <NewsSection />
           <TrendingSection />
           <RecentEpisodesSection />
           <ActiveDebatesSection />
