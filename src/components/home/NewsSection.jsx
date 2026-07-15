@@ -2,7 +2,7 @@ import { Newspaper, ArrowRight, ImageOff, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { categoryLabels, getCardImage, getVideoEmbed, timeAgo } from "@/lib/news";
+import { categoryLabels, getCardImage, hasNewsVideo, timeAgo } from "@/lib/news";
 
 export default function NewsSection() {
   const { data: news = [], isLoading } = useQuery({
@@ -44,7 +44,7 @@ export default function NewsSection() {
                 {img ? (
                   <div className="w-10 h-10 rounded-md overflow-hidden bg-secondary shrink-0 relative">
                     <img src={img} alt={item.title} className="w-full h-full object-cover" />
-                    {getVideoEmbed(item.video_url) && (
+                    {hasNewsVideo(item) && (
                       <span className="absolute inset-0 bg-black/40 flex items-center justify-center">
                         <Play className="w-3 h-3 text-primary fill-primary" />
                       </span>

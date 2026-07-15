@@ -109,7 +109,9 @@ export default function NewsDetail() {
   }
 
   const cover = getArticleImage(news);
-  const video = getVideoEmbed(news.video_url);
+  const videoType = news.video_type || (news.video_url ? "embed" : "none");
+  const embed = videoType === "embed" ? getVideoEmbed(news.video_url) : null;
+  const hasVideo = videoType === "file" ? !!news.video_url : !!embed;
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-6 py-6">
@@ -126,11 +128,17 @@ export default function NewsDetail() {
       </Link>
 
       {/* Mídia principal: vídeo no topo (se houver), senão capa */}
-      {video ? (
-        <div className={video.orientation === "vertical" ? "max-w-[360px] mx-auto mb-5" : "mb-5"}>
-          <div className="relative w-full bg-black rounded-xl overflow-hidden" style={{ aspectRatio: video.aspectRatio }}>
+      {hasVideo && videoType === "file" ? (
+        <div className="mb-5">
+          <div className="relative w-full bg-black rounded-xl overflow-hidden" style={{ aspectRatio: "16/9" }}>
+            <video src={news.video_url} controls preload="metadata" className="absolute inset-0 w-full h-full" />
+          </div>
+        </div>
+      ) : hasVideo && embed ? (
+        <div className={embed.orientation === "vertical" ? "max-w-[360px] mx-auto mb-5" : "mb-5"}>
+          <div className="relative w-full bg-black rounded-xl overflow-hidden" style={{ aspectRatio: embed.aspectRatio }}>
             <iframe
-              src={video.embedUrl}
+              src={embed.embedUrl}
               title={news.title}
               className="absolute inset-0 w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

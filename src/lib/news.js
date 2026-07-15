@@ -129,3 +129,16 @@ export function getVideoEmbed(url) {
 
   return null;
 }
+
+/**
+ * Retorna true se a notícia possui vídeo (embed ou arquivo).
+ * Compatível com registros legados (sem video_type): usa video_url + getVideoEmbed.
+ */
+export function hasNewsVideo(n) {
+  if (!n) return false;
+  const t = n.video_type;
+  if (t === "file") return !!n.video_url;
+  if (t === "embed") return !!getVideoEmbed(n.video_url);
+  // legado: sem video_type mas com video_url de embed válido
+  return !!getVideoEmbed(n.video_url);
+}

@@ -14,6 +14,7 @@ import {
 import { Loader2, Save, Plus, Trash2, Eye, Pencil, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import ImageUploadField from "./ImageUploadField";
+import VideoField from "./VideoField";
 import {
   newsCategoryOptions, slugify, computeReadingMinutes, getVideoEmbed,
 } from "@/lib/news";
@@ -31,6 +32,7 @@ const emptyForm = () => ({
   card_image_url: "",
   article_image_url: "",
   video_url: "",
+  video_type: "none",
   sources: [{ name: "", url: "" }],
 });
 
@@ -92,6 +94,7 @@ export default function NewsEditor({ open, onClose, news = null }) {
         card_image_url: news.card_image_url || "",
         article_image_url: news.article_image_url || "",
         video_url: news.video_url || "",
+        video_type: news.video_type || (news.video_url ? "embed" : "none"),
         sources: srcs,
       });
     } else {
@@ -144,7 +147,14 @@ export default function NewsEditor({ open, onClose, news = null }) {
           ? (form.author_name.trim() || "ZOKU")
           : (currentUser?.full_name || currentUser?.email || "ZOKU"),
         author_id: news?.author_id || currentUser?.id || undefined,
-        video_url: form.video_url,
+        video_type: form.video_type === "embed" || form.video_type === "file" ? form.video_type : "none",
+        video_provider:
+          form.video_type === "file"
+            ? "file"
+            : form.video_type === "embed"
+              ? (getVideoEmbed(form.video_url)?.platform || "youtube")
+              : "",
+        video_url: form.video_type === "none" ? "" : form.video_url,
         published_at: form.published_at ? new Date(form.published_at).toISOString() : new Date().toISOString(),
         is_featured: form.is_featured,
         status: form.status,
@@ -279,38 +289,11 @@ export default function NewsEditor({ open, onClose, news = null }) {
           </div>
 
           {/* Vídeo */}
-          <div>
-            <label className="text-xs text-foreground font-medium mb-1 block">Vídeo (YouTube ou Vimeo)</label>
-            <Input
-              value={form.video_url}
-              onChange={(e) => set("video_url", e.target.value)}
-              placeholder="https://youtube.com/watch?v=... ou youtu.be/..."
-              className="bg-secondary border-none"
-            />
-            {(() => {
-              const v = getVideoEmbed(form.video_url);
-              if (!form.video_url) return null;
-              if (!v) return (
-                <p className="text-[10px] text-chart-4 mt-1 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> URL de vídeo inválida. Use YouTube ou Vimeo.
-                </p>
-              );
-              return (
-                <div className={`mt-2 ${v.orientation === "vertical" ? "max-w-[360px] mx-auto" : ""}`}>
-                  <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: v.aspectRatio }}>
-                    <iframe
-                      src={v.embedUrl}
-                      title="Prévia do vídeo"
-                      className="absolute inset-0 w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">{v.platform} · {v.orientation}</p>
-                </div>
-              );
-            })()}
-          </div>
+          <VideoField
+            videoType={form.video_type}
+            videoUrl={form.video_url}
+            onChange={({ video_type, video_url }) => setForm(f => ({ ...f, video_type, video_url }))}
+          />
 
           {/* Fontes */}
           <div>

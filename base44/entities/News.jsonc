@@ -46,9 +46,23 @@
       "type": "string",
       "description": "Imagem do topo do artigo + og:image (~1200x630, 1.91:1)"
     },
+    "video_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "embed",
+        "file"
+      ],
+      "default": "none",
+      "description": "Fonte do v\u00eddeo: 'embed' (YouTube/Vimeo por link) ou 'file' (arquivo enviado)"
+    },
     "video_url": {
       "type": "string",
-      "description": "URL de v\u00eddeo embed (YouTube ou Vimeo). Opcional."
+      "description": "URL do v\u00eddeo. Em embed: link YouTube/Vimeo. Em file: URL do arquivo hospedado ap\u00f3s upload."
+    },
+    "video_provider": {
+      "type": "string",
+      "description": "Provedor do v\u00eddeo para renderiza\u00e7\u00e3o: 'youtube' | 'vimeo' | 'file'"
     },
     "sources": {
       "type": "array",
