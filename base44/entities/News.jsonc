@@ -46,6 +46,10 @@
       "type": "string",
       "description": "Imagem do topo do artigo + og:image (~1200x630, 1.91:1)"
     },
+    "video_url": {
+      "type": "string",
+      "description": "URL de v\u00eddeo embed (YouTube ou Vimeo). Opcional."
+    },
     "sources": {
       "type": "array",
       "items": {
@@ -82,7 +86,11 @@
     },
     "author_name": {
       "type": "string",
-      "description": "Autor da not\u00edcia"
+      "description": "Nome do autor (snapshot/legado). author_id \u00e9 a fonte de verdade do link."
+    },
+    "author_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio (entidade User) que criou a not\u00edcia"
     },
     "status": {
       "type": "string",

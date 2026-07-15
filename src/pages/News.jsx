@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { Newspaper, ImageOff, Loader2, Plus } from "lucide-react";
-import { categoryLabels, newsCategories, getCardImage, timeAgo } from "@/lib/news";
+import { Newspaper, ImageOff, Loader2, Plus, Play } from "lucide-react";
+import { categoryLabels, newsCategories, getCardImage, getVideoEmbed, timeAgo } from "@/lib/news";
 import NewsEditor from "@/components/news/NewsEditor";
 
 export default function News() {
@@ -82,8 +82,13 @@ export default function News() {
                 className="bg-card rounded-xl border border-border overflow-hidden hover:border-primary/40 transition-colors group flex flex-col"
               >
                 {img ? (
-                  <div className="w-full aspect-[1200/675] overflow-hidden bg-secondary">
+                  <div className="w-full aspect-[1200/675] overflow-hidden bg-secondary relative">
                     <img src={img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    {getVideoEmbed(item.video_url) && (
+                      <span className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                        <Play className="w-3 h-3 fill-primary-foreground" />
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div className="w-full aspect-[1200/675] bg-secondary/60 flex items-center justify-center">

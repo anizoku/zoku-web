@@ -77,3 +77,55 @@ export function timeAgo(dateStr) {
   const yr = Math.floor(day / 365);
   return `há ${yr}ano`;
 }
+
+/**
+ * Detecta plataforma (youtube/vimeo) e extrai o ID de uma URL de vídeo.
+ * Formatos aceitos:
+ *  - youtube.com/watch?v=ID
+ *  - youtu.be/ID
+ *  - youtube.com/shorts/ID  (vertical)
+ *  - youtube.com/embed/ID
+ *  - vimeo.com/ID , vimeo.com/video/ID
+ * Retorna { platform, id, embedUrl, orientation, aspectRatio } ou null se inválida.
+ * Heurística de orientação: shorts = vertical/9:16; todo o resto = horizontal/16:9.
+ */
+export function getVideoEmbed(url) {
+  if (!url || typeof url !== "string") return null;
+  const u = url.trim();
+
+  // YouTube
+  let ytId = null;
+  let isShorts = false;
+  const ytWatch = u.match(/youtube\.com\/watch\?v=([\w-]{6,})/);
+  const ytBe = u.match(/youtu\.be\/([\w-]{6,})/);
+  const ytShorts = u.match(/youtube\.com\/shorts\/([\w-]{6,})/);
+  const ytEmbed = u.match(/youtube\.com\/embed\/([\w-]{6,})/);
+  if (ytWatch) ytId = ytWatch[1];
+  else if (ytBe) ytId = ytBe[1];
+  else if (ytShorts) { ytId = ytShorts[1]; isShorts = true; }
+  else if (ytEmbed) ytId = ytEmbed[1];
+
+  if (ytId) {
+    return {
+      platform: "youtube",
+      id: ytId,
+      embedUrl: `https://www.youtube.com/embed/${ytId}`,
+      orientation: isShorts ? "vertical" : "horizontal",
+      aspectRatio: isShorts ? "9/16" : "16/9",
+    };
+  }
+
+  // Vimeo
+  const vimeo = u.match(/vimeo\.com\/(?:video\/)?(\d{5,})/);
+  if (vimeo) {
+    return {
+      platform: "vimeo",
+      id: vimeo[1],
+      embedUrl: `https://player.vimeo.com/video/${vimeo[1]}`,
+      orientation: "horizontal",
+      aspectRatio: "16/9",
+    };
+  }
+
+  return null;
+}

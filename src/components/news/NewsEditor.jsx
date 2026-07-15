@@ -15,7 +15,7 @@ import { Loader2, Save, Plus, Trash2, Eye, Pencil, AlertTriangle } from "lucide-
 import ReactMarkdown from "react-markdown";
 import ImageUploadField from "./ImageUploadField";
 import {
-  newsCategoryOptions, slugify, computeReadingMinutes,
+  newsCategoryOptions, slugify, computeReadingMinutes, getVideoEmbed,
 } from "@/lib/news";
 
 const emptyForm = () => ({
@@ -30,6 +30,7 @@ const emptyForm = () => ({
   banner_image_url: "",
   card_image_url: "",
   article_image_url: "",
+  video_url: "",
   sources: [{ name: "", url: "" }],
 });
 
@@ -61,6 +62,11 @@ export default function NewsEditor({ open, onClose, news = null }) {
   const [previewMode, setPreviewMode] = useState(false);
   const [error, setError] = useState("");
   const queryClient = useQueryClient();
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then(setCurrentUser).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +91,7 @@ export default function NewsEditor({ open, onClose, news = null }) {
         banner_image_url: news.banner_image_url || "",
         card_image_url: news.card_image_url || "",
         article_image_url: news.article_image_url || "",
+        video_url: news.video_url || "",
         sources: srcs,
       });
     } else {
@@ -133,7 +140,11 @@ export default function NewsEditor({ open, onClose, news = null }) {
         summary: form.summary.trim(),
         content: form.content,
         category: form.category,
-        author_name: form.author_name.trim() || "ZOKU",
+        author_name: isEdit
+          ? (form.author_name.trim() || "ZOKU")
+          : (currentUser?.full_name || currentUser?.email || "ZOKU"),
+        author_id: news?.author_id || currentUser?.id || undefined,
+        video_url: form.video_url,
         published_at: form.published_at ? new Date(form.published_at).toISOString() : new Date().toISOString(),
         is_featured: form.is_featured,
         status: form.status,
@@ -216,7 +227,9 @@ export default function NewsEditor({ open, onClose, news = null }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-foreground font-medium mb-1 block">Autor</label>
-              <Input value={form.author_name} onChange={(e) => set("author_name", e.target.value)} className="bg-secondary border-none" />
+              <div className="h-9 px-3 flex items-center bg-secondary/60 rounded-md text-sm text-muted-foreground truncate">
+                {isEdit ? (form.author_name || "—") : (currentUser?.full_name || currentUser?.email || "Carregando...")}
+              </div>
             </div>
             <div>
               <label className="text-xs text-foreground font-medium mb-1 block">Data de publicação</label>
@@ -263,6 +276,40 @@ export default function NewsEditor({ open, onClose, news = null }) {
                 className="bg-secondary border-none resize-y min-h-[160px] text-sm font-mono"
               />
             )}
+          </div>
+
+          {/* Vídeo */}
+          <div>
+            <label className="text-xs text-foreground font-medium mb-1 block">Vídeo (YouTube ou Vimeo)</label>
+            <Input
+              value={form.video_url}
+              onChange={(e) => set("video_url", e.target.value)}
+              placeholder="https://youtube.com/watch?v=... ou youtu.be/..."
+              className="bg-secondary border-none"
+            />
+            {(() => {
+              const v = getVideoEmbed(form.video_url);
+              if (!form.video_url) return null;
+              if (!v) return (
+                <p className="text-[10px] text-chart-4 mt-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> URL de vídeo inválida. Use YouTube ou Vimeo.
+                </p>
+              );
+              return (
+                <div className={`mt-2 ${v.orientation === "vertical" ? "max-w-[360px] mx-auto" : ""}`}>
+                  <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: v.aspectRatio }}>
+                    <iframe
+                      src={v.embedUrl}
+                      title="Prévia do vídeo"
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">{v.platform} · {v.orientation}</p>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Fontes */}

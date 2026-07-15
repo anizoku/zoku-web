@@ -5,11 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft, Newspaper, Clock, ExternalLink, MessageCircle,
-  Share2, Copy, Check, ImageOff, Loader2,
+  Share2, Copy, Check, ImageOff, Loader2, Play,
 } from "lucide-react";
 import SeoMeta from "@/components/news/SeoMeta";
 import {
-  categoryLabels, getArticleImage, formatDatePT, timeAgo,
+  categoryLabels, getArticleImage, getVideoEmbed, formatDatePT, timeAgo,
 } from "@/lib/news";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -43,6 +43,32 @@ export default function NewsDetail() {
       return (list || []).filter(n => n.slug !== slug).slice(0, 4);
     },
     enabled: !!news,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Autor vinculado: busca User por author_id (nome/avatar atualizados)
+  const { data: author } = useQuery({
+    queryKey: ["news-author", news?.author_id],
+    queryFn: async () => {
+      if (!news?.author_id) return null;
+      try {
+        const u = await base44.entities.User.get(news.author_id);
+        return u || null;
+      } catch { return null; }
+    },
+    enabled: !!news?.author_id,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: authorProfile } = useQuery({
+    queryKey: ["news-author-profile", author?.email],
+    queryFn: async () => {
+      if (!author?.email) return null;
+      try {
+        const list = await base44.entities.UserProfile.filter({ user_email: author.email }, "-created_date", 1);
+        return list?.[0] || null;
+      } catch { return null; }
+    },
+    enabled: !!author?.email,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -83,6 +109,7 @@ export default function NewsDetail() {
   }
 
   const cover = getArticleImage(news);
+  const video = getVideoEmbed(news.video_url);
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-6 py-6">
@@ -98,8 +125,20 @@ export default function NewsDetail() {
         <ArrowLeft className="w-3.5 h-3.5" /> Voltar para Notícias
       </Link>
 
-      {/* Capa */}
-      {cover ? (
+      {/* Mídia principal: vídeo no topo (se houver), senão capa */}
+      {video ? (
+        <div className={video.orientation === "vertical" ? "max-w-[360px] mx-auto mb-5" : "mb-5"}>
+          <div className="relative w-full bg-black rounded-xl overflow-hidden" style={{ aspectRatio: video.aspectRatio }}>
+            <iframe
+              src={video.embedUrl}
+              title={news.title}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      ) : cover ? (
         <div className="w-full aspect-[1200/630] rounded-xl overflow-hidden bg-card border border-border mb-5">
           <img src={cover} alt={news.title} className="w-full h-full object-cover" />
         </div>
@@ -119,7 +158,17 @@ export default function NewsDetail() {
         {news.title}
       </h1>
       <div className="flex items-center gap-3 text-xs text-muted-foreground mb-6 flex-wrap">
-        {news.author_name && <span className="font-medium text-foreground/80">{news.author_name}</span>}
+        {author ? (
+          <Link to={`/u/${author.email}`} className="flex items-center gap-1.5 font-medium text-foreground/80 hover:text-primary transition-colors">
+            {authorProfile?.avatar_url
+              ? <img src={authorProfile.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+              : <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[8px] font-bold text-primary">{(author.full_name || author.email)[0]?.toUpperCase()}</span>
+            }
+            {author.full_name || author.email}
+          </Link>
+        ) : news.author_name ? (
+          <span className="font-medium text-foreground/80">{news.author_name}</span>
+        ) : null}
         <span>•</span>
         <span>{formatDatePT(news.published_at)}</span>
         {news.reading_minutes > 0 && (
