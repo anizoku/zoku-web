@@ -4,11 +4,19 @@
   "properties": {
     "title": {
       "type": "string",
-      "description": "T\u00edtulo curto da not\u00edcia"
+      "description": "T\u00edtulo da not\u00edcia"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Slug \u00fanico em kebab-case (gerado do t\u00edtulo)"
     },
     "summary": {
       "type": "string",
-      "description": "Resumo/conte\u00fado da not\u00edcia"
+      "description": "Resumo curto da not\u00edcia (usado em cards e description)"
+    },
+    "content": {
+      "type": "string",
+      "description": "Corpo completo da not\u00edcia em markdown"
     },
     "category": {
       "type": "string",
@@ -24,15 +32,43 @@
     },
     "image_url": {
       "type": "string",
-      "description": "Imagem opcional da not\u00edcia"
+      "description": "Imagem legada (fallback de compatibilidade)"
+    },
+    "banner_image_url": {
+      "type": "string",
+      "description": "Imagem do carrossel principal da home (~2400x1000, 2.4:1)"
+    },
+    "card_image_url": {
+      "type": "string",
+      "description": "Imagem do card na lista de not\u00edcias (~1200x675, 16:9)"
+    },
+    "article_image_url": {
+      "type": "string",
+      "description": "Imagem do topo do artigo + og:image (~1200x630, 1.91:1)"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "default": [],
+      "description": "M\u00faltiplas fontes da not\u00edcia"
     },
     "source_url": {
       "type": "string",
-      "description": "Link externo da fonte/original"
+      "description": "Link externo legado (compatibilidade \u2014 espelha a 1\u00aa fonte)"
     },
     "source_name": {
       "type": "string",
-      "description": "Nome da fonte (ex: Crunchyroll, ANN, MAL)"
+      "description": "Nome da fonte legado (compatibilidade \u2014 espelha a 1\u00aa fonte)"
     },
     "published_at": {
       "type": "string",
@@ -42,11 +78,24 @@
     "is_featured": {
       "type": "boolean",
       "default": false,
-      "description": "Not\u00edcia em destaque (faixa abaixo do carrossel)"
+      "description": "Not\u00edcia em destaque (entra no carrossel da home)"
     },
     "author_name": {
       "type": "string",
-      "description": "Autor/editor da not\u00edcia"
+      "description": "Autor da not\u00edcia"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "publicado"
+      ],
+      "default": "rascunho",
+      "description": "Controla visibilidade p\u00fablica"
+    },
+    "reading_minutes": {
+      "type": "number",
+      "description": "Tempo estimado de leitura (minutos)"
     }
   },
   "required": [

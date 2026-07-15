@@ -1,4 +1,5 @@
 import { Flame, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 
@@ -6,7 +7,11 @@ export default function FeaturedNewsStrip() {
   const { data: featured } = useQuery({
     queryKey: ["featured-news"],
     queryFn: async () => {
-      const items = await base44.entities.News.filter({ is_featured: true }, "-published_at", 1);
+      const items = await base44.entities.News.filter(
+        { is_featured: true, status: "publicado" },
+        "-published_at",
+        1
+      );
       return items?.[0] || null;
     },
     staleTime: 5 * 60 * 1000,
@@ -15,10 +20,8 @@ export default function FeaturedNewsStrip() {
   if (!featured) return null;
 
   return (
-    <a
-      href={featured.source_url || "/noticias"}
-      target={featured.source_url ? "_blank" : undefined}
-      rel={featured.source_url ? "noopener noreferrer" : undefined}
+    <Link
+      to={`/noticias/${featured.slug}`}
       className="flex items-center gap-3 bg-card rounded-xl border border-border p-3 mb-6 hover:border-primary/50 transition-colors group"
     >
       <div className="flex items-center gap-2 shrink-0">
@@ -31,6 +34,6 @@ export default function FeaturedNewsStrip() {
         {featured.title}
       </p>
       <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-    </a>
+    </Link>
   );
 }

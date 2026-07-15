@@ -15,6 +15,7 @@ import ModerationPanel from "@/components/admin/ModerationPanel";
 import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
 import AppearanceManager from "@/components/admin/AppearanceManager";
 import FranchiseMerger from "@/components/admin/FranchiseMerger";
+import NewsManager from "@/components/news/NewsManager";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -96,6 +97,7 @@ export default function Admin() {
             </TabsTrigger>
             <TabsTrigger value="maintenance">Manutenção</TabsTrigger>
             <TabsTrigger value="franchise">Unificar Obras</TabsTrigger>
+            <TabsTrigger value="news">Notícias</TabsTrigger>
             <TabsTrigger value="appearance">Aparência</TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
@@ -118,6 +120,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="maintenance" className="mt-6">
             <MigrateEntriesPanel />
+          </TabsContent>
+          <TabsContent value="news" className="mt-6">
+            <NewsManager />
           </TabsContent>
           <TabsContent value="appearance" className="mt-6">
             <AppearanceManager />

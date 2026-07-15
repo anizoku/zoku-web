@@ -33,6 +33,7 @@ import Admin from '@/pages/Admin';
 import Ranking from '@/pages/Ranking';
 import Recommendations from '@/pages/Recommendations';
 import News from '@/pages/News';
+import NewsDetail from '@/pages/NewsDetail';
 import Works from '@/pages/Works';
 import { Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -120,6 +121,7 @@ const AuthenticatedApp = () => {
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/recomendacoes" element={<Recommendations />} />
         <Route path="/noticias" element={<News />} />
+        <Route path="/noticias/:slug" element={<NewsDetail />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

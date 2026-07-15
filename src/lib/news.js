@@ -15,6 +15,49 @@ export const newsCategories = [
   { key: "general", label: "Geral" },
 ];
 
+// Categorias válidas para criação (sem "Todas")
+export const newsCategoryOptions = [
+  { key: "anime", label: "Anime" },
+  { key: "manga", label: "Mangá" },
+  { key: "movie", label: "Filme" },
+  { key: "liveaction", label: "Live Action" },
+  { key: "general", label: "Geral" },
+];
+
+// Imagem preferida para cada contexto, com fallback em image_url (legado)
+export function getCardImage(n) {
+  return n?.card_image_url || n?.image_url || "";
+}
+export function getBannerImage(n) {
+  return n?.banner_image_url || n?.image_url || "";
+}
+export function getArticleImage(n) {
+  return n?.article_image_url || n?.image_url || "";
+}
+
+export function slugify(text) {
+  return (text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+export function computeReadingMinutes(content) {
+  const words = (content || "").trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
+export function formatDatePT(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
 export function timeAgo(dateStr) {
   if (!dateStr) return "";
   const date = new Date(dateStr);
