@@ -16,6 +16,8 @@ import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
 import AppearanceManager from "@/components/admin/AppearanceManager";
 import FranchiseMerger from "@/components/admin/FranchiseMerger";
 import NewsManager from "@/components/news/NewsManager";
+import LoginImagesPanel from "@/components/admin/LoginImagesPanel";
+import BannersPanel from "@/components/admin/BannersPanel";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -99,6 +101,8 @@ export default function Admin() {
             <TabsTrigger value="franchise">Unificar Obras</TabsTrigger>
             <TabsTrigger value="news">Notícias</TabsTrigger>
             <TabsTrigger value="appearance">Aparência</TabsTrigger>
+            <TabsTrigger value="banners">Banners</TabsTrigger>
+            <TabsTrigger value="login-images">Imagens de Login</TabsTrigger>
           </TabsList>
           <TabsContent value="catalog" className="mt-6">
             <CatalogManager />
@@ -129,6 +133,12 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="franchise" className="mt-6">
             <FranchiseMerger />
+          </TabsContent>
+          <TabsContent value="banners" className="mt-6">
+            <BannersPanel />
+          </TabsContent>
+          <TabsContent value="login-images" className="mt-6">
+            <LoginImagesPanel />
           </TabsContent>
         </Tabs>
       </div>

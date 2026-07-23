@@ -11,6 +11,7 @@ import ActiveDebatesSection from "@/components/home/ActiveDebatesSection";
 import RecommendationsSection from "@/components/home/RecommendationsSection";
 import NewsSection from "@/components/home/NewsSection";
 import FeaturedNewsStrip from "@/components/home/FeaturedNewsStrip";
+import PlatformBannerStrip from "@/components/home/PlatformBannerStrip";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
@@ -36,6 +37,7 @@ export default function Home() {
   return (
     <div className="w-full px-4 lg:px-6 py-6 max-w-[1400px] mx-auto">
       <HeroCarousel />
+      <PlatformBannerStrip />
       <FeaturedNewsStrip />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Main Feed */}

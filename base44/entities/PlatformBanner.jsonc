@@ -1,0 +1,49 @@
+{
+  "name": "PlatformBanner",
+  "type": "object",
+  "properties": {
+    "image_url": {
+      "type": "string",
+      "description": "URL da imagem do banner"
+    },
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo do banner (identifica\u00e7\u00e3o e/ou exibi\u00e7\u00e3o)"
+    },
+    "link_url": {
+      "type": "string",
+      "description": "Link de destino ao clicar no banner (opcional)"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o banner \u00e9 exibido publicamente"
+    },
+    "order": {
+      "type": "number",
+      "default": 0,
+      "description": "Ordem de exibi\u00e7\u00e3o (menor = primeiro)"
+    }
+  },
+  "required": [
+    "image_url"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
