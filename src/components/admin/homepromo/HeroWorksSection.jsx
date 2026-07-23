@@ -58,7 +58,7 @@ export default function HeroWorksSection() {
           <Pin className="w-4 h-4 text-primary" /> Obras no Carrossel Principal
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Marque obras como "Em alta" para fixá-las no carrossel principal da home. As demais posições são preenchidas pelas mais populares.
+          Marque obras como "Em alta" para exibi-las no carrossel principal da home. Apenas as marcadas aparecem — não há preenchimento automático.
         </p>
       </div>
 
