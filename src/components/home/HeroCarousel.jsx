@@ -11,10 +11,15 @@ export default function HeroCarousel() {
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
 
-  // Top obras por popularidade
-  const { data: works = [] } = useQuery({
-    queryKey: ["hero-carousel-works"],
-    queryFn: () => base44.entities.DynamicWork.list("popularity_rank", 8),
+  // Obras em destaque (fixadas pelo admin) + populares de fallback
+  const { data: trendingWorks = [] } = useQuery({
+    queryKey: ["hero-carousel-trending-works"],
+    queryFn: () => base44.entities.DynamicWork.filter({ is_trending: true }, "trending_rank", 20),
+    staleTime: 10 * 60 * 1000,
+  });
+  const { data: popularWorks = [] } = useQuery({
+    queryKey: ["hero-carousel-popular-works"],
+    queryFn: () => base44.entities.DynamicWork.list("popularity_rank", 12),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -46,8 +51,14 @@ export default function HeroCarousel() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const workSlides = works
+  const _seenWorkIds = new Set();
+  const workSlides = [...trendingWorks, ...popularWorks]
     .filter((w) => w.image_url && w.title)
+    .filter((w) => {
+      if (_seenWorkIds.has(w.id)) return false;
+      _seenWorkIds.add(w.id);
+      return true;
+    })
     .slice(0, 6)
     .map((w) => ({ ...w, _type: "work" }));
 
