@@ -106,6 +106,7 @@ export default function HeroWorksSection() {
                   checked={!!w.is_trending}
                   disabled={toggleMutation.isPending}
                   onCheckedChange={(v) => toggleMutation.mutate({ work: w, value: v })}
+                  aria-label="Marcar como em alta"
                 />
               </label>
             </div>

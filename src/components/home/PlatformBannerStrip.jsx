@@ -40,7 +40,7 @@ export default function PlatformBannerStrip() {
               href={b.link_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0"
+              className="shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {inner}
             </a>

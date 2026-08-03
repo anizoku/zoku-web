@@ -171,6 +171,7 @@ export default function PlatformBannersSection() {
                     <Switch
                       checked={!!b.active}
                       onCheckedChange={(v) => updateMutation.mutate({ id: b.id, data: { active: v } })}
+                      aria-label="Ativar banner"
                     />
                   </label>
                 </div>

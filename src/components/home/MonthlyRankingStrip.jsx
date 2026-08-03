@@ -90,7 +90,12 @@ export default function MonthlyRankingStrip({ entries = [] }) {
             </div>
           );
           return slug ? (
-            <Link key={item.key} to={`/obra/${slug}`} className="flex-1 min-w-[210px]">
+            <Link
+              key={item.key}
+              to={`/obra/${slug}`}
+              aria-label={`Ranking #${i + 1}: ${item.title}`}
+              className="flex-1 min-w-[210px] rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
               {inner}
             </Link>
           ) : (

@@ -38,7 +38,7 @@
     --muted-foreground: 220 6% 61%;
 
     /* accent = verde neon #00FF88 */
-    --accent: 152 100% 50%;
+    --accent: 103 100% 61%;
     --accent-foreground: 0 0% 6%;
 
     --destructive: 0 72% 51%;
@@ -84,7 +84,7 @@
     --secondary-foreground: 220 13% 95%;
     --muted: 222 5% 20%;
     --muted-foreground: 220 6% 61%;
-    --accent: 152 100% 50%;
+    --accent: 103 100% 61%;
     --accent-foreground: 0 0% 6%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;

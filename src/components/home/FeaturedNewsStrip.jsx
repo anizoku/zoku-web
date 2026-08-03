@@ -22,7 +22,7 @@ export default function FeaturedNewsStrip() {
   return (
     <Link
       to={`/noticias/${featured.slug}`}
-      className="flex items-center gap-3 bg-card rounded-xl border border-border p-3 mb-6 hover:border-primary/50 transition-colors group"
+      className="flex items-center gap-3 bg-card rounded-xl border border-border p-3 mb-6 hover:border-primary/50 transition-colors group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
       <div className="flex items-center gap-2 shrink-0">
         <Flame className="w-4 h-4 text-destructive" />

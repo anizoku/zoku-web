@@ -83,6 +83,7 @@ export default function FeaturedNewsSection() {
                     checked={!!n.is_featured}
                     disabled={toggleMutation.isPending}
                     onCheckedChange={(v) => toggleMutation.mutate({ id: n.id, value: v })}
+                    aria-label="Destacar notícia"
                   />
                 </label>
               </div>

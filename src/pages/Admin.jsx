@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import CatalogManager from "@/components/admin/CatalogManager";
 import CategoryManager from "@/components/admin/CategoryManager";
 import CatalogSync from "@/components/admin/CatalogSync";
 import DynamicCatalogPanel from "@/components/admin/DynamicCatalogPanel";
@@ -77,9 +76,8 @@ export default function Admin() {
 
         <Tabs defaultValue="catalog">
           <TabsList className="bg-secondary flex-wrap h-auto gap-1">
-            <TabsTrigger value="catalog">Catálogo</TabsTrigger>
             <TabsTrigger value="dynamic">Catálogo Dinâmico</TabsTrigger>
-            <TabsTrigger value="categories">Categorias</TabsTrigger>
+            <TabsTrigger value="categories">Catálogo</TabsTrigger>
             <TabsTrigger value="sync">Sincronização</TabsTrigger>
             <TabsTrigger value="suggestions" className="relative">
               Sugestões
@@ -104,9 +102,6 @@ export default function Admin() {
             <TabsTrigger value="banners">Banners</TabsTrigger>
             <TabsTrigger value="login-images">Imagens de Login</TabsTrigger>
           </TabsList>
-          <TabsContent value="catalog" className="mt-6">
-            <CatalogManager />
-          </TabsContent>
           <TabsContent value="dynamic" className="mt-6">
             <DynamicCatalogPanel />
           </TabsContent>
