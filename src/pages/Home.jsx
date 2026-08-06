@@ -27,12 +27,14 @@ export default function Home() {
     queryKey: ["posts"],
     queryFn: () => base44.entities.Post.list("-created_date", 20),
     initialData: [],
+    staleTime: 60 * 1000,
   });
 
   const { data: entries = [] } = useQuery({
     queryKey: ["anime-entries"],
     queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 500),
     initialData: [],
+    staleTime: 2 * 60 * 1000,
   });
 
   return (

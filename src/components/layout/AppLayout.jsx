@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
 import FloatingChat from "@/components/chat/FloatingChat";
+import Breadcrumbs from "./Breadcrumbs";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
 import PushPermissionPrompt from "@/components/pwa/PushPermissionPrompt";
 import { base44 } from "@/api/base44Client";
@@ -44,6 +45,7 @@ export default function AppLayout() {
       <div className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ${sidebarWidth}`}>
         <TopBar sidebarCollapsed={sidebarCollapsed} />
         <main className="flex-1 pb-20 lg:pb-0 overflow-y-auto">
+          <Breadcrumbs />
           <Outlet />
         </main>
       </div>
