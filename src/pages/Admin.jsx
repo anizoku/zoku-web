@@ -17,6 +17,7 @@ import FranchiseMerger from "@/components/admin/FranchiseMerger";
 import NewsManager from "@/components/news/NewsManager";
 import LoginImagesPanel from "@/components/admin/LoginImagesPanel";
 import BannersPanel from "@/components/admin/BannersPanel";
+import FanArtPanel from "@/components/admin/fanart/FanArtPanel";
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -100,6 +101,7 @@ export default function Admin() {
             <TabsTrigger value="news">Notícias</TabsTrigger>
             <TabsTrigger value="appearance">Aparência</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
+            <TabsTrigger value="fanart">Arte de Fãs</TabsTrigger>
             <TabsTrigger value="login-images">Imagens de Login</TabsTrigger>
           </TabsList>
           <TabsContent value="dynamic" className="mt-6">
@@ -131,6 +133,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="banners" className="mt-6">
             <BannersPanel />
+          </TabsContent>
+          <TabsContent value="fanart" className="mt-6">
+            <FanArtPanel />
           </TabsContent>
           <TabsContent value="login-images" className="mt-6">
             <LoginImagesPanel />

@@ -12,6 +12,7 @@ import RecommendationsSection from "@/components/home/RecommendationsSection";
 import NewsSection from "@/components/home/NewsSection";
 import FeaturedNewsStrip from "@/components/home/FeaturedNewsStrip";
 import MonthlyRankingStrip from "@/components/home/MonthlyRankingStrip";
+import FanArtStrip from "@/components/home/FanArtStrip";
 import PlatformBannerStrip from "@/components/home/PlatformBannerStrip";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -43,6 +44,7 @@ export default function Home() {
       <PlatformBannerStrip />
       <FeaturedNewsStrip />
       <MonthlyRankingStrip entries={entries} />
+      <FanArtStrip />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Main Feed */}
         <div className="lg:col-span-8 space-y-4">
