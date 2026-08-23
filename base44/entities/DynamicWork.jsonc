@@ -140,6 +140,16 @@
     "related_franchise_id": {
       "type": "string",
       "description": "franchise_id da obra can\u00f4nica relacionada (para filmes/OVAs/Specials que N\u00c3O entram em seasons[] mas pertencem ao franchise)"
+    },
+    "sync_release_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "true quando todas as seasons[] foram migradas para WorkRelease com sucesso"
+    },
+    "release_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Contagem de WorkRelease vinculados (denormalizado p/ evitar query)"
     }
   },
   "required": [

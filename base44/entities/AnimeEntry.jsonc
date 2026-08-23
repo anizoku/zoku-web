@@ -55,7 +55,23 @@
     },
     "season_mal_id": {
       "type": "number",
-      "description": "mal_id da temporada espec\u00edfica \u00e0 qual o progresso se refere (ap\u00f3s merge de franchise). Null = raiz/\u00fanica temporada."
+      "description": "mal_id da temporada espec\u00edfica \u00e0 qual o progresso se refere (ap\u00f3s merge de franchise). Null = raiz/\u00fanica temporada. Fallback legado \u2014 permanece intacto."
+    },
+    "release_id": {
+      "type": "string",
+      "description": "WorkRelease.id (novo, can\u00f4nico). Opcional \u2014 preenchido quando a WorkRelease j\u00e1 existe. season_mal_id permanece como fallback legado."
+    },
+    "external_provider": {
+      "type": "string",
+      "description": "Provider da obra provis\u00f3ria (ex: anilist) quando adicionada antes da cria\u00e7\u00e3o can\u00f4nica da WorkRelease. Permite backfill futuro."
+    },
+    "external_provider_id": {
+      "type": "string",
+      "description": "ID no provedor externo (ex: AniList ID). Garante backfill mesmo se idMal for nulo."
+    },
+    "external_provider_type": {
+      "type": "string",
+      "description": "Tipo do recurso no provedor (anime|manga|movie|tv)"
     }
   },
   "required": [
