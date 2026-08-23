@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Upload, Save, Image as ImageIcon } from "lucide-react";
 import SoundUploader from "@/components/admin/SoundUploader";
+import LoginImagesPanel from "@/components/admin/LoginImagesPanel";
 
 const VALID_TYPES = ["image/png", "image/svg+xml", "image/webp", "image/jpeg"];
 const MAX_SIZE_MB = 2;
@@ -156,6 +157,16 @@ export default function AppearanceManager() {
           value={form.achievement_sound_url}
           onChange={(v) => setForm((f) => ({ ...f, achievement_sound_url: v }))}
         />
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <h3 className="font-space font-semibold text-lg text-foreground">Imagens de Login</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gerencie as imagens de fundo exibidas na tela de login. Apenas as ativas entram na rotação.
+          </p>
+        </div>
+        <LoginImagesPanel />
       </div>
 
       <Button

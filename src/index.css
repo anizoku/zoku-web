@@ -132,6 +132,26 @@
   background: #6DFF3C;
 }
 
+/* FanArt strip — onda verde indicando clicabilidade (barra recolhida) */
+.fanart-wave {
+  position: relative;
+}
+.fanart-wave::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(109, 255, 60, 0.22), transparent);
+  animation: fanart-wave 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes fanart-wave {
+  0% { left: -60%; }
+  100% { left: 100%; }
+}
+
 /* Brand gradient utility */
 .brand-gradient {
   background: linear-gradient(135deg, #00FF88, #6DFF3C);

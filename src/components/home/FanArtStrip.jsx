@@ -48,7 +48,7 @@ export default function FanArtStrip() {
     let lastY = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;
-      if (y > lastY + 5) {
+      if (y > lastY + 80) {
         setExpanded(false);
       }
       lastY = y;
@@ -73,7 +73,7 @@ export default function FanArtStrip() {
       <button
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="w-full flex items-center gap-3 bg-card border border-border rounded-xl px-3 py-2 hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className={`fanart-wave overflow-hidden w-full flex items-center gap-3 bg-card border border-border rounded-xl px-3 py-2 hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${!expanded ? "shadow-[0_0_14px_-3px_rgba(109,255,60,0.45)]" : ""}`}
       >
         <Palette className="w-4 h-4 text-chart-3 shrink-0" />
         <span className="text-xs font-bold uppercase tracking-wider text-foreground/90">Arte de Fãs</span>
