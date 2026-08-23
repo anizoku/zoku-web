@@ -96,26 +96,27 @@ Criar as três entidades novas sem alterar `DynamicWork` ou `AnimeEntry`. As ent
 - title_romaji      (string)
 - title_english     (string)
 - title_native      (string)
-- category          (string, enum: anime|manga|movie|liveaction|special|ova)
-- format            (string) → AniList format (TV, MOVIE, OVA, ONA, SPECIAL, MANGA, NOVEL, etc.)
+- category          (string, enum: anime|manga|movie|liveaction) → categoria PRINCIPAL (OVA/SPECIAL são format, não categoria)
+- format            (string) → AniList format (TV|MOVIE|OVA|ONA|SPECIAL|MANGA|NOVEL|etc.)
 - season            (string) → winter|spring|summer|fall
 - season_year       (number)
 - episode_count     (number)
 - chapter_count     (number)
-- duration          (string) → ex: "24 min/ep"
+- duration_minutes  (number) → duração em minutos por episódio (frontend formata como "24 min/ep")
 - release_order     (number) → ordem cronológica de exibição dentro do grupo
 - display_order     (number) → ordem de exibição no catálogo (diferente de release_order p/ colocar specials no fim)
 - status            (string, enum: releasing|finished|not_yet_released|cancelled|hiatus)
 - is_main_entry     (boolean, default false) → true para a entrada "principal" do grupo
-- is_special        (boolean, default false)
-- is_movie          (boolean, default false)
+- is_special        (boolean, default false) → derivado de format (SPECIAL/OVA); flag de conveniência
+- is_movie          (boolean, default false) → derivado de format (MOVIE)
 - is_live_action    (boolean, default false)
 - synopsis          (string)
 - cover_url         (string)
 - banner_url        (string)
 - score             (number)
 - popularity        (number)
-- trending          (boolean, default false)
+- trending_score    (number, default 0) → score de popularidade/trending (maior = mais em alta)
+- trending_rank     (number) → ordem de exibição no "Em Alta" (menor = mais alto); boolean trending derivado na UI se necessário
 - sync_status       (string, enum: synced|pending|manual_override, default: pending)
 - last_synced_at     (date-time)
 ```
@@ -124,7 +125,7 @@ Criar as três entidades novas sem alterar `DynamicWork` ou `AnimeEntry`. As ent
 ```
 - work_group_id     (string) → DynamicWork.id (nullable quando mapeia só release)
 - work_release_id   (string) → WorkRelease.id (nullable quando mapeia só grupo)
-- provider          (string, enum: anilist|mal|tmdb|thetvdb|jikan, required)
+- provider          (string, enum: anilist|mal|tmdb|thetvdb, required)
 - provider_id       (string, required) → ID no provedor (string p/ suportar IDs grandes)
 - provider_url      (string)
 - provider_type     (string) → anime|manga|movie|tv|etc. (tipo do recurso no provedor)
@@ -134,9 +135,11 @@ Criar as três entidades novas sem alterar `DynamicWork` ou `AnimeEntry`. As ent
 ```
 Constraint lógica (aplicada no código, não no schema): `work_group_id` ou `work_release_id` deve estar setado (não ambos nulos). Para o mesmo `provider` + `provider_id` + `provider_type`, deve ser único (upsert por essa chave composta).
 
+**Jikan não é um provider canônico.** Jikan é tratado como fonte de consulta para MAL — quando o ID vem do Jikan, o `provider` canônico é `mal` (Jikan espelha MAL). O enum de `provider` não inclui `jikan`.
+
 #### SyncConflict
 ```
-- provider          (string, enum: anilist|mal|tmdb|thetvdb|jikan, required)
+- provider          (string, enum: anilist|mal|tmdb|thetvdb, required)
 - provider_id       (string, required)
 - provider_type     (string)
 - external_title    (string)
@@ -193,7 +196,10 @@ Popular `WorkRelease` a partir dos `seasons[]` existentes em `DynamicWork`, cria
 
 #### Em AnimeEntry (adicionar)
 ```
-- release_id (string, optional) → WorkRelease.id (novo, canônico). season_mal_id permanece como fallback legado.
+- release_id            (string, optional) → WorkRelease.id (novo, canônico). season_mal_id permanece como fallback legado.
+- external_provider      (string, optional) → provider da obra provisória (ex: anilist) quando adicionada antes da criação canônica
+- external_provider_id   (string, optional) → ID no provedor externo (ex: AniList ID). Permite backfill futuro mesmo se idMal for nulo.
+- external_provider_type (string, optional) → tipo do recurso no provedor (anime|manga|movie|tv)
 ```
 
 ### Lógica de upsert (migração)
@@ -212,16 +218,36 @@ Script de migração (rodado uma vez, via `exec_tool` ou backend function quando
 
 ### Backfill de release_id em AnimeEntry (sub-fase, após migração de WorkRelease)
 Rodado depois que `WorkRelease` + `ExternalMapping` estão populados:
-1. Para cada `AnimeEntry` com `season_mal_id` setado e `release_id` nulo:
-   - Buscar `ExternalMapping` com `provider = "mal"`, `provider_id = season_mal_id`.
-   - Se encontrar exatamente um `work_release_id`, setar `AnimeEntry.release_id`.
-   - Se não encontrar ou encontrar ambíguo, **não tocar** — mantém `season_mal_id` como fallback.
+1. Para cada `AnimeEntry` com `release_id` nulo:
+   - Tentar por `season_mal_id`: buscar `ExternalMapping` (`provider = "mal"`, `provider_id = season_mal_id`). Se encontrar exatamente um `work_release_id`, setar `AnimeEntry.release_id`.
+   - Se não, tentar por `external_provider`/`external_provider_id`/`external_provider_type`: buscar `ExternalMapping` correspondente. Se encontrar exatamente um `work_release_id`, setar `AnimeEntry.release_id`.
+   - Se não encontrar ou encontrar ambíguo em ambos, **não tocar** — mantém os campos legados como fallback.
 2. Critério: só preencher `release_id` em match **exato por ID**. Nunca fuzzy.
 
-### Resolução de progresso no frontend (nova ordem de precedência)
-1. Se `AnimeEntry.release_id` setado → ler `WorkRelease` por `release_id`.
-2. Senão se `AnimeEntry.season_mal_id` setado → buscar `ExternalMapping` (`provider=mal`, `provider_id=season_mal_id`) → `work_release_id` → ler `WorkRelease`.
-3. Senão → fallback legado por `title` + `type` (comportamento atual).
+### Helper central: resolveAnimeEntryRelease(entry)
+Resolver central (não espalhar lógica nas páginas) que retorna o `WorkRelease` (ou null) de um `AnimeEntry`:
+
+```
+resolveAnimeEntryRelease(entry):
+  1. Se entry.release_id → buscar WorkRelease por release_id. Retornar.
+  2. Senão se entry.season_mal_id → buscar ExternalMapping(provider=mal, provider_id=season_mal_id) → work_release_id → WorkRelease. Retornar.
+  3. Senão se entry.external_provider && entry.external_provider_id → buscar ExternalMapping(provider=external_provider, provider_id=external_provider_id, provider_type=external_provider_type) → work_release_id → WorkRelease. Retornar.
+  4. Senão → retornar null (fallback legado por title/type na página).
+```
+
+Ordem de resolução: `release_id` → `season_mal_id` via ExternalMapping(mal) → `external_provider/external_provider_id` via ExternalMapping → fallback legado por `title`/`type`.
+
+### Helper central: getWorkReleases(dynamicWork)
+Resolver central para listar releases de uma obra. **Nunca mostrar `WorkRelease` e `seasons[]` ao mesmo tempo.**
+
+```
+getWorkReleases(dynamicWork):
+  1. Buscar WorkRelease com group_id = dynamicWork.id, ordenado por display_order.
+  2. Se existir ao menos um WorkRelease → retornar lista de WorkRelease.
+  3. Senão → fazer parse de dynamicWork.seasons[] (legado) e retornar como lista normalizada no mesmo formato.
+```
+
+Regra: se `DynamicWork.sync_release_completed = true`, usar `WorkRelease`; senão usar `seasons[]`. O helper encapsula essa decisão para que nenhuma página precise saber qual fonte usar.
 
 ### Riscos
 - `seasons[]` com formato inconsistente (descoberto na Fase 0) — o script de migração precisa tolerar variações e logar obras que falham.
@@ -282,7 +308,7 @@ Para cada obra vinda do AniList:
 - O usuário pesquisa no catálogo local primeiro (comportamento atual).
 - Se não encontra, o client consulta AniList (público, sem chave secreta) e mostra resultado **provisório** (display only).
 - **Não grava** canônico nem `ExternalMapping` a partir do client.
-- Se o usuário adiciona à lista uma obra provisória, cria `AnimeEntry` com `title`/`type` legado e `season_mal_id` (do `idMal` do AniList) — sem `release_id` ainda. Marca a obra como prioridade para sync completo na Fase 5.
+- Se o usuário adiciona à lista uma obra provisória, cria `AnimeEntry` com `title`/`type` legado, `season_mal_id` (do `idMal` do AniList, se existir) e `external_provider`/`external_provider_id`/`external_provider_type` (do AniList, sempre) — sem `release_id` ainda. Os campos `external_*` garantem backfill futuro mesmo se `idMal` for nulo. Marca a obra como prioridade para sync completo na Fase 5.
 - A gravação canônica (`WorkRelease` + `ExternalMapping` + resolução de `release_id` no `AnimeEntry`) acontece na Fase 5 via backend.
 
 ### Riscos
@@ -381,7 +407,7 @@ Mover a sincronização para backend functions (scheduled tasks), permitindo syn
 ```
 - work_group_id     (string, nullable) → DynamicWork.id (quando sync de obra existente)
 - work_release_id    (string, nullable) → WorkRelease.id
-- provider           (string, enum: anilist|mal|tmdb|thetvdb|jikan)
+- provider           (string, enum: anilist|mal|tmdb|thetvdb)
 - provider_id        (string) → ID externo a sincronizar
 - provider_type      (string)
 - trigger            (string, enum: daily_popular|daily_season|weekly_relations|on_demand_search|on_demand_add|backfill)
@@ -514,7 +540,7 @@ Fase 0 (auditoria) → Fase 1 (entidades vazias) → Fase 2 (migração seasons[
 | `SyncConflict` | Criar | 1 |
 | `DynamicWork` | +`sync_release_completed`, `release_count` | 2 |
 | `DynamicWork` | +`sync_priority`, `last_full_sync_at` | 5 |
-| `AnimeEntry` | +`release_id` (opcional) | 2 |
+| `AnimeEntry` | +`release_id`, `external_provider`, `external_provider_id`, `external_provider_type` (opcionais) | 2 |
 | `SyncQueue` | Criar | 5 |
 | `WorkRelease` | +campos TheTVDB (se aprovado) | 6 |
 
