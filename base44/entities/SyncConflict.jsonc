@@ -1,0 +1,115 @@
+{
+  "name": "SyncConflict",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "anilist",
+        "mal",
+        "tmdb",
+        "thetvdb"
+      ],
+      "description": "Provider can\u00f4nico. Jikan N\u00c3O \u00e9 um provider \u2014 IDs do Jikan usam provider=mal."
+    },
+    "provider_id": {
+      "type": "string",
+      "description": "ID no provedor"
+    },
+    "provider_type": {
+      "type": "string",
+      "description": "Tipo do recurso no provedor"
+    },
+    "external_title": {
+      "type": "string",
+      "description": "T\u00edtulo da obra externa"
+    },
+    "external_payload_summary": {
+      "type": "string",
+      "description": "Resumo LEVE dos dados externos (NUNCA o payload completo)"
+    },
+    "possible_work_group_id": {
+      "type": "string",
+      "description": "Sugest\u00e3o de match de grupo (fuzzy, informativo)"
+    },
+    "possible_work_release_id": {
+      "type": "string",
+      "description": "Sugest\u00e3o de match de release (fuzzy, informativo)"
+    },
+    "conflict_type": {
+      "type": "string",
+      "enum": [
+        "no_match",
+        "ambiguous_title",
+        "duplicate_candidate",
+        "missing_relation",
+        "category_mismatch"
+      ],
+      "description": "Tipo do conflito"
+    },
+    "confidence_score": {
+      "type": "number",
+      "description": "Score da melhor sugest\u00e3o fuzzy (informativo, n\u00e3o auto-aprova)"
+    },
+    "suggested_action": {
+      "type": "string",
+      "enum": [
+        "link_existing",
+        "create_new_release",
+        "create_new_group",
+        "ignore"
+      ],
+      "description": "A\u00e7\u00e3o sugerida"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "resolved",
+        "dismissed"
+      ],
+      "default": "pending",
+      "description": "Status do conflito"
+    },
+    "admin_note": {
+      "type": "string",
+      "description": "Observa\u00e7\u00e3o do admin"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data/hora da resolu\u00e7\u00e3o"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "Email do admin que resolveu"
+    }
+  },
+  "required": [
+    "provider",
+    "provider_id",
+    "conflict_type"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

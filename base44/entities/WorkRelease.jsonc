@@ -1,0 +1,175 @@
+{
+  "name": "WorkRelease",
+  "type": "object",
+  "properties": {
+    "group_id": {
+      "type": "string",
+      "description": "DynamicWork.id (franchise-m\u00e3e)"
+    },
+    "group_slug": {
+      "type": "string",
+      "description": "DynamicWork.slug denormalizado (query sem join)"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Slug \u00fanico do release (ex: attack-on-titan-season-2)"
+    },
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo do release"
+    },
+    "title_romaji": {
+      "type": "string",
+      "description": "T\u00edtulo em romaji/translitera\u00e7\u00e3o"
+    },
+    "title_english": {
+      "type": "string",
+      "description": "T\u00edtulo em ingl\u00eas"
+    },
+    "title_native": {
+      "type": "string",
+      "description": "T\u00edtulo no idioma original"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "manga",
+        "movie",
+        "liveaction"
+      ],
+      "description": "Categoria PRINCIPAL. OVA e SPECIAL s\u00e3o format, n\u00e3o category."
+    },
+    "format": {
+      "type": "string",
+      "description": "AniList format: TV|MOVIE|OVA|ONA|SPECIAL|MANGA|NOVEL|etc."
+    },
+    "season": {
+      "type": "string",
+      "description": "winter|spring|summer|fall"
+    },
+    "season_year": {
+      "type": "number",
+      "description": "Ano da temporada"
+    },
+    "episode_count": {
+      "type": "number",
+      "description": "Total de epis\u00f3dios"
+    },
+    "chapter_count": {
+      "type": "number",
+      "description": "Total de cap\u00edtulos (manga)"
+    },
+    "duration_minutes": {
+      "type": "number",
+      "description": "Dura\u00e7\u00e3o em minutos por epis\u00f3dio (frontend formata como '24 min/ep')"
+    },
+    "release_order": {
+      "type": "number",
+      "description": "Ordem cronol\u00f3gica de exibi\u00e7\u00e3o dentro do grupo"
+    },
+    "display_order": {
+      "type": "number",
+      "description": "Ordem de exibi\u00e7\u00e3o no cat\u00e1logo (diferente de release_order p/ colocar specials no fim)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "releasing",
+        "finished",
+        "not_yet_released",
+        "cancelled",
+        "hiatus"
+      ],
+      "description": "Status do release"
+    },
+    "is_main_entry": {
+      "type": "boolean",
+      "default": false,
+      "description": "true para a entrada principal do grupo"
+    },
+    "is_special": {
+      "type": "boolean",
+      "default": false,
+      "description": "Derivado de format (SPECIAL/OVA); flag de conveni\u00eancia"
+    },
+    "is_movie": {
+      "type": "boolean",
+      "default": false,
+      "description": "Derivado de format (MOVIE)"
+    },
+    "is_live_action": {
+      "type": "boolean",
+      "default": false,
+      "description": "true para live-action"
+    },
+    "synopsis": {
+      "type": "string",
+      "description": "Sinopse do release"
+    },
+    "cover_url": {
+      "type": "string",
+      "description": "URL do poster/cover"
+    },
+    "banner_url": {
+      "type": "string",
+      "description": "URL do banner"
+    },
+    "score": {
+      "type": "number",
+      "description": "Score (0-10)"
+    },
+    "popularity": {
+      "type": "number",
+      "description": "Popularidade"
+    },
+    "trending_score": {
+      "type": "number",
+      "default": 0,
+      "description": "Score de trending (maior = mais em alta)"
+    },
+    "trending_rank": {
+      "type": "number",
+      "description": "Ordem no 'Em Alta' (menor = mais alto)"
+    },
+    "sync_status": {
+      "type": "string",
+      "enum": [
+        "synced",
+        "pending",
+        "manual_override"
+      ],
+      "default": "pending",
+      "description": "Status do sync"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u00daltima sincroniza\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "group_id",
+    "slug",
+    "title",
+    "category"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
