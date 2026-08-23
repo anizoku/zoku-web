@@ -48,6 +48,12 @@ function scoreWork(item, query, contextCategory) {
   if (romaji && (romaji === q || romaji.startsWith(q) || romaji.includes(q))) score += 40;
   if (franchiseTitle && franchiseTitle.includes(q)) score += 30;
   if (item.seasons?.some(s => normalizeQ(s.season_title).includes(q))) score += 25;
+  if (item.releases?.some(r =>
+    normalizeQ(r.title).includes(q) ||
+    normalizeQ(r.title_romaji).includes(q) ||
+    normalizeQ(r.title_english).includes(q) ||
+    normalizeQ(r.title_native).includes(q)
+  )) score += 25;
   if (item.genres?.some(g => normalizeQ(g).includes(q))) score += 5;
 
   if (contextCategory && item.categories?.includes(contextCategory)) score += 30;
@@ -81,9 +87,23 @@ export function useGlobalSearch(query) {
           normalizeQ(item.romaji_title).includes(nq) ||
           normalizeQ(item.franchise_title).includes(nq) ||
           (item.seasons || []).some(s => normalizeQ(s.season_title).includes(nq)) ||
+          (item.releases || []).some(r =>
+            normalizeQ(r.title).includes(nq) ||
+            normalizeQ(r.title_romaji).includes(nq) ||
+            normalizeQ(r.title_english).includes(nq) ||
+            normalizeQ(r.title_native).includes(nq)
+          ) ||
           item.genres?.some(g => normalizeQ(g).includes(nq))
         )
-        .map(item => ({ ...item, _score: scoreWork(item, q, context) }))
+        .map(item => {
+          const matchedReleaseCount = (item.releases || []).filter(r =>
+            normalizeQ(r.title).includes(nq) ||
+            normalizeQ(r.title_romaji).includes(nq) ||
+            normalizeQ(r.title_english).includes(nq) ||
+            normalizeQ(r.title_native).includes(nq)
+          ).length;
+          return { ...item, _score: scoreWork(item, q, context), _matched_release_count: matchedReleaseCount };
+        })
         .sort((a, b) => b._score - a._score)
         .slice(0, 8);
 

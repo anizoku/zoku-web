@@ -8,9 +8,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
 import { parseSeasons } from "@/lib/franchiseDetection";
+import { resolveReleasesSync } from "@/lib/workReleases";
 
 const QUERY_KEY_SYNC = ["catalog-sync-records"];
 const QUERY_KEY_DYNAMIC = ["catalog-dynamic-works"];
+const QUERY_KEY_RELEASES = ["catalog-work-releases"];
 const STALE_TIME = 10 * 60 * 1000; // 10 minutos
 
 // Converte DynamicWork para formato compatível com o catálogo
@@ -121,7 +123,14 @@ export function CatalogProvider({ children }) {
     staleTime: STALE_TIME,
   });
 
-  const isLoading = syncLoading || dynamicLoading;
+  // Fase 2H: Carrega WorkRelease em lote (uma query, não N+1)
+  const { data: workReleases = [], isLoading: releasesLoading } = useQuery({
+    queryKey: QUERY_KEY_RELEASES,
+    queryFn: () => base44.entities.WorkRelease.list("-created_date", 5000),
+    staleTime: STALE_TIME,
+  });
+
+  const isLoading = syncLoading || dynamicLoading || releasesLoading;
 
   // Constrói mapa slug → CatalogSync
   const syncMap = useMemo(() => {
@@ -140,6 +149,17 @@ export function CatalogProvider({ children }) {
     }
     return map;
   }, [dynamicWorks]);
+
+  // Fase 2H: Mapa group_id → [WorkRelease] (lote único, evita N+1)
+  const releasesByGroupId = useMemo(() => {
+    const map = new Map();
+    for (const r of workReleases) {
+      if (!r.group_id) continue;
+      if (!map.has(r.group_id)) map.set(r.group_id, []);
+      map.get(r.group_id).push(r);
+    }
+    return map;
+  }, [workReleases]);
 
   // Array mesclado: static → CatalogSync → DynamicWork (prioridade inversa)
   const catalog = useMemo(() => {
@@ -162,10 +182,31 @@ export function CatalogProvider({ children }) {
       }
     }
 
+    // Fase 2H: Enriquecer com releases (WorkRelease canônico OU seasons[] legado)
+    // Regra: nunca mostrar WorkRelease + seasons[] juntos para a mesma obra.
+    for (const item of merged) {
+      if (item._dynamicRecord) {
+        const { releases, source } = resolveReleasesSync(item._dynamicRecord, releasesByGroupId);
+        item.releases = releases;
+        item.release_source = source;
+        item.has_work_releases = source === "work_release";
+        item.release_count = releases.length;
+        if (source === "work_release") {
+          item.seasons = []; // não usar seasons[] junto com WorkRelease
+        }
+      } else {
+        // Item estático — sem releases canônicos
+        item.releases = [];
+        item.release_source = "legacy_seasons";
+        item.has_work_releases = false;
+        item.release_count = 0;
+      }
+    }
+
     // Deduplicar
     return deduplicateCatalog(merged)
       .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
-  }, [syncMap, dynamicWorks]);
+  }, [syncMap, dynamicWorks, releasesByGroupId]);
 
   const getBySlug = useCallback(
     (slug) => catalog.find((w) => w.slug === slug) || null,
@@ -188,6 +229,7 @@ export function CatalogProvider({ children }) {
   const refreshCatalog = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: QUERY_KEY_SYNC });
     queryClient.invalidateQueries({ queryKey: QUERY_KEY_DYNAMIC });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEY_RELEASES });
   }, [queryClient]);
 
   const getCatalogStats = useCallback(() => {

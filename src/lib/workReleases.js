@@ -34,6 +34,9 @@ function normalizeWorkRelease(r, malIdByReleaseId) {
     group_slug: r.group_slug,
     slug: r.slug,
     title: r.title,
+    title_romaji: r.title_romaji || null,
+    title_english: r.title_english || null,
+    title_native: r.title_native || null,
     category: r.category,
     format: r.format || null,
     season_number: r.season_number ?? null,
@@ -190,4 +193,40 @@ export function getWorkReleasesLegacySync(dynamicWork) {
     .map((s, idx) => normalizeLegacySeason(s, idx, dynamicWork))
     .sort(compareReleases);
   return { releases: normalized, source: "legacy_seasons" };
+}
+
+/**
+ * Constrói releases normalizados a partir de um lote de WorkRelease (sem queries).
+ * Útil para enriquecer catálogo em memória sem N+1.
+ */
+export function buildReleasesFromBatch(workReleaseRecords, malIdByReleaseId = null) {
+  if (!workReleaseRecords || workReleaseRecords.length === 0) return [];
+  return workReleaseRecords
+    .map((r) => normalizeWorkRelease(r, malIdByReleaseId))
+    .sort(compareReleases);
+}
+
+/**
+ * Dual-read síncrono: decide qual fonte usar dado um DynamicWork e um mapa
+ * de WorkRelease por group_id (pré-carregado em lote). Sem queries.
+ *
+ * @param {Object} dynamicWork
+ * @param {Map<string, Array>} releasesByGroupId — mapa group_id → [WorkRelease]
+ * @returns {{ releases: Array, source: "work_release"|"legacy_seasons" }}
+ */
+export function resolveReleasesSync(dynamicWork, releasesByGroupId) {
+  if (!dynamicWork) return { releases: [], source: "legacy_seasons" };
+
+  const migrated =
+    dynamicWork.sync_release_completed === true &&
+    (dynamicWork.release_count || 0) > 0;
+
+  if (migrated && releasesByGroupId) {
+    const groupReleases = releasesByGroupId.get(dynamicWork.id) || [];
+    if (groupReleases.length > 0) {
+      return { releases: buildReleasesFromBatch(groupReleases), source: "work_release" };
+    }
+  }
+
+  return { releases: getWorkReleasesLegacySync(dynamicWork).releases, source: "legacy_seasons" };
 }
