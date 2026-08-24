@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
@@ -20,7 +20,6 @@ function buildUrl(value, platform) {
  * Faixa "Arte de Fãs" na home: carrossel recolhível.
  * - Estado recolhido: barra compacta com ícone + prévia de miniaturas.
  * - Ao clicar, expande o carrossel horizontal (ordem embaralhada).
- * - Quando expandido, rolar a página para baixo recolhe automaticamente.
  * Cada card mostra a arte, o artista e ícones de redes (Instagram/Twitter/site).
  */
 export default function FanArtStrip() {
@@ -41,21 +40,6 @@ export default function FanArtStrip() {
     }
     return arr;
   }, [arts]);
-
-  // Recolhe automaticamente ao rolar para baixo (apenas quando expandido)
-  useEffect(() => {
-    if (!expanded) return;
-    let lastY = window.scrollY;
-    const onScroll = () => {
-      const y = window.scrollY;
-      if (y > lastY + 80) {
-        setExpanded(false);
-      }
-      lastY = y;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [expanded]);
 
   if (!isLoading && shuffled.length === 0) return null;
 
