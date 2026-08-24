@@ -3,19 +3,37 @@
  *
  * Fase 3A: APENAS leitura e simulação. Nenhuma escrita no banco.
  *
- * Fluxo de matching (por obra):
- * 1. Consultar AniList (por idMal ou por texto)
- * 2. Normalizar dados AniList
- * 3. Verificar ExternalMapping:
- *    a. provider=anilist, provider_id=anilist_id → match por AniList ID
- *    b. provider=mal, provider_id=idMal → match por MAL ID
- * 4. Simular resultado:
- *    - Match por AniList ID → upsert (atualizar WorkRelease/DynamicWork existente)
- *    - Match por MAL ID → upsert + criar ExternalMapping(anilist)
- *    - Sem match → SyncConflict (no_match | ambiguous_title)
+ * ────────────────────────────────────────────────────────────────────
+ * PONTO 13 — Categorias de Match (4 níveis claros)
+ * ────────────────────────────────────────────────────────────────────
+ * O resultado de dryRunMatch() classifica cada obra em EXATAMENTE uma
+ * das 4 categorias abaixo (result.simulation.match_category):
+ *
+ *   1. "match_anilist"  — Match SEGURO por ExternalMapping provider=anilist
+ *                         (anilist_id já mapeado). Upsert direto.
+ *
+ *   2. "match_mal"      — Match SEGURO por ExternalMapping provider=mal
+ *                         usando idMal do AniList. Upsert + criar mapping anilist.
+ *
+ *   3. "suggestion"     — SEM match por ExternalMapping, mas AniList encontrou
+ *                         a obra E ela tem idMal. Pode sugerir link_existing
+ *                         (criar ExternalMapping manualmente). NÃO upsertar
+ *                         automaticamente.
+ *
+ *   4. "no_match"       — SEM match nenhum. AniList não encontrou, ou encontrou
+ *                         mas não tem idMal, ou DynamicWork não existe.
+ *
+ * ────────────────────────────────────────────────────────────────────
+ * PONTO 14 — SyncConflict APENAS simulado (nunca real)
+ * ────────────────────────────────────────────────────────────────────
+ * Este módulo NUNCA cria SyncConflict real no banco. Apenas simula qual
+ * SyncConflict seria criado (result.simulation.would_create_sync_conflict).
+ * A criação real de SyncConflict fica para a Fase 3B (backend-side).
  *
  * Regras da Fase 3A (NÃO fazer):
  * - Não criar WorkRelease automaticamente
+ * - Não criar ExternalMapping (nem anilist nem mal)
+ * - Não criar SyncConflict real
  * - Não alterar AnimeEntry
  * - Não alterar progresso de usuário
  * - Não usar fuzzy matching
@@ -67,7 +85,7 @@ export function findExternalMapping(externalMappings, provider, providerId) {
  * @param {string} params.searchTitle — título para busca por texto (fallback)
  * @param {number} params.malId — MAL ID para busca por idMal (preferido)
  * @param {string} params.type — "ANIME" | "MANGA" (default ANIME)
- * @returns {object} resultado do dry-run
+ * @returns {object} resultado do dry-run com match_category (4 níveis)
  */
 export async function dryRunMatch({
   dynamicWork,
@@ -92,9 +110,13 @@ export async function dryRunMatch({
       target_dynamic_work: null,
     },
     simulation: {
-      action: null,           // "upsert_by_anilist" | "upsert_by_mal" | "conflict_no_match" | "conflict_ambiguous"
+      // PONTO 13: 4 categorias claras
+      match_category: null,   // "match_anilist" | "match_mal" | "suggestion" | "no_match"
+      action: null,           // "upsert_by_anilist" | "upsert_by_mal" | "link_existing" | "create_new_release" | "ignore"
       would_create_mapping: false,
       would_update_fields: [],
+      // PONTO 14: SyncConflict APENAS simulado (nunca criado real)
+      would_create_sync_conflict: null,  // { provider, provider_id, conflict_type, suggested_action } ou null
       conflict_type: null,
       conflict_reason: null,
     },
@@ -113,9 +135,21 @@ export async function dryRunMatch({
     }
 
     if (!rawMedia) {
-      result.simulation.action = "conflict_no_match";
+      // PONTO 13: categoria 4 — no_match (AniList não encontrou)
+      result.simulation.match_category = "no_match";
+      result.simulation.action = "ignore";
       result.simulation.conflict_type = "no_match";
       result.simulation.conflict_reason = "AniList não encontrou a obra por idMal nem por busca de texto";
+      // PONTO 14: simular SyncConflict
+      result.simulation.would_create_sync_conflict = {
+        provider: "anilist",
+        provider_id: null,
+        provider_type: type.toLowerCase(),
+        external_title: searchTitle || `mal:${malId}`,
+        conflict_type: "no_match",
+        suggested_action: "ignore",
+        confidence_score: 0,
+      };
       return result;
     }
 
@@ -159,31 +193,81 @@ export async function dryRunMatch({
       ? { mapping_id: malMapping.id, work_group_id: malMapping.work_group_id, work_release_id: malMapping.work_release_id }
       : null;
 
-    // 5. Simular resultado
+    // 5. Classificar em uma das 4 categorias (PONTO 13)
     if (anilistMapping) {
-      // Match por AniList ID — já mapeado, simular upsert
+      // ── Categoria 1: match_anilist (SEGURO) ──
+      result.simulation.match_category = "match_anilist";
       result.simulation.action = "upsert_by_anilist";
       result.simulation.would_create_mapping = false;
       result.simulation.would_update_fields = computeUpsertFields(dynamicWork, anilistData);
       result.match.target_work_release = anilistMapping.work_release_id || null;
       result.match.target_dynamic_work = anilistMapping.work_group_id || dynamicWork?.id || null;
     } else if (malMapping) {
-      // Match por MAL ID — mapeado via MAL, simular upsert + criar ExternalMapping(anilist)
+      // ── Categoria 2: match_mal (SEGURO) ──
+      result.simulation.match_category = "match_mal";
       result.simulation.action = "upsert_by_mal";
       result.simulation.would_create_mapping = true;
       result.simulation.would_update_fields = computeUpsertFields(dynamicWork, anilistData);
       result.match.target_work_release = malMapping.work_release_id || null;
       result.match.target_dynamic_work = malMapping.work_group_id || dynamicWork?.id || null;
-    } else if (dynamicWork) {
-      // DynamicWork existe mas sem ExternalMapping — conflito (não criar automaticamente)
-      result.simulation.action = "conflict_no_match";
+    } else if (anilistData.idMal && dynamicWork) {
+      // ── Categoria 3: suggestion (sem match, mas sugestão possível) ──
+      // AniList encontrou a obra com idMal, e DynamicWork existe, mas não há
+      // ExternalMapping. Pode sugerir link_existing (criar mapping manualmente).
+      result.simulation.match_category = "suggestion";
+      result.simulation.action = "link_existing";
+      result.simulation.would_create_mapping = false; // não criar automaticamente
+      result.simulation.would_update_fields = [];
+      result.match.target_work_release = null;
+      result.match.target_dynamic_work = dynamicWork.id;
       result.simulation.conflict_type = "no_match";
-      result.simulation.conflict_reason = "DynamicWork existe mas não tem ExternalMapping para anilist nem mal";
+      result.simulation.conflict_reason = `DynamicWork existe (mal_id=${dynamicWork.mal_id}) mas sem ExternalMapping. AniList encontrou idMal=${anilistData.idMal}. Sugerir link_existing manual.`;
+      // PONTO 14: simular SyncConflict (não criar real)
+      result.simulation.would_create_sync_conflict = {
+        provider: "anilist",
+        provider_id: String(anilistData.anilist_id),
+        provider_type: type.toLowerCase(),
+        external_title: anilistData.title_english || anilistData.title_romaji || searchTitle,
+        external_payload_summary: `idMal=${anilistData.idMal}, format=${anilistData.format}, episodes=${anilistData.episodes}`,
+        possible_work_group_id: dynamicWork.id,
+        conflict_type: "no_match",
+        suggested_action: "link_existing",
+        confidence_score: 80, // alta confiança porque idMal confere com mal_id do DynamicWork
+      };
+    } else if (anilistData.idMal && !dynamicWork) {
+      // ── Categoria 3: suggestion (sem DynamicWork, mas AniList tem idMal) ──
+      // Obra existe no AniList mas não no catálogo interno. Sugerir create_new_release.
+      result.simulation.match_category = "suggestion";
+      result.simulation.action = "create_new_release";
+      result.simulation.would_create_mapping = false;
+      result.simulation.would_update_fields = [];
+      result.simulation.conflict_type = "no_match";
+      result.simulation.conflict_reason = "Obra não existe no catálogo interno. AniList encontrou com idMal. Sugerir create_new_release manual.";
+      result.simulation.would_create_sync_conflict = {
+        provider: "anilist",
+        provider_id: String(anilistData.anilist_id),
+        provider_type: type.toLowerCase(),
+        external_title: anilistData.title_english || anilistData.title_romaji || searchTitle,
+        external_payload_summary: `idMal=${anilistData.idMal}, format=${anilistData.format}, episodes=${anilistData.episodes}`,
+        conflict_type: "no_match",
+        suggested_action: "create_new_release",
+        confidence_score: 60,
+      };
     } else {
-      // Sem DynamicWork e sem mapping — conflito (obra nova não migrada)
-      result.simulation.action = "conflict_no_match";
+      // ── Categoria 4: no_match (sem idMal, não pode sugerir link) ──
+      result.simulation.match_category = "no_match";
+      result.simulation.action = "ignore";
       result.simulation.conflict_type = "no_match";
-      result.simulation.conflict_reason = "Obra não existe no catálogo interno e sem ExternalMapping — requer criação manual";
+      result.simulation.conflict_reason = "AniList encontrou a obra mas não tem idMal — não é possível sugerir link por MAL ID";
+      result.simulation.would_create_sync_conflict = {
+        provider: "anilist",
+        provider_id: String(anilistData.anilist_id),
+        provider_type: type.toLowerCase(),
+        external_title: anilistData.title_english || anilistData.title_romaji || searchTitle,
+        conflict_type: "no_match",
+        suggested_action: "ignore",
+        confidence_score: 0,
+      };
     }
 
     // 6. Verificar ambiguidade de título (se busca por texto retornou múltiplos)
@@ -191,16 +275,30 @@ export async function dryRunMatch({
       const results = await searchAnilistByText(searchTitle, type, 3);
       if (results.length > 1) {
         const titles = results.map(r => r.title?.romaji || r.title?.english);
-        // Se os 2 primeiros têm scores de busca muito próximos, marcar ambíguo
         result.simulation.conflict_type = "ambiguous_title";
         result.simulation.conflict_reason = `Busca por texto retornou múltiplos: ${titles.slice(0, 3).join(" | ")}`;
+        if (result.simulation.would_create_sync_conflict) {
+          result.simulation.would_create_sync_conflict.conflict_type = "ambiguous_title";
+          result.simulation.would_create_sync_conflict.suggested_action = "ignore";
+          result.simulation.would_create_sync_conflict.confidence_score = 30;
+        }
       }
     }
   } catch (err) {
     result.errors.push(err.message);
-    result.simulation.action = "conflict_no_match";
+    result.simulation.match_category = "no_match";
+    result.simulation.action = "ignore";
     result.simulation.conflict_type = "no_match";
     result.simulation.conflict_reason = `Erro na consulta AniList: ${err.message}`;
+    result.simulation.would_create_sync_conflict = {
+      provider: "anilist",
+      provider_id: null,
+      provider_type: type.toLowerCase(),
+      external_title: searchTitle || `mal:${malId}`,
+      conflict_type: "no_match",
+      suggested_action: "ignore",
+      confidence_score: 0,
+    };
   }
 
   return result;

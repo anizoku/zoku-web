@@ -4,10 +4,34 @@
  * Endpoint: https://graphql.anilist.co (público, sem auth para leitura).
  * Rate limit: ~90 req/min (não documentado oficialmente — usar com moderação).
  *
+ * ────────────────────────────────────────────────────────────────────
+ * PONTO 11 — Client-side vs Backend-side
+ * ────────────────────────────────────────────────────────────────────
+ * AniList é público e sem chave, então chamadas client-side são aceitáveis
+ * para DRY-RUN e BUSCA (Fase 3A).
+ *
+ * SYNC futuro (Fase 3B+) deve ser BACKEND-SIDE (backend function) porque:
+ *   - Evita expor lógica de upsert ao cliente
+ *   - Permite controle centralizado de rate limit
+ *   - Permite persistir ExternalMapping/SyncConflict com asServiceRole
+ *   - Evita que usuários disparem syncs arbitrários
+ *
+ * Este módulo é CLIENT-SIDE por design (dry-run/busca). NÃO usar para sync
+ * real — mover para base44/functions/ quando a Fase 3B começar.
+ *
+ * ────────────────────────────────────────────────────────────────────
+ * PONTO 12 — Cache + Debounce
+ * ────────────────────────────────────────────────────────────────────
+ * Cache em memória com TTL de 5 minutos para evitar chamadas repetidas.
+ * Para buscas por texto em UI (autocomplete), o COMPONENTE deve aplicar
+ * debounce de ~500ms antes de chamar searchAnilistByText() — o cache aqui
+ * evita refetch da mesma query, mas não substitui debounce no caller.
+ *
  * Funções:
- * - searchAnilistByText(search, type) → busca por texto
- * - getAnilistById(anilistId, type) → leitura por AniList ID
- * - getAnilistByMalId(idMal, type) → leitura por MAL ID (idMal)
+ * - searchAnilistByText(search, type) → busca por texto (com cache)
+ * - getAnilistById(anilistId, type) → leitura por AniList ID (com cache)
+ * - getAnilistByMalId(idMal, type) → leitura por MAL ID (com cache)
+ * - clearAnilistCache() → limpa o cache (para testes/refresh manual)
  *
  * type: "ANIME" | "MANGA"
  *
@@ -15,6 +39,34 @@
  */
 
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
+
+// ── Cache em memória (PONTO 12) ──
+// Chave: `${type}:${kind}:${id}` onde kind = "id" | "mal" | "search"
+// TTL: 5 minutos. Evita refetch da mesma query dentro da janela.
+const _cache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function cacheGet(key) {
+  const entry = _cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    _cache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function cacheSet(key, value) {
+  _cache.set(key, { value, ts: Date.now() });
+}
+
+/**
+ * Limpa o cache do AniList. Útil para forçar refresh após edição manual
+ * ou para testes determinísticos.
+ */
+export function clearAnilistCache() {
+  _cache.clear();
+}
 
 // Query GraphQL base — campos normalizados para o formato interno
 const MEDIA_FIELDS = `
@@ -100,30 +152,51 @@ async function anilistRequest(query, variables) {
 }
 
 /**
- * Busca obra no AniList por AniList ID.
+ * Busca obra no AniList por AniList ID (com cache).
  * @returns {object|null} media normalizada ou null se não encontrar
  */
 export async function getAnilistById(anilistId, type = "ANIME") {
+  const key = `${type}:id:${anilistId}`;
+  const cached = cacheGet(key);
+  if (cached !== null) return cached;
+
   const data = await anilistRequest(QUERY_BY_ID, { id: Number(anilistId), type });
-  return data?.Media || null;
+  const result = data?.Media || null;
+  cacheSet(key, result);
+  return result;
 }
 
 /**
- * Busca obra no AniList por MAL ID (idMal).
+ * Busca obra no AniList por MAL ID (idMal) (com cache).
  * @returns {object|null} media normalizada ou null se não encontrar
  */
 export async function getAnilistByMalId(idMal, type = "ANIME") {
+  const key = `${type}:mal:${idMal}`;
+  const cached = cacheGet(key);
+  if (cached !== null) return cached;
+
   const data = await anilistRequest(QUERY_BY_MAL_ID, { idMal: Number(idMal), type });
-  return data?.Media || null;
+  const result = data?.Media || null;
+  cacheSet(key, result);
+  return result;
 }
 
 /**
- * Busca obras no AniList por texto.
+ * Busca obras no AniList por texto (com cache).
+ *
+ * PONTO 12: O cache evita refetch da mesma query. O CALLER deve aplicar
+ * debounce de ~500ms em UI de autocomplete antes de chamar esta função.
  * @returns {array} lista de medias normalizadas (até perPage)
  */
 export async function searchAnilistByText(search, type = "ANIME", perPage = 5) {
+  const key = `${type}:search:${search}:${perPage}`;
+  const cached = cacheGet(key);
+  if (cached !== null) return cached;
+
   const data = await anilistRequest(QUERY_SEARCH, { search, type, perPage });
-  return data?.Page?.media || [];
+  const result = data?.Page?.media || [];
+  cacheSet(key, result);
+  return result;
 }
 
 /**
