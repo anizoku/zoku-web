@@ -9,6 +9,7 @@ import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
 import { parseSeasons } from "@/lib/franchiseDetection";
 import { resolveReleasesSync } from "@/lib/workReleases";
+import { resolveAlias, isAliasSlug } from "@/lib/catalogAliases";
 
 const QUERY_KEY_SYNC = ["catalog-sync-records"];
 const QUERY_KEY_DYNAMIC = ["catalog-dynamic-works"];
@@ -203,13 +204,17 @@ export function CatalogProvider({ children }) {
       }
     }
 
-    // Deduplicar
+    // Deduplicar e filtrar alias slugs (fantasmas ocultos — canônico já está no catálogo)
     return deduplicateCatalog(merged)
+      .filter(item => !isAliasSlug(item.slug))
       .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   }, [syncMap, dynamicWorks, releasesByGroupId]);
 
   const getBySlug = useCallback(
-    (slug) => catalog.find((w) => w.slug === slug) || null,
+    (slug) => {
+      const resolved = resolveAlias(slug);
+      return catalog.find((w) => w.slug === resolved) || null;
+    },
     [catalog]
   );
 

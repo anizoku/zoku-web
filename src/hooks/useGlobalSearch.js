@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
+import { CATALOG_ALIASES } from "@/lib/catalogAliases";
 
 function getContextCategory(pathname) {
   if (pathname.startsWith("/animes")) return "anime";
@@ -81,11 +82,17 @@ export function useGlobalSearch(query) {
 
       // Works from unified catalog (static + sync + dynamic)
       const nq = normalizeQ(q);
+      // Alias slug matching: se a query corresponde a um alias slug, incluir o canônico
+      const aliasCanonicalSlugs = Object.entries(CATALOG_ALIASES)
+        .filter(([aliasSlug]) => normalizeQ(aliasSlug).includes(nq))
+        .map(([, canonicalSlug]) => canonicalSlug);
       const matchedWorks = catalog
         .filter(item =>
           normalizeQ(item.title).includes(nq) ||
           normalizeQ(item.romaji_title).includes(nq) ||
           normalizeQ(item.franchise_title).includes(nq) ||
+          normalizeQ(item.slug).includes(nq) ||
+          aliasCanonicalSlugs.includes(item.slug) ||
           (item.seasons || []).some(s => normalizeQ(s.season_title).includes(nq)) ||
           (item.releases || []).some(r =>
             normalizeQ(r.title).includes(nq) ||
