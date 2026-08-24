@@ -35,11 +35,6 @@ export const PRESERVED_SLUGS = {
     canonical_mal_ids: [31240, 39587, 42203, 61316],
     static_mal_id: 54857,
   },
-  "dandadan-s2": {
-    reason: "ALIASADO — mal_id 60543 existe como ExternalMapping do WorkRelease Season 2 canônico. O mal_id estático (59485) difere do canônico (60543), mas o canônico já cobre Season 2.",
-    canonical_mal_ids: [57334, 60543, 62516],
-    static_mal_id: 59485,
-  },
   "dandadan": {
     reason: "DynamicWork manga (slug dandadan) é media type legítimo separado do anime (dan-da-dan). Não aliasar — não fazer merge manga→anime nesta fase.",
   },
