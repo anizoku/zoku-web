@@ -41,6 +41,13 @@ TheTVDB (não integrar ainda)
 
 ---
 
+## 1.5. Correção da Política de Score (2026-09-05)
+
+> **Regra corrigida:** AniList NÃO deve sobrescrever score MAL apenas porque diff ≥ 0.15.
+> - Diferença MAL vs AniList deve ser **informativa** ou **REVIEW**, não UPDATE.
+> - Score deve ser atualizado automaticamente somente quando a própria fonte primária MAL/Jikan retornar novo valor.
+> - AniList score pode ser armazenado futuramente como dado secundário, mas não substituir o score canônico MAL.
+
 ## 2. Inventário de Campos — DynamicWork
 
 | # | Campo | Fonte Primária | Fonte Sec. | Auto-update? | Threshold? | Sobrescreve manual? | Regra de conflito | Frequência | Observações |
@@ -59,7 +66,7 @@ TheTVDB (não integrar ainda)
 | 12 | `manga_status` | AniList (manga status) | — | ✅ Sim | — | ❌ Se manual_override | Mapear | Mensal | Manga apenas. |
 | 13 | `mal_id` | MAL (Jikan) | — | ❌ Não | — | ❌ Nunca | Identidade | Nunca | Chave de identidade. Fixo. |
 | 14 | `manga_mal_id` | MAL (Jikan) | — | ❌ Não | — | ❌ Nunca | Identidade | Nunca | Chave de identidade. Fixo. |
-| 15 | `score` | MAL (Jikan) | AniList | ✅ Com threshold | diff ≥ 0.15 | ❌ Se manual_override | Se diff < 0.15, KEEP | Semanal | MAL é fonte primária de score. AniList só atualiza se diff ≥ 0.15. |
+| 15 | `score` | MAL (Jikan) | — | ✅ Sim (MAL only) | — | ❌ Se manual_override | AniList NÃO sobrescreve. Diff = REVIEW informativo | Semanal | MAL é fonte canônica. AniList score = secundário/informativo, nunca substitui. |
 | 16 | `year` | AniList (seasonYear) | MAL | ✅ Sim | — | ❌ Se manual_override | Se diff, REVIEW | Nunca (estável) | Ano de lançamento. Estável. |
 | 17 | `duration` | AniList (duration) | MAL | ✅ Sim (formatar) | diff ≥ 2 min | ❌ Se manual_override | REVIEW se diff ≥ 3 | Semanal | AniList duration em min. Formatar como "24 min/ep". |
 | 18 | `image_url` | MAL (Jikan) | AniList | ❌ Não (policy) | — | ❌ Nunca | Manual only | Nunca | Política: manter MAL como poster canônico. |
@@ -111,7 +118,7 @@ TheTVDB (não integrar ainda)
 | 22 | `synopsis` | AniZoku (admin) | MAL | ❌ Não | — | ❌ Nunca | Manual only | Nunca | Editorial. |
 | 23 | `cover_url` | MAL (Jikan) | AniList | ❌ Não (policy) | — | ❌ Nunca | Manual only | Nunca | Política: manter MAL como poster canônico. |
 | 24 | `banner_url` | AniList | TMDB | ✅ Sim (se null) | — | ❌ Se manual_override | Preencher null apenas | Semanal | AniList bannerImage. TMDB backdrop como fallback. |
-| 25 | `score` | MAL (Jikan) | AniList | ✅ Com threshold | diff ≥ 0.15 | ❌ Se manual_override | Se diff < 0.15, KEEP | Semanal | MAL é fonte primária. |
+| 25 | `score` | MAL (Jikan) | — | ✅ Sim (MAL only) | — | ❌ Se manual_override | AniList NÃO sobrescreve. Diff = REVIEW informativo | Semanal | MAL é fonte canônica. AniList score = secundário/informativo, nunca substitui. |
 | 26 | `popularity` | AniList | MAL | ✅ Sim (se null) | diff ≥ 10% | ❌ Se manual_override | Se diff < 10%, KEEP | Semanal | AniList popularity. Preencher null primeiro. |
 | 27 | `trending_score` | AniList | — | ✅ Sim | diff ≥ 5 | ❌ Se manual_override | Se diff < 5, KEEP | Diário | AniList trending. Muda frequentemente. |
 | 28 | `trending_rank` | AniZoku (admin) | — | ❌ Não | — | ❌ Nunca | Manual only | Nunca | Admin define ordem do "Em Alta". |
@@ -169,7 +176,7 @@ Campos que só atualizam se a diferença for relevante:
 
 | Campo | Entidade | Fonte | Threshold | Justificativa |
 |-------|---------|-------|-----------|-------------|
-| `score` | DynamicWork + WorkRelease | MAL (primária) / AniList (sec.) | diff ≥ 0.15 | Evitar flutuação insignificante |
+| `score` | DynamicWork + WorkRelease | MAL (Jikan) only | — | AniList NÃO sobrescreve. Diff = REVIEW informativo. Score só atualiza via MAL/Jikan. |
 | `popularity_rank` | DynamicWork | MAL | diff ≥ 5 posições | Evitar reordenação por ruído |
 | `popularity` | WorkRelease | AniList | diff ≥ 10% | Evitar atualização por variação menor |
 | `trending_score` | WorkRelease | AniList | diff ≥ 5 | Muda frequentemente; só atualizar mudanças significativas |
@@ -230,7 +237,7 @@ Campos que devem gerar SyncConflict antes de alterar:
 |---|-------|-----------|
 | 1 | Não sobrescrever manual_override | Se `sync_status === "manual_override"`, nenhum campo é sobrescrito automaticamente |
 | 2 | Estrutural > Editorial | Campos estruturais (format, status, episodes) têm prioridade maior que editoriais (title, synopsis) |
-| 3 | Score threshold 0.15 | Score só atualiza se diff ≥ 0.15 (MAL é fonte primária; AniList é secundária) |
+| 3 | Score: MAL canônico | Score só atualiza via MAL/Jikan. AniList NÃO sobrescreve. Diff AniList = REVIEW informativo. |
 | 4 | Poster/banner policy | `cover_url` e `image_url` mantêm MAL como canônico. `banner_url` pode usar AniList (preencher null). Troca de poster = REVIEW. |
 | 5 | Relations sugerem, não criam | Relations do AniList podem sugerir WorkReleases, mas NUNCA criam automaticamente |
 | 6 | Category/format não derivam de título | NUNCA usar fuzzy matching ou LLM para derivar category ou format |
@@ -247,7 +254,7 @@ Campos que devem gerar SyncConflict antes de alterar:
 
 | Campo | AniZoku (WR) | AniList | Diff | Ação | Justificativa |
 |-------|-------------|---------|------|------|---------------|
-| score | 8.25 | 8.1 | 0.15 | **UPDATE_THRESHOLD** | diff = 0.15 (limite). MAL é primária; AniList só se diff ≥ 0.15. |
+| score | 8.25 | 8.1 | 0.15 | **REVIEW** | AniList NÃO sobrescreve MAL. Diff informativo. Score só atualiza via MAL/Jikan. |
 | episode_count | 25 | 25 | 0 | **KEEP** | Igual |
 | duration_minutes | null | 25 | — | **UPDATE** | Preencher null |
 | season | null | spring | — | **UPDATE** | Preencher null |
@@ -373,7 +380,7 @@ Campos que devem gerar SyncConflict antes de alterar:
 
 | Campo | AniZoku (WR) | AniList | Diff | Ação | Justificativa |
 |-------|-------------|---------|------|------|---------------|
-| score | 8.62 | 8.4 | 0.22 | **UPDATE_THRESHOLD** | diff ≥ 0.15. MAL é primária; diff significativa. |
+| score | 8.62 | 8.4 | 0.22 | **REVIEW** | AniList NÃO sobrescreve MAL. Diff informativo. Score só atualiza via MAL/Jikan. |
 | episode_count | 37 | 37 | 0 | **KEEP** | Igual |
 | duration_minutes | 23 | 23 | 0 | **KEEP** | Igual |
 | season | null | fall | — | **UPDATE** | Preencher null |
@@ -391,7 +398,7 @@ Campos que devem gerar SyncConflict antes de alterar:
 
 | Campo | AniZoku (WR) | AniList | Diff | Ação | Justificativa |
 |-------|-------------|---------|------|------|---------------|
-| score | 7.79 | 7.6 | 0.19 | **UPDATE_THRESHOLD** | diff ≥ 0.15. MAL é primária; diff significativa. |
+| score | 7.79 | 7.6 | 0.19 | **REVIEW** | AniList NÃO sobrescreve MAL. Diff informativo. Score só atualiza via MAL/Jikan. |
 | episode_count | 12 | 12 | 0 | **KEEP** | Igual |
 | duration_minutes | null | 24 | — | **UPDATE** | Preencher null |
 | season | null | summer | — | **UPDATE** | Preencher null |
@@ -451,7 +458,7 @@ Campos que devem gerar SyncConflict antes de alterar:
 |------|---------|---|
 | **KEEP** | 67 | 46.9% |
 | **UPDATE** (preencher null) | 65 | 45.5% |
-| **UPDATE_THRESHOLD** (score diff ≥ 0.15) | 3 | 2.1% |
+| **REVIEW** (score diff AniList vs MAL — informativo) | 3 | 2.1% |
 | **REVIEW** | 1 | 0.7% |
 | **IGNORE** | 0 | 0% |
 | **UPDATE** (trending_score diff ≥ 5) | 11 | 7.7% (contado em UPDATE) |
@@ -473,7 +480,7 @@ Campos que devem gerar SyncConflict antes de alterar:
 
 | # | Campo | Risco | Nível | Mitigação |
 |---|-------|-------|-------|-----------|
-| 1 | `score` | Divergência entre MAL e AniList (0.01-0.22). Sobrescrever sem threshold causa flutuação. | **Médio** | Threshold 0.15; MAL primária |
+| 1 | `score` | Divergência entre MAL e AniList (0.01-0.22). AniList NÃO sobrescreve MAL. | **Baixo** | AniList score = REVIEW informativo. Score só atualiza via MAL/Jikan. |
 | 2 | `cover_url` | Trocar poster MAL por AniList muda identidade visual da obra. | **Alto** | Política: manter MAL. Troca = REVIEW. |
 | 3 | `popularity` (Hunter x Hunter) | AniZoku tem popularity=8 (parece rank, não popularity). AniList tem 838114. Conflito de schema. | **Alto** | REVIEW — investigar antes de atualizar |
 | 4 | `episode_count` | Obras em exibição (One Piece) têm null. Atualizar para valor errado confunde usuários. | **Médio** | Só atualizar se AniList tiver valor não-null |
@@ -511,7 +518,7 @@ Estes campos podem entrar em sync automático, mas com threshold para evitar flu
 
 | Campo | Entidade | Threshold | Risco |
 |-------|---------|-----------|-------|
-| `score` | DynamicWork + WorkRelease | diff ≥ 0.15 (MAL primária) | Médio |
+| `score` | DynamicWork + WorkRelease | — (MAL only, AniList não sobrescreve) | Baixo |
 | `popularity_rank` | DynamicWork | diff ≥ 5 posições | Médio |
 
 ### Tier 3 — Ainda manual
