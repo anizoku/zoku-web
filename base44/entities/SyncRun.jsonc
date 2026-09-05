@@ -1,0 +1,93 @@
+{
+  "name": "SyncRun",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique run identifier (UUID or timestamp-based)"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "default": true,
+      "description": "true = simulation (no writes), false = real writes"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the run started"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the run completed (null if still running)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "interrupted"
+      ],
+      "default": "running",
+      "description": "Current status of the run"
+    },
+    "total_releases": {
+      "type": "number",
+      "default": 0,
+      "description": "Total releases to process in this run"
+    },
+    "processed_release_ids": {
+      "type": "string",
+      "description": "JSON array of release IDs already processed (for resume)"
+    },
+    "current_batch": {
+      "type": "number",
+      "default": 0,
+      "description": "Current batch number being processed"
+    },
+    "batches_completed": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of batches completed"
+    },
+    "errors": {
+      "type": "string",
+      "description": "JSON array of errors encountered"
+    },
+    "last_checkpoint_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last checkpoint save"
+    },
+    "summary": {
+      "type": "string",
+      "description": "JSON summary: { sync_safe, review_required, id_mismatch, not_found, errors, total_updates }"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "name": "SyncLog",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Reference to SyncRun.run_id"
+    },
+    "release_id": {
+      "type": "string",
+      "description": "WorkRelease.id processed"
+    },
+    "release_slug": {
+      "type": "string",
+      "description": "WorkRelease.slug (for readability)"
+    },
+    "mal_id": {
+      "type": "number",
+      "description": "MAL ID from ExternalMapping"
+    },
+    "anilist_id": {
+      "type": "number",
+      "description": "AniList media ID returned"
+    },
+    "match_valid": {
+      "type": "boolean",
+      "description": "true if AniList idMal matches ExternalMapping MAL ID"
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "SYNC_SAFE",
+        "NO_CHANGES",
+        "REVIEW_REQUIRED",
+        "ID_MISMATCH",
+        "ANILIST_NOT_FOUND",
+        "ERROR"
+      ],
+      "description": "Classification of the release after policy application"
+    },
+    "proposed_fields": {
+      "type": "string",
+      "description": "JSON: lightweight summary of proposed updates (field names + actions, NOT raw payload)"
+    },
+    "written_fields": {
+      "type": "string",
+      "description": "JSON: fields actually written (empty if dry_run=true)"
+    },
+    "reviews": {
+      "type": "string",
+      "description": "JSON: review cases (field, current, proposed, reason)"
+    },
+    "ignored": {
+      "type": "string",
+      "description": "JSON: ignored fields (score, cover_url, etc.)"
+    },
+    "dw_updates": {
+      "type": "string",
+      "description": "JSON: DynamicWork updates (only if is_main_entry)"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error message if classification=ERROR"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this log was created"
+    }
+  },
+  "required": [
+    "run_id",
+    "release_id",
+    "classification"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
