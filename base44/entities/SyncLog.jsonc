@@ -34,6 +34,8 @@
         "REVIEW_REQUIRED",
         "ID_MISMATCH",
         "ANILIST_NOT_FOUND",
+        "MISSING_MAPPING",
+        "SKIPPED_MANUAL_OVERRIDE",
         "ERROR"
       ],
       "description": "Classification of the release after policy application"
@@ -44,7 +46,7 @@
     },
     "written_fields": {
       "type": "string",
-      "description": "JSON: fields actually written (empty if dry_run=true)"
+      "description": "JSON: fields actually written (empty if dry_run=true or write failed)"
     },
     "reviews": {
       "type": "string",

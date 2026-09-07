@@ -3,19 +3,33 @@
  *
  * Architecture (approved Fases 3C-2/3C-3/3C-4):
  * - ExternalMapping as identity (never fuzzy/LLM)
- * - AniList Page query with idMal_in / id_in (bulk)
+ * - AniList Page query with idMal_in / id_in (bulk, perPage=50)
  * - Shared policy from base44/shared/syncFieldPolicy.ts
  * - Batch processing with checkpoint/resume (SyncRun entity)
  * - Per-release audit logs (SyncLog entity)
  * - Rate limiting (700ms), retry/backoff (3 retries, exponential)
  * - Idempotency (skip already-processed, skip manual_override)
- * - dry_run mode (zero writes)
  * - Admin-only (verifies user.role === 'admin')
+ *
+ * dry_run semantics:
+ * - dry_run=true: ZERO writes to WorkRelease, DynamicWork, AnimeEntry, ExternalMapping.
+ * - SyncRun and SyncLog ARE written (observability/checkpoint) — this is intentional.
+ * - dry_run=false: persists Tier 1 updates to WorkRelease and DynamicWork (main entry only).
+ *
+ * NO DELETE operations:
+ * - This function NEVER deletes any entity record.
+ * - It only creates (SyncRun, SyncLog) and updates (WorkRelease, DynamicWork when dry_run=false).
+ *
+ * TODO (not yet implemented):
+ * - priority: parameter accepted but not used. Will be implemented for incremental sync
+ *   to prioritize airing/current-season releases. Do not rely on it yet.
  *
  * Invoke from frontend:
  *   base44.functions.invoke('anilistCatalogSync', {
  *     dry_run: true,
- *     release_ids: ['id1', 'id2', ...]  // optional subset
+ *     release_ids: ['id1', 'id2', ...],  // optional subset
+ *     batch_size: 50,                     // clamped 1-50
+ *     resume_from: 'run_xxx'              // optional checkpoint resume
  *   })
  */
 
@@ -34,6 +48,8 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const RATE_LIMIT_DELAY_MS = 700;
 const MAX_RETRIES = 3;
 const BACKOFF_BASE_MS = 2000;
+const MAX_BATCH_SIZE = 50;
+const PER_PAGE = 50;
 
 const MEDIA_FIELDS = `
   id idMal
@@ -64,7 +80,27 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── AniList client with retry/backoff ──
+// ── Retry-After parser (fix #3) ──
+// HTTP spec: Retry-After can be seconds (number) or HTTP-date.
+// sleep() uses ms, so convert.
+function parseRetryAfterMs(headerValue) {
+  if (!headerValue) return null;
+  const trimmed = headerValue.trim();
+  // Try as delta-seconds (integer)
+  if (/^\d+$/.test(trimmed)) {
+    const seconds = parseInt(trimmed, 10);
+    return seconds * 1000;
+  }
+  // Try as HTTP-date (RFC 7231)
+  const date = new Date(trimmed);
+  if (!isNaN(date.getTime())) {
+    const diff = date.getTime() - Date.now();
+    return Math.max(diff, 1000); // at least 1s
+  }
+  return null; // fallback to exponential backoff
+}
+
+// ── AniList client with retry/backoff (fix #3) ──
 async function anilistQuery(query) {
   let lastError = null;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -76,9 +112,11 @@ async function anilistQuery(query) {
       });
 
       if (res.status === 429 || res.status >= 500) {
-        const retryAfter = parseInt(res.headers.get('Retry-After') || '0') ||
-          (BACKOFF_BASE_MS * Math.pow(2, attempt));
-        await sleep(retryAfter);
+        const retryAfterMs = parseRetryAfterMs(res.headers.get('Retry-After'));
+        const backoffMs = retryAfterMs != null
+          ? retryAfterMs
+          : BACKOFF_BASE_MS * Math.pow(2, attempt);
+        await sleep(backoffMs);
         continue;
       }
 
@@ -103,7 +141,7 @@ async function anilistQuery(query) {
 
 async function fetchMediaByMalIds(malIds, type) {
   const result = new Map();
-  if (malIds.length === 0) return result;
+  if (malIds.length === 0) return { map: result, cacheHit: false };
 
   const cacheKey = `mal_${type}_${malIds.slice().sort((a, b) => a - b).join(',')}`;
   const cached = getCached(cacheKey);
@@ -112,7 +150,7 @@ async function fetchMediaByMalIds(malIds, type) {
     return { map: result, cacheHit: true };
   }
 
-  const query = `query { Page(perPage: 50) { media(idMal_in: [${malIds.join(',')}], type: ${type}) { ${MEDIA_FIELDS} } } }`;
+  const query = `query { Page(perPage: ${PER_PAGE}) { media(idMal_in: [${malIds.join(',')}], type: ${type}) { ${MEDIA_FIELDS} } } }`;
   const data = await anilistQuery(query);
   const media = data?.Page?.media || [];
 
@@ -123,7 +161,7 @@ async function fetchMediaByMalIds(malIds, type) {
 
 async function fetchMediaByAnilistIds(ids, type) {
   const result = new Map();
-  if (ids.length === 0) return result;
+  if (ids.length === 0) return { map: result, cacheHit: false };
 
   const cacheKey = `anilist_${type}_${ids.slice().sort((a, b) => a - b).join(',')}`;
   const cached = getCached(cacheKey);
@@ -132,7 +170,7 @@ async function fetchMediaByAnilistIds(ids, type) {
     return { map: result, cacheHit: true };
   }
 
-  const query = `query { Page(perPage: 50) { media(id_in: [${ids.join(',')}], type: ${type}) { ${MEDIA_FIELDS} } } }`;
+  const query = `query { Page(perPage: ${PER_PAGE}) { media(id_in: [${ids.join(',')}], type: ${type}) { ${MEDIA_FIELDS} } } }`;
   const data = await anilistQuery(query);
   const media = data?.Page?.media || [];
 
@@ -156,13 +194,19 @@ function chunk(arr, size) {
 
 // ── Main handler ──
 export default async function(req) {
+  let run = null;
+  let admin = null;
   try {
     // Parse params
     const body = await req.json();
     const dryRun = body.dry_run !== false;
-    const batchSize = body.batch_size || 50;
+    // Fix #2: clamp batch_size between 1 and 50
+    const rawBatchSize = body.batch_size || 50;
+    const batchSize = Math.min(Math.max(rawBatchSize, 1), MAX_BATCH_SIZE);
     const releaseIds = body.release_ids || null;
     const resumeFrom = body.resume_from || null;
+    // TODO #11: priority not yet implemented
+    const priority = body.priority || null;
 
     // Auth — admin only
     const base44 = createClientFromRequest(req);
@@ -170,13 +214,16 @@ export default async function(req) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     if (user.role !== 'admin') return Response.json({ error: 'Forbidden: admin only' }, { status: 403 });
 
-    const admin = base44.asServiceRole;
+    admin = base44.asServiceRole;
     const startTime = Date.now();
 
     // ── 1. Load or create SyncRun (checkpoint/resume) ──
-    let run = null;
     let resumed = false;
     let processedIds = new Set();
+
+    // Fix #5: load previous summary and errors for resume
+    let prevSummary = {};
+    let accumulatedErrors = [];
 
     if (resumeFrom) {
       const existing = await admin.entities.SyncRun.filter({ run_id: resumeFrom });
@@ -184,6 +231,8 @@ export default async function(req) {
         run = existing[0];
         resumed = true;
         try { processedIds = new Set(JSON.parse(run.processed_release_ids || '[]')); } catch {}
+        try { prevSummary = JSON.parse(run.summary || '{}'); } catch {}
+        try { accumulatedErrors = JSON.parse(run.errors || '[]'); } catch {}
       }
     }
 
@@ -205,6 +254,7 @@ export default async function(req) {
     }
 
     const runId = run.run_id;
+    const runEntityId = run.id;
 
     // ── 2. Load data ──
     const allWR = await admin.entities.WorkRelease.list('-created_date', 5000);
@@ -243,27 +293,44 @@ export default async function(req) {
     }
 
     const totalReleases = contexts.length + processedIds.size;
-    await admin.entities.SyncRun.update(run.id, {
+    await admin.entities.SyncRun.update(runEntityId, {
       total_releases: totalReleases,
       last_checkpoint_at: new Date().toISOString(),
     });
 
-    // ── 4. Group by query method ──
-    const groups = { anime_mal: [], manga_mal: [], anime_anilist: [], manga_anilist: [] };
+    // ── 4. Group by query method (fix #8: add missing_mapping group) ──
+    const groups = {
+      anime_mal: [], manga_mal: [],
+      anime_anilist: [], manga_anilist: [],
+      missing_mapping: [],
+    };
     for (const ctx of contexts) {
-      if (ctx.wr.category === 'manga') {
+      if (!ctx.mal_id && !ctx.anilist_id) {
+        groups.missing_mapping.push(ctx);
+      } else if (ctx.wr.category === 'manga') {
         if (ctx.mal_id) groups.manga_mal.push(ctx);
-        else if (ctx.anilist_id) groups.manga_anilist.push(ctx);
+        else groups.manga_anilist.push(ctx);
       } else {
         if (ctx.mal_id) groups.anime_mal.push(ctx);
-        else if (ctx.anilist_id) groups.anime_anilist.push(ctx);
+        else groups.anime_anilist.push(ctx);
       }
     }
 
     // ── 5. Process in batches ──
-    let anilistCalls = 0, cacheHits = 0;
-    let syncSafe = 0, noChanges = 0, reviewRequired = 0, idMismatch = 0, notFound = 0, errors = 0;
-    let totalWrUpdates = 0, totalDwUpdates = 0, totalIgnored = 0;
+    // Fix #5: initialize counters from previous summary on resume
+    let anilistCalls = prevSummary.anilist_calls || 0;
+    let cacheHits = prevSummary.cache_hits || 0;
+    let syncSafe = prevSummary.sync_safe || 0;
+    let noChanges = prevSummary.no_changes || 0;
+    let reviewRequired = prevSummary.review_required || 0;
+    let idMismatch = prevSummary.id_mismatch || 0;
+    let notFound = prevSummary.not_found || 0;
+    let errors = prevSummary.errors || 0;
+    let totalWrUpdates = prevSummary.total_wr_updates || 0;
+    let totalDwUpdates = prevSummary.total_dw_updates || 0;
+    let totalIgnored = prevSummary.total_ignored || 0;
+    let missingMapping = prevSummary.missing_mapping || 0;
+    let skippedOverride = prevSummary.skipped_override || 0;
     let batchesCompleted = resumed ? (run.batches_completed || 0) : 0;
 
     const allBatches = [];
@@ -275,6 +342,34 @@ export default async function(req) {
 
     for (const { group, contexts: batchContexts } of allBatches) {
       batchesCompleted++;
+
+      // Fix #8: handle missing_mapping group (no AniList query)
+      if (group === 'missing_mapping') {
+        const batchErrors = [];
+        for (const ctx of batchContexts) {
+          missingMapping++;
+          await admin.entities.SyncLog.create({
+            run_id: runId, release_id: ctx.wr.id, release_slug: ctx.wr.slug,
+            classification: 'MISSING_MAPPING',
+            match_valid: false,
+            proposed_fields: '[]', written_fields: '[]',
+            reviews: '[]', ignored: '[]', dw_updates: '[]',
+            timestamp: new Date().toISOString(),
+          });
+          processedIds.add(ctx.wr.id);
+        }
+        // Checkpoint
+        accumulatedErrors.push(...batchErrors);
+        await admin.entities.SyncRun.update(runEntityId, {
+          processed_release_ids: JSON.stringify([...processedIds]),
+          current_batch: batchesCompleted,
+          batches_completed: batchesCompleted,
+          last_checkpoint_at: new Date().toISOString(),
+          errors: JSON.stringify(accumulatedErrors), // Fix #7: accumulate
+        });
+        continue;
+      }
+
       const batchErrors = [];
 
       // Query AniList
@@ -300,21 +395,33 @@ export default async function(req) {
           await admin.entities.SyncLog.create({
             run_id: runId, release_id: ctx.wr.id, release_slug: ctx.wr.slug,
             mal_id: ctx.mal_id, classification: 'ERROR', error_message: err.message,
+            match_valid: false,
+            proposed_fields: '[]', written_fields: '[]',
+            reviews: '[]', ignored: '[]', dw_updates: '[]',
             timestamp: new Date().toISOString(),
           });
+          processedIds.add(ctx.wr.id);
         }
+        // Fix #7: accumulate errors
+        accumulatedErrors.push(...batchErrors);
+        await admin.entities.SyncRun.update(runEntityId, {
+          processed_release_ids: JSON.stringify([...processedIds]),
+          current_batch: batchesCompleted,
+          batches_completed: batchesCompleted,
+          last_checkpoint_at: new Date().toISOString(),
+          errors: JSON.stringify(accumulatedErrors),
+        });
         continue;
       }
 
       // Process each release
+      const batchLogEntries = []; // Fix #4: collect logs, create after bulkUpdate
       const wrUpdates = [];
       const dwUpdates = [];
 
       for (const ctx of batchContexts) {
         const { wr, dw, mal_id, anilist_id } = ctx;
-        const key = mal_id ? String(mal_id) : String(anilist_id);
-        const media = mediaMap.get(key);
-
+        let media = null;
         let classification = 'SYNC_SAFE';
         let matchValid = false;
         let proposedFields = [];
@@ -322,86 +429,95 @@ export default async function(req) {
         let ignored = [];
         let dwUpdateFields = [];
         let errorMessage = null;
+        let wrUpdateObj = null;
+        let dwUpdateObj = null;
 
-        if (!media) {
-          classification = 'ANILIST_NOT_FOUND';
-          notFound++;
+        // Fix #1: skip manual_override
+        if (wr.sync_status === 'manual_override') {
+          classification = 'SKIPPED_MANUAL_OVERRIDE';
+          skippedOverride++;
         } else {
-          // Validate identity
-          if (mal_id && media.idMal) {
-            matchValid = String(media.idMal) === String(mal_id);
-          } else if (anilist_id) {
-            matchValid = String(media.id) === String(anilist_id);
-          }
+          const key = mal_id ? String(mal_id) : String(anilist_id);
+          media = mediaMap.get(key);
 
-          if (!matchValid) {
-            classification = 'ID_MISMATCH';
-            idMismatch++;
+          if (!media) {
+            classification = 'ANILIST_NOT_FOUND';
+            notFound++;
           } else {
-            // Apply policy
-            const normalized = normalizeAniListToWorkRelease(media);
-            const result = applyTier1Policy(wr, normalized);
-
-            proposedFields = result.updates.map(u => ({ field: u.field, action: u.action }));
-            reviews = result.reviews;
-
-            // Track ignored (score, cover_url)
-            if (media.averageScore != null) {
-              const anilistScore = media.averageScore / 10;
-              if (Math.abs(anilistScore - (wr.score || 0)) > 0.01) {
-                totalIgnored++;
-                ignored.push({ field: 'score', reason: 'NEVER_FROM_ANILIST' });
-              }
-            }
-            if (media.coverImage?.large && media.coverImage.large !== wr.cover_url) {
-              totalIgnored++;
-              ignored.push({ field: 'cover_url', reason: 'NEVER_FROM_ANILIST' });
+            // Validate identity
+            if (mal_id && media.idMal) {
+              matchValid = String(media.idMal) === String(mal_id);
+            } else if (anilist_id) {
+              matchValid = String(media.id) === String(anilist_id);
             }
 
-            if (reviews.length > 0) {
-              classification = 'REVIEW_REQUIRED';
-              reviewRequired++;
-            } else if (result.updates.length === 0) {
-              classification = 'NO_CHANGES';
-              noChanges++;
+            if (!matchValid) {
+              classification = 'ID_MISMATCH';
+              idMismatch++;
             } else {
-              classification = 'SYNC_SAFE';
-              syncSafe++;
-              totalWrUpdates += result.updates.length;
+              // Apply policy
+              const normalized = normalizeAniListToWorkRelease(media);
+              const result = applyTier1Policy(wr, normalized);
 
-              // Prepare WR update (only if dry_run=false)
-              if (!dryRun) {
-                const updateObj = { id: wr.id };
-                for (const u of result.updates) {
-                  updateObj[u.field] = u.proposed;
+              proposedFields = result.updates.map(u => ({ field: u.field, action: u.action }));
+              reviews = result.reviews;
+
+              // Track ignored (score, cover_url)
+              if (media.averageScore != null) {
+                const anilistScore = media.averageScore / 10;
+                if (Math.abs(anilistScore - (wr.score || 0)) > 0.01) {
+                  totalIgnored++;
+                  ignored.push({ field: 'score', reason: 'NEVER_FROM_ANILIST' });
                 }
-                // Verify no prohibited fields
-                for (const f of Object.keys(updateObj)) {
-                  if (f !== 'id' && PROHIBITED_FIELDS.includes(f)) {
-                    throw new Error(`PROHIBITED_FIELD: ${f} in ${wr.slug}`);
+              }
+              if (media.coverImage?.large && media.coverImage.large !== wr.cover_url) {
+                totalIgnored++;
+                ignored.push({ field: 'cover_url', reason: 'NEVER_FROM_ANILIST' });
+              }
+
+              if (reviews.length > 0) {
+                classification = 'REVIEW_REQUIRED';
+                reviewRequired++;
+              } else if (result.updates.length === 0) {
+                classification = 'NO_CHANGES';
+                noChanges++;
+              } else {
+                classification = 'SYNC_SAFE';
+                syncSafe++;
+                totalWrUpdates += result.updates.length;
+
+                // Prepare WR update (only if dry_run=false)
+                if (!dryRun) {
+                  wrUpdateObj = { id: wr.id };
+                  for (const u of result.updates) {
+                    wrUpdateObj[u.field] = u.proposed;
+                  }
+                  // Verify no prohibited fields
+                  for (const f of Object.keys(wrUpdateObj)) {
+                    if (f !== 'id' && PROHIBITED_FIELDS.includes(f)) {
+                      throw new Error(`PROHIBITED_FIELD: ${f} in ${wr.slug}`);
+                    }
                   }
                 }
-                wrUpdates.push(updateObj);
-              }
 
-              // DynamicWork updates (only if is_main_entry)
-              if (wr.is_main_entry === true && dw) {
-                const dwNorm = normalizeAniListToDynamicWork(media);
-                const dwResult = applyDynamicWorkDerivedPolicy(dw, dwNorm);
-                if (dwResult.updates.length > 0) {
-                  totalDwUpdates += dwResult.updates.length;
-                  dwUpdateFields = dwResult.updates.map(u => ({ field: u.field, action: u.action }));
-                  if (!dryRun) {
-                    const dwObj = { id: dw.id };
-                    for (const u of dwResult.updates) {
-                      dwObj[u.field] = u.proposed;
-                    }
-                    for (const f of Object.keys(dwObj)) {
-                      if (f !== 'id' && PROHIBITED_FIELDS.includes(f)) {
-                        throw new Error(`PROHIBITED_FIELD: ${f} in DW ${dw.slug}`);
+                // DynamicWork updates (only if is_main_entry)
+                if (wr.is_main_entry === true && dw) {
+                  const dwNorm = normalizeAniListToDynamicWork(media);
+                  const dwResult = applyDynamicWorkDerivedPolicy(dw, dwNorm);
+                  if (dwResult.updates.length > 0) {
+                    totalDwUpdates += dwResult.updates.length;
+                    dwUpdateFields = dwResult.updates.map(u => ({ field: u.field, action: u.action }));
+                    if (!dryRun) {
+                      dwUpdateObj = { id: dw.id };
+                      for (const u of dwResult.updates) {
+                        dwUpdateObj[u.field] = u.proposed;
+                      }
+                      for (const f of Object.keys(dwUpdateObj)) {
+                        if (f !== 'id' && PROHIBITED_FIELDS.includes(f)) {
+                          throw new Error(`PROHIBITED_FIELD: ${f} in DW ${dw.slug}`);
+                        }
                       }
                     }
-                    dwUpdates.push(dwObj);
                   }
                 }
               }
@@ -409,38 +525,73 @@ export default async function(req) {
           }
         }
 
-        // Create SyncLog
-        await admin.entities.SyncLog.create({
+        // Fix #4: collect log entry with written_fields='[]' (updated after bulkUpdate)
+        batchLogEntries.push({
           run_id: runId, release_id: wr.id, release_slug: wr.slug,
           mal_id: mal_id || null, anilist_id: media?.id || null,
           match_valid: matchValid, classification,
           proposed_fields: JSON.stringify(proposedFields),
-          written_fields: dryRun ? '[]' : JSON.stringify(proposedFields),
+          written_fields: '[]', // placeholder — set after bulkUpdate succeeds
           reviews: JSON.stringify(reviews),
           ignored: JSON.stringify(ignored),
           dw_updates: JSON.stringify(dwUpdateFields),
           error_message: errorMessage,
           timestamp: new Date().toISOString(),
+          _proposedFields: proposedFields, // temp, for written_fields after bulkUpdate
         });
+
+        if (wrUpdateObj) wrUpdates.push(wrUpdateObj);
+        if (dwUpdateObj) dwUpdates.push(dwUpdateObj);
 
         processedIds.add(wr.id);
       }
 
-      // Persist writes (only if dry_run=false)
+      // Fix #4: persist writes, then update written_fields in logs
+      let writeSuccess = true;
       if (!dryRun && wrUpdates.length > 0) {
-        await admin.entities.WorkRelease.bulkUpdate(wrUpdates);
+        try {
+          await admin.entities.WorkRelease.bulkUpdate(wrUpdates);
+        } catch (err) {
+          writeSuccess = false;
+          errors += wrUpdates.length;
+          batchErrors.push({ batch: batchesCompleted, error: `WR bulkUpdate: ${err.message}` });
+        }
       }
-      if (!dryRun && dwUpdates.length > 0) {
-        await admin.entities.DynamicWork.bulkUpdate(dwUpdates);
+      if (!dryRun && dwUpdates.length > 0 && writeSuccess) {
+        try {
+          await admin.entities.DynamicWork.bulkUpdate(dwUpdates);
+        } catch (err) {
+          writeSuccess = false;
+          errors += dwUpdates.length;
+          batchErrors.push({ batch: batchesCompleted, error: `DW bulkUpdate: ${err.message}` });
+        }
       }
 
+      // Fix #4: set written_fields only after successful bulkUpdate
+      if (!dryRun && writeSuccess) {
+        for (const entry of batchLogEntries) {
+          if (entry.classification === 'SYNC_SAFE') {
+            entry.written_fields = JSON.stringify(entry._proposedFields);
+          }
+        }
+      }
+
+      // Create SyncLog entries (after bulkUpdate)
+      for (const entry of batchLogEntries) {
+        delete entry._proposedFields; // cleanup temp field
+        await admin.entities.SyncLog.create(entry);
+      }
+
+      // Fix #7: accumulate errors across batches
+      accumulatedErrors.push(...batchErrors);
+
       // Checkpoint
-      await admin.entities.SyncRun.update(run.id, {
+      await admin.entities.SyncRun.update(runEntityId, {
         processed_release_ids: JSON.stringify([...processedIds]),
         current_batch: batchesCompleted,
         batches_completed: batchesCompleted,
         last_checkpoint_at: new Date().toISOString(),
-        errors: JSON.stringify(batchErrors),
+        errors: JSON.stringify(accumulatedErrors),
       });
 
       // Rate limit delay
@@ -452,14 +603,18 @@ export default async function(req) {
     const summary = {
       sync_safe: syncSafe, no_changes: noChanges, review_required: reviewRequired,
       id_mismatch: idMismatch, not_found: notFound, errors,
-      total_wr_updates: totalWrUpdates, total_dw_updates: totalDwUpdates, total_ignored: totalIgnored,
+      total_wr_updates: totalWrUpdates, total_dw_updates: totalDwUpdates,
+      total_ignored: totalIgnored,
+      missing_mapping: missingMapping, skipped_override: skippedOverride,
+      anilist_calls: anilistCalls, cache_hits: cacheHits,
     };
 
-    await admin.entities.SyncRun.update(run.id, {
+    await admin.entities.SyncRun.update(runEntityId, {
       status: 'completed',
       completed_at: new Date().toISOString(),
       last_checkpoint_at: new Date().toISOString(),
       summary: JSON.stringify(summary),
+      errors: JSON.stringify(accumulatedErrors),
     });
 
     return Response.json({
@@ -472,6 +627,8 @@ export default async function(req) {
       review_required: reviewRequired,
       id_mismatch: idMismatch,
       anilist_not_found: notFound,
+      missing_mapping: missingMapping,
+      skipped_override: skippedOverride,
       errors,
       total_wr_updates: totalWrUpdates,
       total_dw_updates: totalDwUpdates,
@@ -483,6 +640,17 @@ export default async function(req) {
       resumed,
     });
   } catch (error) {
+    // Fix #6: mark SyncRun as failed before returning 500
+    if (admin && run) {
+      try {
+        await admin.entities.SyncRun.update(run.id, {
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          last_checkpoint_at: new Date().toISOString(),
+          errors: JSON.stringify([{ error: error.message }]),
+        });
+      } catch {}
+    }
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
