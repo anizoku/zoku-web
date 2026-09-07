@@ -1,5 +1,6 @@
 import { searchAnime, searchManga } from "@/lib/jikan";
 import { getTMDBWorkDetails } from "@/lib/tmdb";
+import { ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 /**
  * Busca em Jikan + TMDB com deduplicação
@@ -11,10 +12,9 @@ export async function hybridSearch(query) {
 
   try {
     // 1. Busca no Jikan (anime + manga)
-    const [animes, mangas] = await Promise.all([
-      searchAnime(query),
-      searchManga(query),
-    ]);
+    // ANIME_ONLY: pular busca de manga quando o freeze está ativo
+    const animes = await searchAnime(query);
+    const mangas = ANIME_ONLY_MODE ? [] : await searchManga(query);
 
     const jikanWorks = [...animes, ...mangas];
     

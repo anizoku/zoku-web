@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Star, Play, ImageOff } from "lucide-react";
+import { hasActiveCategory, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 // Hero carousel — combina slides de NOTÍCIAS em destaque (banner_image_url)
 // com as top obras por popularidade do DynamicWork.
@@ -48,6 +49,11 @@ export default function HeroCarousel() {
 
   const workSlides = trendingWorks
     .filter((w) => w.image_url && w.title)
+    .filter((w) => {
+      if (!ANIME_ONLY_MODE) return true;
+      const cats = (() => { try { return JSON.parse(w.categories || "[]"); } catch { return []; } })();
+      return hasActiveCategory(cats);
+    })
     .slice(0, 6)
     .map((w) => ({ ...w, _type: "work" }));
 

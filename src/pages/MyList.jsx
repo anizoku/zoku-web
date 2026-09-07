@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import EntryCard from "@/components/mylist/EntryCard";
 import ImportList from "@/components/mylist/ImportList";
 import { CATALOG } from "@/lib/catalog";
+import { ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 // ── Constantes ────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -150,8 +151,7 @@ function AddEntryDialog({ onAdd, existingTitles = [] }) {
               <SelectTrigger className="bg-secondary border-none"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="anime">Anime</SelectItem>
-                <SelectItem value="manga">Mangá</SelectItem>
-                <SelectItem value="movie">Filme</SelectItem>
+                {/* ANIME_ONLY: Manga e Filme congelados — opções removidas temporariamente */}
               </SelectContent>
             </Select>
             <Select value={status} onValueChange={setStatus}>
@@ -246,7 +246,11 @@ export default function MyList() {
 
   // Deduplicate raw entries for this user
   const myEntriesRaw = entries.filter(e => e.created_by === user?.email);
-  const myEntries = deduplicateEntries(myEntriesRaw);
+  // ANIME_ONLY: ocultar entries de manga da UI ativa (preservar no banco)
+  const myEntriesVisibleRaw = ANIME_ONLY_MODE
+    ? myEntriesRaw.filter(e => e.type !== "manga")
+    : myEntriesRaw;
+  const myEntries = deduplicateEntries(myEntriesVisibleRaw);
 
   // Clean up duplicates in background (same logic as before)
   useEffect(() => {
@@ -280,13 +284,15 @@ export default function MyList() {
   const existingTitles = myEntries.map(e => e.title);
 
   function handleAdd(data) {
+    // ANIME_ONLY: forçar type=anime durante o freeze
+    const safeData = ANIME_ONLY_MODE ? { ...data, type: "anime" } : data;
     const existing = myEntriesRaw.find(
-      e => e.title.toLowerCase() === data.title.toLowerCase() && !e.genre?.startsWith("__format:")
+      e => e.title.toLowerCase() === safeData.title.toLowerCase() && !e.genre?.startsWith("__format:")
     );
     if (existing) {
-      updateMutation.mutate({ id: existing.id, data: { status: data.status } });
+      updateMutation.mutate({ id: existing.id, data: { status: safeData.status } });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(safeData);
     }
   }
 

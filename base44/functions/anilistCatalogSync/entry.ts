@@ -42,6 +42,7 @@ import {
   PROHIBITED_FIELDS,
 } from '../../shared/syncFieldPolicy.ts';
 import { sleep, parseRetryAfterMs, chunk, generateRunId, createCache } from '../../shared/syncUtils.ts';
+import { isCategoryFrozen, ANIME_ONLY_MODE } from '../../shared/scopeConfig.ts';
 
 // ── Constants ──
 const ANILIST_URL = 'https://graphql.anilist.co';
@@ -262,9 +263,12 @@ export default async function(req) {
       anime_mal: [], manga_mal: [],
       anime_anilist: [], manga_anilist: [],
       missing_mapping: [],
+      frozen_category: [],
     };
     for (const ctx of contexts) {
-      if (!ctx.mal_id && !ctx.anilist_id) {
+      if (ANIME_ONLY_MODE && isCategoryFrozen(ctx.wr.category)) {
+        groups.frozen_category.push(ctx);
+      } else if (!ctx.mal_id && !ctx.anilist_id) {
         groups.missing_mapping.push(ctx);
       } else if (ctx.wr.category === 'manga') {
         if (ctx.mal_id) groups.manga_mal.push(ctx);
@@ -290,6 +294,7 @@ export default async function(req) {
     let totalIgnored = prevSummary.total_ignored || 0;
     let missingMapping = prevSummary.missing_mapping || 0;
     let skippedOverride = prevSummary.skipped_override || 0;
+    let skippedFrozen = prevSummary.skipped_frozen || 0;
     let batchesCompleted = resumed ? (run.batches_completed || 0) : 0;
 
     const allBatches = [];
@@ -301,6 +306,31 @@ export default async function(req) {
 
     for (const { group, contexts: batchContexts } of allBatches) {
       batchesCompleted++;
+
+      // ANIME_ONLY: handle frozen_category group (no AniList query, no writes)
+      if (group === 'frozen_category') {
+        for (const ctx of batchContexts) {
+          skippedFrozen++;
+          await admin.entities.SyncLog.create({
+            run_id: runId, release_id: ctx.wr.id, release_slug: ctx.wr.slug,
+            classification: 'SKIPPED_FROZEN_CATEGORY',
+            match_valid: false,
+            proposed_fields: '[]', written_fields: '[]',
+            reviews: '[]', ignored: '[]', dw_updates: '[]',
+            error_message: `Category ${ctx.wr.category} is frozen (ANIME_ONLY mode)`,
+            timestamp: new Date().toISOString(),
+          });
+          processedIds.add(ctx.wr.id);
+        }
+        await admin.entities.SyncRun.update(runEntityId, {
+          processed_release_ids: JSON.stringify([...processedIds]),
+          current_batch: batchesCompleted,
+          batches_completed: batchesCompleted,
+          last_checkpoint_at: new Date().toISOString(),
+          errors: JSON.stringify(accumulatedErrors),
+        });
+        continue;
+      }
 
       // Fix #8: handle missing_mapping group (no AniList query)
       if (group === 'missing_mapping') {
@@ -380,6 +410,23 @@ export default async function(req) {
 
       for (const ctx of batchContexts) {
         const { wr, dw, mal_id, anilist_id } = ctx;
+
+        // Layer 2: pre-write guard — skip frozen categories (safety net)
+        if (ANIME_ONLY_MODE && isCategoryFrozen(wr.category)) {
+          skippedFrozen++;
+          batchLogEntries.push({
+            run_id: runId, release_id: wr.id, release_slug: wr.slug,
+            classification: 'SKIPPED_FROZEN_CATEGORY',
+            match_valid: false,
+            proposed_fields: '[]', written_fields: '[]',
+            reviews: '[]', ignored: '[]', dw_updates: '[]',
+            error_message: `Category ${wr.category} is frozen (ANIME_ONLY mode)`,
+            timestamp: new Date().toISOString(),
+          });
+          processedIds.add(wr.id);
+          continue;
+        }
+
         let media = null;
         let classification = 'SYNC_SAFE';
         let matchValid = false;
@@ -565,6 +612,7 @@ export default async function(req) {
       total_wr_updates: totalWrUpdates, total_dw_updates: totalDwUpdates,
       total_ignored: totalIgnored,
       missing_mapping: missingMapping, skipped_override: skippedOverride,
+      skipped_frozen: skippedFrozen,
       anilist_calls: anilistCalls, cache_hits: cacheHits,
     };
 
@@ -588,6 +636,7 @@ export default async function(req) {
       anilist_not_found: notFound,
       missing_mapping: missingMapping,
       skipped_override: skippedOverride,
+      skipped_frozen: skippedFrozen,
       errors,
       total_wr_updates: totalWrUpdates,
       total_dw_updates: totalDwUpdates,

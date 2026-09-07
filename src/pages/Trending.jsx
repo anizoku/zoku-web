@@ -11,9 +11,11 @@ import SortControl from "@/components/catalog/SortControl";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { filterActiveWorks, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 // Top trending — sorted by rating, top 18
-const trending = [...CATALOG]
+// ANIME_ONLY: filtrar para apenas obras com categoria ativa
+const trending = (ANIME_ONLY_MODE ? filterActiveWorks(CATALOG) : CATALOG)
   .sort((a, b) => b.rating - a.rating)
   .slice(0, 18)
   .map((item, i) => ({ ...item, rank: i + 1 }));
@@ -98,17 +100,11 @@ export default function Trending() {
         <TabsList className="bg-secondary mb-6">
           <TabsTrigger value="all">Todos</TabsTrigger>
           <TabsTrigger value="anime">Animes</TabsTrigger>
-          <TabsTrigger value="manga">Mangás</TabsTrigger>
-          <TabsTrigger value="movie">Filmes</TabsTrigger>
-          <TabsTrigger value="liveaction">Live Action</TabsTrigger>
         </TabsList>
 
         {[
           { key: "all", data: all },
           { key: "anime", data: animes },
-          { key: "manga", data: mangas },
-          { key: "movie", data: movies },
-          { key: "liveaction", data: liveaction },
         ].map(({ key, data }) => (
           <TabsContent key={key} value={key}>
             {data.length === 0 ? (

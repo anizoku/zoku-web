@@ -35,6 +35,7 @@ import Recommendations from '@/pages/Recommendations';
 import News from '@/pages/News';
 import NewsDetail from '@/pages/NewsDetail';
 import Works from '@/pages/Works';
+import FrozenCategory from '@/pages/FrozenCategory';
 import { Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
@@ -105,9 +106,9 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Home />} />
         <Route path="/trending" element={<Trending />} />
         <Route path="/animes" element={<Navigate to="/obras?categoria=anime" replace />} />
-        <Route path="/mangas" element={<Navigate to="/obras?categoria=manga" replace />} />
-        <Route path="/films" element={<Navigate to="/obras?categoria=movie" replace />} />
-        <Route path="/series" element={<Navigate to="/obras?categoria=liveaction" replace />} />
+        <Route path="/mangas" element={<FrozenCategory category="manga" />} />
+        <Route path="/films" element={<FrozenCategory category="movie" />} />
+        <Route path="/series" element={<FrozenCategory category="liveaction" />} />
         <Route path="/communities" element={<Communities />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/events" element={<Events />} />

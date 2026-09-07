@@ -37,10 +37,11 @@
         "MAL_NOT_FOUND",
         "MISSING_MAPPING",
         "SKIPPED_MANUAL_OVERRIDE",
+        "SKIPPED_FROZEN_CATEGORY",
         "UPSTREAM_RATE_LIMITED",
         "ERROR"
       ],
-      "description": "Classification of the release after policy application"
+      "description": "Classification of the release after policy application. SKIPPED_FROZEN_CATEGORY = release category is frozen (ANIME_ONLY mode), no writes performed."
     },
     "proposed_fields": {
       "type": "string",

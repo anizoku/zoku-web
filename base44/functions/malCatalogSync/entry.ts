@@ -45,6 +45,7 @@ import {
   MAL_PROHIBITED_FIELDS,
 } from '../../shared/syncFieldPolicy.ts';
 import { sleep, parseRetryAfterMs, chunk, generateRunId, createCache } from '../../shared/syncUtils.ts';
+import { isCategoryFrozen, ANIME_ONLY_MODE } from '../../shared/scopeConfig.ts';
 
 // ── Constants ──
 const JIKAN_BASE = 'https://api.jikan.moe/v4';
@@ -231,12 +232,18 @@ export default async function(req) {
       last_checkpoint_at: new Date().toISOString(),
     });
 
-    // ── 4. Group: with_mapping vs missing_mapping ──
+    // ── 4. Group: with_mapping vs missing_mapping vs frozen_category ──
     const withMapping = [];
     const missingMapping = [];
+    const frozenCategory = [];
     for (const ctx of contexts) {
-      if (!ctx.mal_id) missingMapping.push(ctx);
-      else withMapping.push(ctx);
+      if (ANIME_ONLY_MODE && isCategoryFrozen(ctx.wr.category)) {
+        frozenCategory.push(ctx);
+      } else if (!ctx.mal_id) {
+        missingMapping.push(ctx);
+      } else {
+        withMapping.push(ctx);
+      }
     }
 
     // ── 5. Process in batches ──
@@ -252,6 +259,7 @@ export default async function(req) {
     let totalDwUpdates = prevSummary.total_dw_updates || 0;
     let missingMappingCount = prevSummary.missing_mapping || 0;
     let skippedOverride = prevSummary.skipped_override || 0;
+    let skippedFrozen = prevSummary.skipped_frozen || 0;
     let upstreamRateLimited = prevSummary.upstream_rate_limited || 0;
     let batchesCompleted = resumed ? (run.batches_completed || 0) : 0;
     let globalCooldownUntil = 0;
@@ -263,9 +271,37 @@ export default async function(req) {
     if (missingMapping.length > 0) {
       allBatches.push({ group: 'missing_mapping', contexts: missingMapping });
     }
+    if (frozenCategory.length > 0) {
+      allBatches.push({ group: 'frozen_category', contexts: frozenCategory });
+    }
 
     for (const { group, contexts: batchContexts } of allBatches) {
       batchesCompleted++;
+
+      // ── frozen_category: no Jikan query, no writes (ANIME_ONLY mode) ──
+      if (group === 'frozen_category') {
+        for (const ctx of batchContexts) {
+          skippedFrozen++;
+          await admin.entities.SyncLog.create({
+            run_id: runId, release_id: ctx.wr.id, release_slug: ctx.wr.slug,
+            classification: 'SKIPPED_FROZEN_CATEGORY',
+            match_valid: false,
+            proposed_fields: '[]', written_fields: '[]',
+            reviews: '[]', ignored: '[]', dw_updates: '[]',
+            error_message: `Category ${ctx.wr.category} is frozen (ANIME_ONLY mode)`,
+            timestamp: new Date().toISOString(),
+          });
+          processedIds.add(ctx.wr.id);
+        }
+        await admin.entities.SyncRun.update(runEntityId, {
+          processed_release_ids: JSON.stringify([...processedIds]),
+          current_batch: batchesCompleted,
+          batches_completed: batchesCompleted,
+          last_checkpoint_at: new Date().toISOString(),
+          errors: JSON.stringify(accumulatedErrors),
+        });
+        continue;
+      }
 
       // ── missing_mapping: no Jikan query ──
       if (group === 'missing_mapping') {
@@ -299,6 +335,24 @@ export default async function(req) {
 
       for (const ctx of batchContexts) {
         const { wr, dw, mal_id } = ctx;
+
+        // Layer 2: pre-write guard — skip frozen categories (safety net)
+        if (ANIME_ONLY_MODE && isCategoryFrozen(wr.category)) {
+          skippedFrozen++;
+          batchLogEntries.push({
+            run_id: runId, release_id: wr.id, release_slug: wr.slug,
+            mal_id: mal_id || null,
+            classification: 'SKIPPED_FROZEN_CATEGORY',
+            match_valid: false,
+            proposed_fields: '[]', written_fields: '[]',
+            reviews: '[]', ignored: '[]', dw_updates: '[]',
+            error_message: `Category ${wr.category} is frozen (ANIME_ONLY mode)`,
+            timestamp: new Date().toISOString(),
+          });
+          processedIds.add(wr.id);
+          continue;
+        }
+
         let jikanData = null;
         let classification = 'SYNC_SAFE';
         let matchValid = false;
@@ -502,6 +556,7 @@ export default async function(req) {
       id_mismatch: idMismatch, not_found: notFound, errors,
       total_wr_updates: totalWrUpdates, total_dw_updates: totalDwUpdates,
       missing_mapping: missingMappingCount, skipped_override: skippedOverride,
+      skipped_frozen: skippedFrozen,
       upstream_rate_limited: upstreamRateLimited,
       jikan_calls: jikanCalls, cache_hits: cacheHits,
     };
@@ -526,6 +581,7 @@ export default async function(req) {
       mal_not_found: notFound,
       missing_mapping: missingMappingCount,
       skipped_override: skippedOverride,
+      skipped_frozen: skippedFrozen,
       upstream_rate_limited: upstreamRateLimited,
       errors,
       total_wr_updates: totalWrUpdates,

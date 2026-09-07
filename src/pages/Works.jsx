@@ -20,14 +20,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SuggestWorkModal from "@/components/catalog/SuggestWorkModal";
 import TrendingStrip from "@/components/catalog/TrendingStrip";
 import { hybridSearch } from "@/lib/hybridSearch";
+import { ACTIVE_CATEGORY_TABS, isCategoryFrozen, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import FrozenCategory from "@/pages/FrozenCategory";
 
-const CATEGORIES = [
-  { key: "all", label: "Todos" },
-  { key: "anime", label: "Animes" },
-  { key: "manga", label: "Mangás" },
-  { key: "movie", label: "Filmes" },
-  { key: "liveaction", label: "Live-Action" },
-];
+// ANIME_ONLY: apenas categorias ativas aparecem nas tabs
+const CATEGORIES = ACTIVE_CATEGORY_TABS;
 
 const PAGE_TITLES = {
   all: "Obras",
@@ -39,7 +36,7 @@ const PAGE_TITLES = {
 
 const SUGGEST_TYPE = {
   anime: "anime",
-  manga: "manga",
+  manga: "anime",
   movie: "anime",
   liveaction: "anime",
   all: "anime",
@@ -189,7 +186,8 @@ export default function Works() {
         .trim()
         .replace(/\s+/g, "-");
 
-      const workType = externalWork.type?.toLowerCase().includes("manga") ? "manga" : "anime";
+      // ANIME_ONLY: forçar anime durante o freeze
+      const workType = ANIME_ONLY_MODE ? "anime" : (externalWork.type?.toLowerCase().includes("manga") ? "manga" : "anime");
       const categories = workType === "manga" ? ["manga"] : ["anime"];
       const source = externalWork._source || "jikan";
 
@@ -211,6 +209,12 @@ export default function Works() {
     } catch (e) {
       console.warn("Erro ao adicionar obra:", e);
     }
+  }
+
+  // ANIME_ONLY: redirecionar categorias congeladas para a página de freeze
+  // (depois de todos os hooks para não violar Rules of Hooks)
+  if (ANIME_ONLY_MODE && isCategoryFrozen(categoria)) {
+    return <FrozenCategory category={categoria} />;
   }
 
   return (

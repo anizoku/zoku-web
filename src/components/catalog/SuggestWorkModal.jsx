@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Loader2, Star, ExternalLink, CheckCircle2, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 function slugify(title) {
   return title
@@ -21,6 +22,8 @@ function slugify(title) {
 }
 
 export default function SuggestWorkModal({ open, onClose, workType = "anime" }) {
+  // ANIME_ONLY: forçar anime durante o freeze
+  const effectiveWorkType = ANIME_ONLY_MODE ? "anime" : workType;
   const [step, setStep] = useState("search"); // search | results | confirm | success
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,7 +59,7 @@ export default function SuggestWorkModal({ open, onClose, workType = "anime" }) 
     setError(null);
     setResults([]);
     try {
-      const fn = workType === "anime" ? searchAnime : searchManga;
+      const fn = effectiveWorkType === "anime" ? searchAnime : searchManga;
       const data = await fn(query.trim());
       setResults(data);
       setStep("results");
@@ -89,7 +92,7 @@ export default function SuggestWorkModal({ open, onClose, workType = "anime" }) 
     await base44.entities.WorkSuggestion.create({
       suggested_by_email: me.email,
       title: selected.title?.romaji || selected.title?.english || selected.title,
-      type: workType,
+      type: effectiveWorkType,
       mal_id: selected.mal_id,
       image_url: selected.images?.jpg?.large_image_url || selected.images?.jpg?.image_url || "",
       synopsis: (selected.synopsis || "").slice(0, 500),
@@ -129,7 +132,7 @@ export default function SuggestWorkModal({ open, onClose, workType = "anime" }) 
         <DialogHeader>
           <DialogTitle className="font-space flex items-center gap-2">
             <Search className="w-4 h-4 text-primary" />
-            Sugerir {workType === "anime" ? "Anime" : "Mangá"}
+            Sugerir {effectiveWorkType === "anime" ? "Anime" : "Mangá"}
           </DialogTitle>
         </DialogHeader>
 
@@ -139,7 +142,7 @@ export default function SuggestWorkModal({ open, onClose, workType = "anime" }) 
             <div className="space-y-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder={`Digite o nome do ${workType === "anime" ? "anime" : "mangá"}...`}
+                  placeholder={`Digite o nome do ${effectiveWorkType === "anime" ? "anime" : "mangá"}...`}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}

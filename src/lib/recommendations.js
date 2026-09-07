@@ -1,5 +1,6 @@
 // Sistema de recomendações baseado no perfil de gosto do usuário
 import { CATALOG } from "@/lib/catalog";
+import { filterActiveWorks, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 // Build a taste profile from user's AnimeEntry list
 export function buildTasteProfile(entries) {
@@ -51,8 +52,9 @@ function scoreWork(work, profile) {
 export function getRecommendations(entries, filterCategory = null, limit = 30) {
   const profile = buildTasteProfile(entries);
   const userTitles = new Set(entries.map((e) => e.title));
+  const activeCatalog = ANIME_ONLY_MODE ? filterActiveWorks(CATALOG) : CATALOG;
 
-  let candidates = CATALOG.filter((work) => {
+  let candidates = activeCatalog.filter((work) => {
     // Not already in user's list
     if (userTitles.has(work.title)) return false;
     // Category filter
@@ -64,7 +66,7 @@ export function getRecommendations(entries, filterCategory = null, limit = 30) {
 
   if (profile.topGenres.length === 0) {
     // New user: return top-rated works
-    return CATALOG.filter((w) => {
+    return activeCatalog.filter((w) => {
       if (filterCategory && !w.categories.includes(filterCategory)) return false;
       return (w.rating || 0) >= 8.0;
     })
@@ -85,8 +87,9 @@ export function getRecommendations(entries, filterCategory = null, limit = 30) {
 export function getRelatedWorks(item, entries, limit = 6) {
   const userTitles = new Set(entries.map((e) => e.title));
   const itemGenres = new Set(item.genres || []);
+  const activeCatalog = ANIME_ONLY_MODE ? filterActiveWorks(CATALOG) : CATALOG;
 
-  return CATALOG.filter((work) => {
+  return activeCatalog.filter((work) => {
     if (work.slug === item.slug) return false;
     if (userTitles.has(work.title)) return false;
     if ((work.rating || 0) < 7.0) return false;

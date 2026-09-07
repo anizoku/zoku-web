@@ -10,6 +10,7 @@ import { CATALOG } from "@/lib/catalog";
 import { parseSeasons } from "@/lib/franchiseDetection";
 import { resolveReleasesSync } from "@/lib/workReleases";
 import { resolveAlias, isAliasSlug } from "@/lib/catalogAliases";
+import { hasActiveCategory, isCategoryFrozen, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 const QUERY_KEY_SYNC = ["catalog-sync-records"];
 const QUERY_KEY_DYNAMIC = ["catalog-dynamic-works"];
@@ -205,8 +206,10 @@ export function CatalogProvider({ children }) {
     }
 
     // Deduplicar e filtrar alias slugs (fantasmas ocultos — canônico já está no catálogo)
+    // ANIME_ONLY: filtrar obras sem nenhuma categoria ativa (preserva obras com anime + manga)
     return deduplicateCatalog(merged)
       .filter(item => !isAliasSlug(item.slug))
+      .filter(item => !ANIME_ONLY_MODE || hasActiveCategory(item.categories))
       .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   }, [syncMap, dynamicWorks, releasesByGroupId]);
 
@@ -219,10 +222,13 @@ export function CatalogProvider({ children }) {
   );
 
   const getByCategory = useCallback(
-    (category) =>
-      catalog
+    (category) => {
+      // ANIME_ONLY: categorias congeladas retornam vazio
+      if (ANIME_ONLY_MODE && isCategoryFrozen(category)) return [];
+      return catalog
         .filter((w) => w.categories?.includes(category))
-        .sort((a, b) => a.title.localeCompare(b.title, "pt-BR")),
+        .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+    },
     [catalog]
   );
 
@@ -242,6 +248,12 @@ export function CatalogProvider({ children }) {
     for (const w of catalog) {
       for (const cat of w.categories || []) {
         if (stats[cat] !== undefined) stats[cat]++;
+      }
+    }
+    // ANIME_ONLY: zerar contadores de categorias congeladas (não expor no produto ativo)
+    if (ANIME_ONLY_MODE) {
+      for (const frozen of ['manga', 'movie', 'liveaction']) {
+        stats[frozen] = 0;
       }
     }
     return stats;
