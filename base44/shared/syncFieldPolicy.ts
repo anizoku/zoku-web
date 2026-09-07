@@ -1,77 +1,84 @@
 /**
- * syncFieldPolicy.ts ??? Backend port of src/lib/syncFieldPolicy.js
+ * syncFieldPolicy.ts — SHARED canonical policy for AniList ↔ AniZoku sync.
  *
- * SINGLE SOURCE OF TRUTH (backend copy). Keep semantically equivalent to the
- * frontend module. All AniList catalog sync MUST import from this file.
+ * SINGLE SOURCE OF TRUTH. Used by:
+ * - Backend: base44/functions/anilistCatalogSync (imports this file)
+ * - Frontend: src/lib/syncFieldPolicy.js (mirrors this logic — keep in sync)
  *
- * season_year mismatch review (diff_on_stable_field) matches the validated
- * Phase 3C-3 dry-run behavior and is applied inside applyTier1Policy.
+ * Approved rules (Fases 3C-2/3C-3/3C-4):
+ * - ExternalMapping as identity (never fuzzy/LLM)
+ * - AniList via id/idMal exact only
+ * - MAL/Jikan canonical for score and cover_url (NEVER_FROM_ANILIST)
+ * - AniList Tier 1 only on authorized fields
+ * - non-main WorkRelease does NOT alter DynamicWork
+ * - SPECIAL/OVA => is_special=true; ONA => is_special=false; MOVIE => is_movie=true
+ * - REVIEW_REQUIRED is never auto-written
+ * - season_year has reviewOnDiff (catches migration artifacts)
  */
 
 export const SOURCES = {
-  MAL_JIKAN: "mal_jikan",
-  ANILIST: "anilist",
-  TMDB: "tmdb",
-  ADMIN: "admin",
-  SYSTEM: "system",
-  LEGACY: "legacy",
-  DENORMALIZED: "denormalized",
-} as const;
+  MAL_JIKAN: 'mal_jikan',
+  ANILIST: 'anilist',
+  TMDB: 'tmdb',
+  ADMIN: 'admin',
+  SYSTEM: 'system',
+  LEGACY: 'legacy',
+  DENORMALIZED: 'denormalized',
+};
 
 export const UPDATE_MODES = {
-  FILL_NULL: "fill_null",
-  ALWAYS: "always",
-  THRESHOLD: "threshold",
-  NEVER: "never",
-  NEVER_FROM_ANILIST: "never_from_anilist",
-} as const;
+  FILL_NULL: 'fill_null',
+  ALWAYS: 'always',
+  THRESHOLD: 'threshold',
+  NEVER: 'never',
+  NEVER_FROM_ANILIST: 'never_from_anilist',
+};
 
 export const FIELD_CLASSIFICATION = {
   WorkRelease: {
-    canonical: [
-      "title_romaji", "title_english", "title_native",
-      "format", "season", "season_year",
-      "episode_count", "chapter_count", "duration_minutes",
-      "status", "is_special", "is_movie",
-      "cover_url", "banner_url",
-      "score", "popularity", "trending_score",
-    ],
-    identity: ["id", "slug", "group_id", "group_slug"],
-    editorial: ["title", "synopsis", "category", "is_main_entry", "release_order", "display_order", "is_live_action", "trending_rank"],
-    system: ["sync_status", "last_synced_at"],
+    canonical: ['title_romaji','title_english','title_native','format','season','season_year','episode_count','chapter_count','duration_minutes','status','is_special','is_movie','cover_url','banner_url','score','popularity','trending_score'],
+    identity: ['id','slug','group_id','group_slug'],
+    editorial: ['title','synopsis','category','is_main_entry','release_order','display_order','is_live_action','trending_rank'],
+    system: ['sync_status','last_synced_at'],
   },
   DynamicWork: {
-    canonical: ["romaji_title", "genres", "year", "is_currently_airing"],
-    identity: ["id", "slug", "title", "title_pt", "categories", "mal_id", "manga_mal_id", "franchise_id", "franchise_title"],
-    legacy: ["duration", "season", "image_url", "seasons"],
-    denormalized: ["franchise_poster_url", "franchise_score", "score", "episodes", "anime_status", "popularity_rank"],
-    editorial: ["is_trending", "trending_rank", "related_franchise_id"],
-    system: ["release_count", "sync_release_completed", "sync_status", "last_synced_at"],
+    canonical: ['romaji_title','genres','year','is_currently_airing'],
+    identity: ['id','slug','title','title_pt','categories','mal_id','manga_mal_id','franchise_id','franchise_title'],
+    legacy: ['duration','season','image_url','seasons'],
+    denormalized: ['franchise_poster_url','franchise_score','score','episodes','anime_status','popularity_rank'],
+    editorial: ['is_trending','trending_rank','related_franchise_id'],
+    system: ['release_count','sync_release_completed','sync_status','last_synced_at'],
   },
 };
 
-export const WORK_RELEASE_POLICY: Record<string, any> = {
+// ── WorkRelease Field Policy ──
+export const WORK_RELEASE_POLICY = {
+  // Tier 1: fill_null from AniList
   title_romaji:     { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   title_english:    { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   title_native:     { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   format:           { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   season:           { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
-  season_year:      { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
+  season_year:      { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL, reviewOnDiff: true },
   duration_minutes: { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL, reviewThreshold: 3 },
   banner_url:       { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   popularity:       { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL, threshold: 0.10 },
 
-  status:           { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS, transform: "mapStatus" },
-  is_special:       { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS, transform: "deriveIsSpecial" },
-  is_movie:         { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS, transform: "deriveIsMovie" },
+  // Tier 1: always update (derived — normalized data already has these)
+  status:           { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS },
+  is_special:       { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS },
+  is_movie:         { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS },
 
+  // Tier 1: threshold
   trending_score:   { source: SOURCES.ANILIST, mode: UPDATE_MODES.THRESHOLD, threshold: 5 },
   episode_count:    { source: SOURCES.ANILIST, mode: UPDATE_MODES.THRESHOLD, threshold: 1, reviewThreshold: 2 },
   chapter_count:    { source: SOURCES.ANILIST, mode: UPDATE_MODES.THRESHOLD, threshold: 1 },
 
-  score:            { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.NEVER_FROM_ANILIST, note: "MAL/Jikan is canonical. AniList score is informational only." },
-  cover_url:        { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.NEVER_FROM_ANILIST, note: "MAL/Jikan poster is canonical. AniList coverImage does NOT overwrite." },
+  // NEVER auto-update from AniList (MAL/Jikan canonical)
+  score:            { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.NEVER_FROM_ANILIST },
+  cover_url:        { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.NEVER_FROM_ANILIST },
 
+  // Editorial (admin only)
   title:            { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
   synopsis:         { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
   category:         { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
@@ -82,33 +89,41 @@ export const WORK_RELEASE_POLICY: Record<string, any> = {
   is_live_action:   { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
   trending_rank:    { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
 
+  // Identity (never change)
   id:               { source: SOURCES.SYSTEM, mode: UPDATE_MODES.NEVER },
   group_id:         { source: SOURCES.SYSTEM, mode: UPDATE_MODES.NEVER },
   group_slug:       { source: SOURCES.SYSTEM, mode: UPDATE_MODES.NEVER },
 
+  // System managed
   sync_status:      { source: SOURCES.SYSTEM, mode: UPDATE_MODES.ALWAYS },
   last_synced_at:   { source: SOURCES.SYSTEM, mode: UPDATE_MODES.ALWAYS },
 };
 
-export const DYNAMIC_WORK_POLICY: Record<string, any> = {
+// ── DynamicWork Field Policy ──
+export const DYNAMIC_WORK_POLICY = {
+  // Tier 1: fill_null from AniList (canonical)
   romaji_title:         { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   genres:               { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   year:                 { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
 
-  is_currently_airing:  { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS, transform: "deriveIsCurrentlyAiring" },
+  // Tier 1: always update (derived)
+  is_currently_airing:  { source: SOURCES.ANILIST, mode: UPDATE_MODES.ALWAYS },
 
-  duration:             { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER, note: 'Legacy string "24 min per ep". Use WorkRelease.duration_minutes (number).' },
-  season:               { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER, note: 'Legacy combined "spring_2016". Use WorkRelease.season + season_year.' },
-  image_url:            { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER, note: "Legacy. Use WorkRelease.cover_url." },
-  seasons:              { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER, note: "Legacy JSON array. Migrated to WorkRelease." },
+  // Legacy (NEVER write in new sync)
+  duration:             { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER },
+  season:               { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER },
+  image_url:            { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER },
+  seasons:              { source: SOURCES.LEGACY, mode: UPDATE_MODES.NEVER },
 
-  score:                { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST, note: "Denormalized from WorkRelease main entry. MAL/Jikan is primary." },
-  episodes:             { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST, note: "Denormalized from WorkRelease main entry." },
-  anime_status:         { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST, note: "Denormalized from WorkRelease main entry." },
-  franchise_poster_url: { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST, note: "Denormalized from WorkRelease.cover_url. MAL is primary." },
-  franchise_score:      { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER, note: "Admin override of franchise score." },
-  popularity_rank:      { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.NEVER_FROM_ANILIST, note: "MAL rank (position). NOT AniList popularity (absolute). Never copy." },
+  // Denormalized (NEVER write from AniList)
+  score:                { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST },
+  episodes:             { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST },
+  anime_status:         { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST },
+  franchise_poster_url: { source: SOURCES.DENORMALIZED, mode: UPDATE_MODES.NEVER_FROM_ANILIST },
+  franchise_score:      { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
+  popularity_rank:      { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.NEVER_FROM_ANILIST },
 
+  // Identity (never change)
   id:                   { source: SOURCES.SYSTEM, mode: UPDATE_MODES.NEVER },
   slug:                 { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
   title:                { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
@@ -119,107 +134,59 @@ export const DYNAMIC_WORK_POLICY: Record<string, any> = {
   franchise_id:         { source: SOURCES.SYSTEM, mode: UPDATE_MODES.NEVER },
   franchise_title:      { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
 
+  // Editorial (admin only)
   synopsis:             { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
   is_trending:          { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
   trending_rank:        { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
   related_franchise_id: { source: SOURCES.ADMIN, mode: UPDATE_MODES.NEVER },
 
+  // System managed
   release_count:          { source: SOURCES.SYSTEM, mode: UPDATE_MODES.ALWAYS },
   sync_release_completed: { source: SOURCES.SYSTEM, mode: UPDATE_MODES.ALWAYS },
   sync_status:            { source: SOURCES.SYSTEM, mode: UPDATE_MODES.ALWAYS },
-  last_synced_at:         { source: SOURCES.SYSTEM, mode: UPDATE_MODES.ALWAYS },
+  last_synced_at:          { source: SOURCES.SYSTEM, mode: UPDATE_MODES.ALWAYS },
 };
 
-const STATUS_MAP: Record<string, string> = {
-  FINISHED: "finished",
-  RELEASING: "releasing",
-  NOT_YET_RELEASED: "not_yet_released",
-  CANCELLED: "cancelled",
-  HIATUS: "hiatus",
+// ── Transforms ──
+const STATUS_MAP = {
+  FINISHED: 'finished',
+  RELEASING: 'releasing',
+  NOT_YET_RELEASED: 'not_yet_released',
+  CANCELLED: 'cancelled',
+  HIATUS: 'hiatus',
 };
 
-export function mapStatus(anilistStatus: any) {
+export function mapStatus(anilistStatus) {
   if (!anilistStatus) return null;
   return STATUS_MAP[anilistStatus] || String(anilistStatus).toLowerCase();
 }
 
-export function deriveIsSpecial(format: any) {
-  return format === "SPECIAL" || format === "OVA";
+export function deriveIsSpecial(format) {
+  return format === 'SPECIAL' || format === 'OVA';
 }
 
-export function deriveIsMovie(format: any) {
-  return format === "MOVIE";
+export function deriveIsMovie(format) {
+  return format === 'MOVIE';
 }
 
-export function deriveIsCurrentlyAiring(anilistStatus: any) {
-  return anilistStatus === "RELEASING";
+export function deriveIsCurrentlyAiring(anilistStatus) {
+  return anilistStatus === 'RELEASING';
 }
 
-const TRANSFORMS: Record<string, (v: any) => any> = {
-  mapStatus,
-  deriveIsSpecial,
-  deriveIsMovie,
-  deriveIsCurrentlyAiring,
-};
+// ── Prohibited fields (never written by AniList sync) ──
+export const PROHIBITED_FIELDS = [
+  'score','cover_url','title','synopsis','category','slug',
+  'release_order','display_order','is_main_entry','is_live_action',
+  'image_url','franchise_poster_url','franchise_score','franchise_id',
+  'franchise_title','mal_id','manga_mal_id','group_id','group_slug',
+  'is_trending','trending_rank','related_franchise_id','title_pt',
+  'categories','duration','season','seasons','episodes',
+  'anime_status','popularity_rank',
+];
 
-export const ALLOWED_WORK_RELEASE_TIER1 = [
-  "title_romaji",
-  "title_english",
-  "title_native",
-  "season",
-  "season_year",
-  "duration_minutes",
-  "banner_url",
-  "popularity",
-  "trending_score",
-  "status",
-  "episode_count",
-  "chapter_count",
-  "is_special",
-  "is_movie",
-] as const;
+// ── Normalizers (pure, no writes) ──
 
-export const ALLOWED_DYNAMIC_WORK_TIER1 = [
-  "romaji_title",
-  "genres",
-  "year",
-  "is_currently_airing",
-] as const;
-
-export const PROHIBITED_WORK_RELEASE_FIELDS = [
-  "score",
-  "cover_url",
-  "title",
-  "synopsis",
-  "category",
-  "slug",
-  "release_order",
-  "display_order",
-  "is_main_entry",
-  "is_live_action",
-] as const;
-
-export const PROHIBITED_DYNAMIC_WORK_FIELDS = [
-  "score",
-  "cover_url",
-  "title",
-  "synopsis",
-  "category",
-  "slug",
-  "release_order",
-  "display_order",
-  "is_main_entry",
-  "is_live_action",
-  "image_url",
-  "franchise_poster_url",
-  "popularity_rank",
-  "duration",
-  "season",
-  "seasons",
-  "franchise_score",
-] as const;
-
-export function normalizeAniListToWorkRelease(media: any) {
+export function normalizeAniListToWorkRelease(media) {
   if (!media) return null;
   const title = media.title || {};
   return {
@@ -227,7 +194,7 @@ export function normalizeAniListToWorkRelease(media: any) {
     title_english: media.title_english || title.english || null,
     title_native: media.title_native || title.native || null,
     format: media.format || null,
-    season: (media.season || "").toLowerCase() || null,
+    season: (media.season || '').toLowerCase() || null,
     season_year: media.season_year || media.seasonYear || null,
     episode_count: media.episodes ?? media.episode_count ?? null,
     chapter_count: media.chapters ?? media.chapter_count ?? null,
@@ -241,7 +208,7 @@ export function normalizeAniListToWorkRelease(media: any) {
   };
 }
 
-export function normalizeAniListToDynamicWork(media: any) {
+export function normalizeAniListToDynamicWork(media) {
   if (!media) return null;
   const title = media.title || {};
   return {
@@ -249,24 +216,25 @@ export function normalizeAniListToDynamicWork(media: any) {
     genres: Array.isArray(media.genres) ? JSON.stringify(media.genres) : null,
     year: media.season_year || media.seasonYear || null,
     is_currently_airing: deriveIsCurrentlyAiring(media.status),
-    status: media.status,
   };
 }
 
-function isFillableNull(value: any, field: string) {
+// ── Policy Appliers (pure, no writes) ──
+
+function isFillableNull(value, field) {
   if (value === null || value === undefined) return true;
-  if (value === "") return true;
-  if (field === "trending_score" && value === 0) return true;
+  if (value === '') return true;
+  if (field === 'trending_score' && value === 0) return true;
   return false;
 }
 
-export function applyTier1Policy(currentRelease: any, normalizedAniList: any) {
-  const updates: any[] = [];
-  const reviews: any[] = [];
-  const ignored: any[] = [];
+export function applyTier1Policy(currentRelease, normalizedAniList) {
+  const updates = [];
+  const reviews = [];
+  const ignored = [];
 
   if (!normalizedAniList) {
-    return { updates, reviews, ignored, error: "No AniList data" };
+    return { updates, reviews, ignored, error: 'No AniList data' };
   }
 
   for (const [field, policy] of Object.entries(WORK_RELEASE_POLICY)) {
@@ -274,53 +242,36 @@ export function applyTier1Policy(currentRelease: any, normalizedAniList: any) {
       continue;
     }
 
-    const proposed = policy.transform
-      ? TRANSFORMS[policy.transform](
-          field === "status" ? normalizedAniList.status :
-          field === "is_special" || field === "is_movie" ? normalizedAniList.format :
-          normalizedAniList[field],
-        )
-      : normalizedAniList[field];
+    // Normalized data already has derived values (status, is_special, is_movie)
+    const proposed = normalizedAniList[field];
     const current = currentRelease[field];
 
     switch (policy.mode) {
       case UPDATE_MODES.FILL_NULL:
         if (isFillableNull(current, field) && proposed != null) {
-          updates.push({ field, action: "fill_null", current, proposed });
-        } else if (
-          field === "season_year" &&
-          !isFillableNull(current, field) &&
-          proposed != null &&
-          Number(current) !== Number(proposed)
-        ) {
-          reviews.push({
-            field,
-            action: "review",
-            current,
-            proposed,
-            diff: Math.abs(Number(proposed) - Number(current)),
-            reason: "diff_on_stable_field",
-          });
+          updates.push({ field, action: 'fill_null', current, proposed });
+        } else if (policy.reviewOnDiff && !isFillableNull(current, field) && proposed != null && proposed !== current) {
+          reviews.push({ field, action: 'review', current, proposed, reason: 'diff_on_stable_field' });
         }
         break;
 
       case UPDATE_MODES.ALWAYS:
         if (proposed != null && current !== proposed) {
-          updates.push({ field, action: "always", current, proposed });
+          updates.push({ field, action: 'always', current, proposed });
         }
         break;
 
       case UPDATE_MODES.THRESHOLD:
         if (proposed == null) break;
         if (isFillableNull(current, field)) {
-          updates.push({ field, action: "fill_null", current, proposed });
+          updates.push({ field, action: 'fill_null', current, proposed });
         } else {
           const diff = Math.abs(proposed - current);
           if (diff >= (policy.threshold || 0)) {
             if (policy.reviewThreshold && diff >= policy.reviewThreshold) {
-              reviews.push({ field, action: "review", current, proposed, diff, reason: "exceeds_review_threshold" });
+              reviews.push({ field, action: 'review', current, proposed, diff, reason: 'exceeds_review_threshold' });
             } else {
-              updates.push({ field, action: "threshold", current, proposed, diff });
+              updates.push({ field, action: 'threshold', current, proposed, diff });
             }
           }
         }
@@ -331,12 +282,12 @@ export function applyTier1Policy(currentRelease: any, normalizedAniList: any) {
   return { updates, reviews, ignored };
 }
 
-export function applyDynamicWorkDerivedPolicy(currentDynamicWork: any, normalizedAniList: any) {
-  const updates: any[] = [];
-  const ignored: any[] = [];
+export function applyDynamicWorkDerivedPolicy(currentDynamicWork, normalizedAniList) {
+  const updates = [];
+  const ignored = [];
 
   if (!normalizedAniList) {
-    return { updates, ignored, error: "No AniList data" };
+    return { updates, ignored, error: 'No AniList data' };
   }
 
   for (const [field, policy] of Object.entries(DYNAMIC_WORK_POLICY)) {
@@ -344,21 +295,20 @@ export function applyDynamicWorkDerivedPolicy(currentDynamicWork: any, normalize
       continue;
     }
 
-    const proposed = policy.transform
-      ? TRANSFORMS[policy.transform](normalizedAniList.status)
-      : normalizedAniList[field];
+    // Normalized data already has derived values (is_currently_airing)
+    const proposed = normalizedAniList[field];
     const current = currentDynamicWork[field];
 
     switch (policy.mode) {
       case UPDATE_MODES.FILL_NULL:
         if (isFillableNull(current, field) && proposed != null) {
-          updates.push({ field, action: "fill_null", current, proposed });
+          updates.push({ field, action: 'fill_null', current, proposed });
         }
         break;
 
       case UPDATE_MODES.ALWAYS:
         if (proposed != null && current !== proposed) {
-          updates.push({ field, action: "always", current, proposed });
+          updates.push({ field, action: 'always', current, proposed });
         }
         break;
     }
@@ -367,8 +317,10 @@ export function applyDynamicWorkDerivedPolicy(currentDynamicWork: any, normalize
   return { updates, ignored };
 }
 
-export function isAnilistUpdatable(entityType: string, field: string) {
-  const policy = entityType === "WorkRelease" ? WORK_RELEASE_POLICY : DYNAMIC_WORK_POLICY;
+// ── Validation Helpers ──
+
+export function isAnilistUpdatable(entityType, field) {
+  const policy = entityType === 'WorkRelease' ? WORK_RELEASE_POLICY : DYNAMIC_WORK_POLICY;
   const fieldPolicy = policy[field];
   if (!fieldPolicy) return false;
   return fieldPolicy.source === SOURCES.ANILIST &&
@@ -377,20 +329,9 @@ export function isAnilistUpdatable(entityType: string, field: string) {
           fieldPolicy.mode === UPDATE_MODES.THRESHOLD);
 }
 
-export function isLegacyOrDenormalized(entityType: string, field: string) {
-  const policy = entityType === "WorkRelease" ? WORK_RELEASE_POLICY : DYNAMIC_WORK_POLICY;
+export function isLegacyOrDenormalized(entityType, field) {
+  const policy = entityType === 'WorkRelease' ? WORK_RELEASE_POLICY : DYNAMIC_WORK_POLICY;
   const fieldPolicy = policy[field];
   if (!fieldPolicy) return false;
   return fieldPolicy.mode === UPDATE_MODES.NEVER || fieldPolicy.mode === UPDATE_MODES.NEVER_FROM_ANILIST;
 }
-
-export function filterAllowedUpdates(updates: any[], allowed: readonly string[]) {
-  const allow = new Set(allowed);
-  return (updates || []).filter((u) => allow.has(u.field));
-}
-
-export function findProhibitedUpdates(updates: any[], prohibited: readonly string[]) {
-  const block = new Set(prohibited);
-  return (updates || []).filter((u) => block.has(u.field));
-}
-

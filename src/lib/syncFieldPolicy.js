@@ -65,7 +65,7 @@ export const WORK_RELEASE_POLICY = {
   title_native:     { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   format:           { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   season:           { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
-  season_year:      { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
+  season_year:      { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL, reviewOnDiff: true },
   duration_minutes: { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL, reviewThreshold: 3 },
   banner_url:       { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL },
   popularity:       { source: SOURCES.ANILIST, mode: UPDATE_MODES.FILL_NULL, threshold: 0.10 },
@@ -266,6 +266,8 @@ export function applyTier1Policy(currentRelease, normalizedAniList) {
       case UPDATE_MODES.FILL_NULL:
         if (isFillableNull(current, field) && proposed != null) {
           updates.push({ field, action: 'fill_null', current, proposed });
+        } else if (policy.reviewOnDiff && !isFillableNull(current, field) && proposed != null && proposed !== current) {
+          reviews.push({ field, action: 'review', current, proposed, reason: 'diff_on_stable_field' });
         }
         break;
 
@@ -314,9 +316,7 @@ export function applyDynamicWorkDerivedPolicy(currentDynamicWork, normalizedAniL
       continue;
     }
 
-    const proposed = policy.transform
-      ? TRANSFORMS[policy.transform](normalizedAniList.status)
-      : normalizedAniList[field];
+    const proposed = normalizedAniList[field];
     const current = currentDynamicWork[field];
 
     switch (policy.mode) {
