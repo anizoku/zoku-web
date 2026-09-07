@@ -18,7 +18,7 @@
 | TMDB_MOVIE_LIVEACTION_IMPORT | BLOCKED |
 | ANIME_SYNC | ACTIVE |
 | ANIME_FORMAT_MOVIE | ACTIVE |
-| ZERO DELETIONS | ✅ CONFIRMED |
+| ZERO DELETIONS DE DADOS CONGELADOS | ✅ CONFIRMED |
 
 ---
 
@@ -259,6 +259,6 @@ Cada camada é independente — se uma falhar, a próxima bloqueia.
 - ✅ TMDB movie/liveaction import: BLOCKED (não há fluxo de import TMDB para movie/liveaction)
 - ✅ Anime sync: ACTIVE
 - ✅ Anime format=MOVIE: ACTIVE (category=anime)
-- ✅ Zero deleções confirmado
-- ✅ Zero API calls para categorias congeladas
+- ✅ Zero deleções de dados congelados confirmado
+- ✅ Zero API calls para categorias congeladas através dos fluxos administrativos protegidos
 - ✅ Defense-in-depth em todas as abas que tocam catálogo

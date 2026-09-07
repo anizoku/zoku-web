@@ -294,17 +294,23 @@ export default function AdminEditCardModal({ item, allOverridesByCategory, open,
           <div className="border-t border-border pt-3">
             <p className="text-xs font-semibold text-muted-foreground mb-3">Imagens por categoria</p>
             <div className="space-y-2">
-              {CATEGORIES.map(({ key, label, Icon, color }) => (
-                <CategoryImageBlock
-                  key={key}
-                  catKey={key}
-                  label={label}
-                  Icon={Icon}
-                  color={color}
-                  item={item}
-                  overrideRecord={allOverridesByCategory?.[key] || null}
-                />
-              ))}
+              {CATEGORIES.map(({ key, label, Icon, color }) => {
+                // Hide empty frozen category blocks to reduce visual noise
+                const frozen = isCategoryFrozen(key);
+                const hasOverride = !!allOverridesByCategory?.[key];
+                if (frozen && !hasOverride) return null;
+                return (
+                  <CategoryImageBlock
+                    key={key}
+                    catKey={key}
+                    label={label}
+                    Icon={Icon}
+                    color={color}
+                    item={item}
+                    overrideRecord={allOverridesByCategory?.[key] || null}
+                  />
+                );
+              })}
             </div>
           </div>
 

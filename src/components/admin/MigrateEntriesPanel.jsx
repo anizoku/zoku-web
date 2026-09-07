@@ -74,7 +74,24 @@ function LogLine({ log }) {
 }
 
 // ── Component ───────────────────────────────────────────────────
-export default function MigrateEntriesPanel() {
+export default function MigrateEntriesPanelWrapper() {
+  return (
+    <div className="space-y-4">
+      <div className="bg-chart-4/5 border border-chart-4/20 rounded-xl p-4 flex items-start gap-3">
+        <Wrench className="w-4 h-4 text-chart-4 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-foreground">Ferramenta avançada</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Correção de entradas de lista com progresso inconsistente. Apenas obras de categorias ativas são processadas — entradas congeladas são preservadas.
+          </p>
+        </div>
+      </div>
+      <MigrateEntriesPanel />
+    </div>
+  );
+}
+
+function MigrateEntriesPanel() {
   const [running, setRunning]     = useState(false);
   const [logs, setLogs]           = useState([]);
   const [summary, setSummary]     = useState(null);

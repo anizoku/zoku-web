@@ -7,7 +7,7 @@ import { runHybridAnimeSync, runHybridMangaSync } from "@/lib/catalogAutoSync";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
-import { isCategoryFrozen } from "@/lib/scopeConfig";
+import { isCategoryFrozen, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 function getAnimeSyncableWorks() {
   return CATALOG.filter((w) => {
@@ -220,10 +220,9 @@ export default function CatalogSync() {
   return (
     <div className="bg-card rounded-xl border border-border p-5 space-y-4">
       <div>
-        <h3 className="font-space font-bold text-base text-foreground">Sincronização do Catálogo</h3>
+        <h3 className="font-space font-bold text-base text-foreground">Atualização do catálogo</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {animeCount} anime(s) em exibição · modo Jikan ou Híbrida{" "}
-          <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">(Jikan/TMDB)</a>
+          {animeCount} anime(s) em exibição · Fonte: MAL/Jikan
         </p>
       </div>
 
@@ -237,32 +236,34 @@ export default function CatalogSync() {
           <>
             <Button size="sm" onClick={handleSyncAnimes} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               <RefreshCw className="w-4 h-4" />
-              Animes (Jikan)
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleSyncMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
-              <BookOpen className="w-4 h-4" />
-              Mangás (Jikan)
-              {isCategoryFrozen("manga") && (
-                <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
-              )}
+              Sincronizar animes em exibição
             </Button>
             <Button size="sm" variant="secondary" onClick={handleSyncAll} className="gap-2">
               <Layers className="w-4 h-4" />
-              {isCategoryFrozen("manga") ? "Todos os Animes (Jikan)" : "Tudo (Jikan)"}
+              Atualizar todos os animes
             </Button>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSyncHybridAnimes} className="gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10">
-                <Zap className="w-4 h-4" />
-                Animes (Híbrida)
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleSyncHybridMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
-                <Zap className="w-4 h-4" />
-                Mangás (Híbrida)
-                {isCategoryFrozen("manga") && (
-                  <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
-                )}
-              </Button>
-            </div>
+            {!ANIME_ONLY_MODE && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleSyncMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Sincronizar mangás
+                  {isCategoryFrozen("manga") && (
+                    <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
+                  )}
+                </Button>
+                <Button size="sm" onClick={handleSyncHybridAnimes} className="gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10">
+                  <Zap className="w-4 h-4" />
+                  Animes (Híbrida)
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleSyncHybridMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
+                  <Zap className="w-4 h-4" />
+                  Mangás (Híbrida)
+                  {isCategoryFrozen("manga") && (
+                    <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
+                  )}
+                </Button>
+              </div>
+            )}
           </>
         )}
       </div>

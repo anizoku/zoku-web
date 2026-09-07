@@ -457,10 +457,10 @@ export default function FranchiseMerger() {
         <div>
           <h2 className="text-lg font-space font-bold text-foreground flex items-center gap-2">
             <GitMerge className="w-5 h-5 text-primary" />
-            Unificação de Obras
+            Unificar franquias
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Cada temporada é importada como obra separada. Revise e funda os grupos antes de aplicar.
+            Esta ferramenta altera a estrutura de franquias de anime. Revise cada grupo antes de aplicar.
           </p>
         </div>
         {hasBackup && (

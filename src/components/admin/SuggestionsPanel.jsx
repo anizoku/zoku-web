@@ -97,20 +97,22 @@ function SuggestionCard({ suggestion, profiles, onApprove, onReject, approving, 
             />
           )}
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              className="text-xs bg-primary/15 text-primary hover:bg-primary/25 border-none flex-1"
-              onClick={() => onApprove(suggestion)}
-              disabled={approving || rejecting || !isCategoryActive(suggestion.type)}
-            >
-              {approving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
-              Aprovar
-              {!isCategoryActive(suggestion.type) && (
-                <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold ml-1 inline-flex items-center gap-0.5">
-                  <Snowflake className="w-2.5 h-2.5" />FROZEN
-                </span>
-              )}
-            </Button>
+            {isCategoryActive(suggestion.type) ? (
+              <Button
+                size="sm"
+                className="text-xs bg-primary/15 text-primary hover:bg-primary/25 border-none flex-1"
+                onClick={() => onApprove(suggestion)}
+                disabled={approving || rejecting}
+              >
+                {approving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                Aprovar
+              </Button>
+            ) : (
+              <div className="flex-1 flex items-center justify-center gap-1 text-xs text-destructive/80 bg-destructive/5 rounded-md px-2 py-1.5 border border-destructive/20">
+                <Snowflake className="w-3 h-3" />
+                <span className="font-medium">Categoria congelada — aprovação indisponível</span>
+              </div>
+            )}
             {!showRejectNote ? (
               <Button
                 size="sm"

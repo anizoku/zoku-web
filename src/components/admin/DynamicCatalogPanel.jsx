@@ -5,7 +5,7 @@ import { importTopWorks, syncCurrentlyAiring, discoverNewSeason, importTopWorksB
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
-import { isCategoryFrozen } from "@/lib/scopeConfig";
+import { isCategoryFrozen, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 function LogLine({ log }) {
   const color =
@@ -135,48 +135,50 @@ export default function DynamicCatalogPanel() {
   return (
     <div className="bg-card rounded-xl border border-border p-5 space-y-4">
       <div>
-        <h3 className="font-space font-bold text-base text-foreground">Catálogo Dinâmico</h3>
+        <h3 className="font-space font-bold text-base text-foreground">Catálogo de Anime</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Importação automática do Jikan API · Total: {stats?.total || 0} obras · Último sync: {stats?.lastSync}
+          Total: {stats?.total || 0} obras · Última atualização: {stats?.lastSync} · Fonte: MAL/Jikan
         </p>
       </div>
 
-      {/* Importação */}
+      {/* Ações principais */}
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground">Importação Inicial</p>
+        <p className="text-xs font-semibold text-muted-foreground">Ações principais</p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={handleImportAnimes} disabled={running} className="gap-2 bg-primary">
             <Download className="w-4 h-4" />
-            Top 500 Animes (Jikan)
+            Importar animes populares
           </Button>
-          <Button size="sm" variant="outline" onClick={handleImportMangas} disabled={running || isCategoryFrozen("manga")} className="gap-2">
-            <Download className="w-4 h-4" />
-            Top 500 Mangás (Jikan)
-            {isCategoryFrozen("manga") && (
-              <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
-            )}
+          <Button size="sm" variant="secondary" onClick={handleSyncCurrently} disabled={running} className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            Sincronizar animes em exibição
           </Button>
-          <Button size="sm" variant="secondary" onClick={handleImportBothSources} disabled={running} className="gap-2">
-            <Zap className="w-4 h-4" />
-            Híbrida (Jikan + TMDB)
+          <Button size="sm" variant="outline" onClick={handleDiscoverSeason} disabled={running} className="gap-2">
+            <Clock className="w-4 h-4" />
+            Buscar próxima temporada
           </Button>
         </div>
       </div>
 
-      {/* Auto-sync */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground">Sincronização Automática</p>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" onClick={handleSyncCurrently} disabled={running} className="gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Sincronizar Agora
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleDiscoverSeason} disabled={running} className="gap-2">
-            <Clock className="w-4 h-4" />
-            Próxima Temporada
-          </Button>
+      {/* Ferramentas avançadas (ocultas durante ANIME_ONLY) */}
+      {!ANIME_ONLY_MODE && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">Ferramentas avançadas</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={handleImportMangas} disabled={running || isCategoryFrozen("manga")} className="gap-2">
+              <Download className="w-4 h-4" />
+              Importar mangás populares
+              {isCategoryFrozen("manga") && (
+                <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
+              )}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleImportBothSources} disabled={running} className="gap-2">
+              <Zap className="w-4 h-4" />
+              Importação híbrida (Jikan + TMDB)
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Progresso */}
       {progress > 0 && (

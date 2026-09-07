@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import AdminScopeStatus from "@/components/admin/AdminScopeStatus";
 import CategoryManager from "@/components/admin/CategoryManager";
 import CatalogSync from "@/components/admin/CatalogSync";
 import DynamicCatalogPanel from "@/components/admin/DynamicCatalogPanel";
@@ -71,69 +72,122 @@ export default function Admin() {
       <div className="space-y-6">
         <div>
           <h1 className="font-space font-bold text-3xl text-foreground">Área Admin</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gerencie o catálogo e a visibilidade das obras por categoria</p>
+          <p className="text-muted-foreground text-sm mt-1">Gerencie o catálogo, obras e conteúdo da plataforma</p>
         </div>
 
         <Tabs defaultValue="catalog">
           <TabsList className="bg-secondary flex-wrap h-auto gap-1">
-            <TabsTrigger value="dynamic">Catálogo Dinâmico</TabsTrigger>
-            <TabsTrigger value="categories">Catálogo</TabsTrigger>
-            <TabsTrigger value="sync">Sincronização</TabsTrigger>
-            <TabsTrigger value="suggestions" className="relative">
-              Sugestões
-              {pendingSuggestions.length > 0 && (
+            <TabsTrigger value="catalog">Catálogo</TabsTrigger>
+            <TabsTrigger value="works">Obras</TabsTrigger>
+            <TabsTrigger value="community" className="relative">
+              Comunidade
+              {(pendingSuggestions.length > 0 || pendingReports.length > 0) && (
                 <Badge className="ml-1.5 text-[10px] bg-chart-4/15 text-chart-4 border-none px-1.5 py-0">
-                  {pendingSuggestions.length}
+                  {pendingSuggestions.length + pendingReports.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="moderation" className="relative">
-              Moderação
-              {pendingReports.length > 0 && (
-                <Badge className="ml-1.5 text-[10px] bg-destructive/15 text-destructive border-none px-1.5 py-0">
-                  {pendingReports.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="maintenance">Manutenção</TabsTrigger>
-            <TabsTrigger value="franchise">Unificar Obras</TabsTrigger>
-            <TabsTrigger value="news">Notícias</TabsTrigger>
-            <TabsTrigger value="appearance">Aparência</TabsTrigger>
-            <TabsTrigger value="banners">Banners</TabsTrigger>
-            <TabsTrigger value="fanart">Arte de Fãs</TabsTrigger>
+            <TabsTrigger value="content">Conteúdo</TabsTrigger>
+            <TabsTrigger value="settings">Configurações</TabsTrigger>
           </TabsList>
-          <TabsContent value="dynamic" className="mt-6">
-            <DynamicCatalogPanel />
+
+          {/* ── CATÁLOGO ── */}
+          <TabsContent value="catalog" className="mt-6">
+            <AdminScopeStatus />
+            <Tabs defaultValue="actions">
+              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
+                <TabsTrigger value="actions">Ações</TabsTrigger>
+                <TabsTrigger value="sync">Histórico de sincronização</TabsTrigger>
+                <TabsTrigger value="visibility">Visibilidade</TabsTrigger>
+              </TabsList>
+              <TabsContent value="actions" className="mt-4">
+                <DynamicCatalogPanel />
+              </TabsContent>
+              <TabsContent value="sync" className="mt-4">
+                <CatalogSync />
+              </TabsContent>
+              <TabsContent value="visibility" className="mt-4">
+                <CategoryManager />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
-          <TabsContent value="categories" className="mt-6">
-            <CategoryManager />
+
+          {/* ── OBRAS ── */}
+          <TabsContent value="works" className="mt-6">
+            <Tabs defaultValue="franchise">
+              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
+                <TabsTrigger value="franchise">Unificar franquias</TabsTrigger>
+              </TabsList>
+              <TabsContent value="franchise" className="mt-4">
+                <FranchiseMerger />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
-          <TabsContent value="sync" className="mt-6">
-            <CatalogSync />
+
+          {/* ── COMUNIDADE ── */}
+          <TabsContent value="community" className="mt-6">
+            <Tabs defaultValue="suggestions">
+              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
+                <TabsTrigger value="suggestions" className="relative">
+                  Sugestões
+                  {pendingSuggestions.length > 0 && (
+                    <Badge className="ml-1.5 text-[10px] bg-chart-4/15 text-chart-4 border-none px-1.5 py-0">
+                      {pendingSuggestions.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="moderation" className="relative">
+                  Moderação
+                  {pendingReports.length > 0 && (
+                    <Badge className="ml-1.5 text-[10px] bg-destructive/15 text-destructive border-none px-1.5 py-0">
+                      {pendingReports.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="suggestions" className="mt-4">
+                <SuggestionsPanel />
+              </TabsContent>
+              <TabsContent value="moderation" className="mt-4">
+                <ModerationPanel />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
-          <TabsContent value="suggestions" className="mt-6">
-            <SuggestionsPanel />
+
+          {/* ── CONTEÚDO ── */}
+          <TabsContent value="content" className="mt-6">
+            <Tabs defaultValue="news">
+              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
+                <TabsTrigger value="news">Notícias</TabsTrigger>
+                <TabsTrigger value="banners">Banners</TabsTrigger>
+                <TabsTrigger value="fanart">Arte de fãs</TabsTrigger>
+              </TabsList>
+              <TabsContent value="news" className="mt-4">
+                <NewsManager />
+              </TabsContent>
+              <TabsContent value="banners" className="mt-4">
+                <BannersPanel />
+              </TabsContent>
+              <TabsContent value="fanart" className="mt-4">
+                <FanArtPanel />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
-          <TabsContent value="moderation" className="mt-6">
-            <ModerationPanel />
-          </TabsContent>
-          <TabsContent value="maintenance" className="mt-6">
-            <MigrateEntriesPanel />
-          </TabsContent>
-          <TabsContent value="news" className="mt-6">
-            <NewsManager />
-          </TabsContent>
-          <TabsContent value="appearance" className="mt-6">
-            <AppearanceManager />
-          </TabsContent>
-          <TabsContent value="franchise" className="mt-6">
-            <FranchiseMerger />
-          </TabsContent>
-          <TabsContent value="banners" className="mt-6">
-            <BannersPanel />
-          </TabsContent>
-          <TabsContent value="fanart" className="mt-6">
-            <FanArtPanel />
+
+          {/* ── CONFIGURAÇÕES ── */}
+          <TabsContent value="settings" className="mt-6">
+            <Tabs defaultValue="appearance">
+              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
+                <TabsTrigger value="appearance">Aparência</TabsTrigger>
+                <TabsTrigger value="advanced">Avançado</TabsTrigger>
+              </TabsList>
+              <TabsContent value="appearance" className="mt-4">
+                <AppearanceManager />
+              </TabsContent>
+              <TabsContent value="advanced" className="mt-4">
+                <MigrateEntriesPanel />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </div>
