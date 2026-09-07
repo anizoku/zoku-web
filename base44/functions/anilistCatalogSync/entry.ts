@@ -107,7 +107,11 @@ async function anilistQuery(query) {
     try {
       const res = await fetch(ANILIST_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'AniZoku/1.0',
+        },
         body: JSON.stringify({ query }),
       });
 
