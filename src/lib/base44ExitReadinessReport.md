@@ -93,6 +93,14 @@ O projeto está **PRONTO** para iniciar a migração para Supabase. A arquitetur
 
 ## 4. QUAIS SÃO OS MAIORES RISCOS?
 
+### Risco 0: IDs não-UUID (MÉDIO — corrigido no plano)
+
+**Problema:** Todos os IDs Base44 são MongoDB ObjectId (24-char hex), não UUID. Não podem ser armazenados como `uuid` no Postgres.
+
+**Impacto:** DDL deve usar `TEXT PRIMARY KEY` em todas as tabelas migradas, não `uuid`.
+
+**Mitigação:** Aplicada no manifest corrigido — TEXT PKs, TEXT FKs entre entidades migradas, UUID apenas em `auth.users.id` e novos campos `*_id`.
+
 ### Risco 1: Migração de Usuários (CRÍTICO)
 
 **Problema:** Usuários Base44 não podem ser exportados diretamente. Precisam ser recriados no Supabase Auth.
@@ -115,15 +123,15 @@ O projeto está **PRONTO** para iniciar a migração para Supabase. A arquitetur
 - Fazer backfill de WorkRelease pós-migração (não bloqueia importação).
 - Manter `seasons[]` como fallback até backfill completo.
 
-### Risco 3: Colisões de slug (MÉDIO)
+### Risco 3: Colisões de slug em DynamicWork (MÉDIO)
 
-**Problema:** ~100 colisões de slug em WorkRelease.
+**Problema:** 102 grupos de slug duplicado em DynamicWork (205 registros). WorkRelease tem 0 duplicatas (corrigido na validação pré-migração).
 
-**Impacto:** Impede `UNIQUE(slug)` constraint no Postgres.
+**Impacto:** DynamicWork não pode usar `UNIQUE(slug)`. WorkRelease pode.
 
 **Mitigação:**
-- Resolver colisões antes de criar constraint.
-- Ou usar `UNIQUE(group_id, slug)` como constraint composta.
+- WorkRelease: criar `UNIQUE(slug)` (validado, 0 duplicatas).
+- DynamicWork: NÃO criar `UNIQUE(slug)` na primeira migração. Resolver duplicatas em fase de normalização posterior.
 
 ### Risco 4: URLs de imagens (MÉDIO)
 
@@ -253,34 +261,95 @@ O projeto está **PRONTO** para iniciar a migração para Supabase. A arquitetur
 | **Bloqueador crítico?** | ❌ NÃO |
 | **GO / NO-GO** | **GO** |
 
-### Próximos 3 passos recomendados
+### Próximos 3 passos recomendados (atualizados pós-validação)
 
-1. **Criar projeto Supabase e executar DDL** — Seguir `supabaseMigrationManifest.md` para criar tabelas, enums, FKs, RLS, triggers.
+1. **Criar projeto Supabase e executar DDL corrigido** — Usar `TEXT PRIMARY KEY` (não UUID), `TEXT` nas FKs entre entidades migradas, `UUID` apenas em `*_id` que referenciam `auth.users`. Ver `supabaseMigrationManifest.md` (corrigido) e `preMigrationValidationReport.md`.
 2. **Criar adapter layer** — `src/lib/supabaseClient.js` + `src/lib/supabaseAdapter.js` com mesma interface de `base44.entities`, permitindo migrar arquivo por arquivo sem reescrever lógica.
-3. **Exportar e importar dados** — Seguir `dataExportChecklist.md`: exportar entidades em ordem de dependência, recriar usuários no Supabase Auth, criar `id_mapping`, importar com tradução de FKs.
+3. **Exportar e importar dados** — Seguir `dataExportChecklist.md` (contagens completas): exportar 33 entidades em ordem de dependência, recriar 15 usuários no Supabase Auth, criar `id_mapping`, importar com TEXT IDs preservados, migrar 57 URLs Base44 Storage.
 
 ---
 
-## APÊNDICE: NÚMEROS AUDITADOS (2026-09-07)
+## APÊNDICE: NÚMEROS AUDITADOS (2026-09-07 — validação completa)
+
+### Catálogo
 
 | Entidade | Total | Detalhe |
 |----------|-------|---------|
-| DynamicWork | 797 | 83 com WorkRelease, 714 sem |
-| WorkRelease | 214 | 83 group_ids únicos |
-| ExternalMapping | 225 | mal: 214, anilist: 11, tmdb: 0, thetvdb: 0 |
-| AnimeEntry | 127 | 17 com release_id, 110 sem |
-| SyncRun | 5 | Todos completed |
-| SyncLog | 27 | ERROR: 19, SYNC_SAFE: 4, NO_CHANGES: 4 |
-| SyncConflict | 0 | Vazio |
-| UserProfile | ~TBD | (não auditado nesta fase) |
-| User | ~TBD | (via dashboard) |
+| DynamicWork | 797 | 83 com WorkRelease, 714 sem. 102 grupos de slug duplicado (205 registros). |
+| WorkRelease | 214 | 83 group_ids únicos. **0 slugs duplicados** (pode usar UNIQUE). |
+| ExternalMapping | 225 | mal: 214, anilist: 11, tmdb: 0, thetvdb: 0. **0 duplicatas**. |
+| AnimeEntry | 127 | 17 com release_id, 110 sem. 102→127 = atividade normal de usuário. |
+| CatalogSync | 495 | Sync legado por slug. |
+| CardOverride | 89 | Overrides de card. |
+| WorkCategoryVisibility | 23 | Visibilidade por categoria. |
+| MediaWork | 0 | Vazio (legado). |
+
+### Usuário e Progresso
+
+| Entidade | Total |
+|----------|-------|
+| User | 15 (recriar no Supabase Auth) |
+| UserProfile | 12 |
+| Achievement | 74 |
+| UserAchievement | 456 |
+| XpEvent | 152 |
+
+### Social
+
+| Entidade | Total |
+|----------|-------|
+| Friendship | 12 |
+| Post | 5 |
+| Comment | 4 |
+| Community | 8 |
+| SocialEvent | 3 |
+| EventComment | 4 |
+| WatchTogether | 3 |
+| DirectMessage | 35 |
+| Notification | 893 |
+| ActivityFeed | 12 |
+| Debate | 4 |
+
+### CMS / Admin
+
+| Entidade | Total |
+|----------|-------|
+| News | 9 |
+| FanArt | 2 |
+| PlatformBanner | 0 |
+| LoginBackgroundImage | 0 |
+| SiteConfig | 1 |
+| WorkSuggestion | 0 |
+| ContentReport | 0 |
+
+### Sincronização
+
+| Entidade | Total |
+|----------|-------|
+| SyncRun | 5 (todos completed) |
+| SyncLog | 27 (ERROR: 19, SYNC_SAFE: 4, NO_CHANGES: 4) |
+| SyncConflict | 0 |
+
+### IDs (formato real)
+
+Todos os IDs são **MongoDB ObjectId** (24-char hex), **NÃO UUID**. Estratégia: `TEXT PRIMARY KEY` em todas as tabelas migradas. `UUID` apenas em `auth.users.id` e novos campos `*_id` de referência.
+
+### Storage
+
+**57 URLs Base44 Storage** precisam ser migradas:
+- UserProfile: 15 (avatars + banners)
+- News: 37 (imagens)
+- FanArt: 2
+- SiteConfig: 2 (logos)
+- Post: 1
 
 ### Arquivos criados nesta fase
 
 | Arquivo | Descrição |
 |---------|-----------|
 | `src/lib/entityMapAndDependencies.md` | Mapa de entidades + classificação de campos + dependências Base44 |
-| `src/lib/supabaseMigrationManifest.md` | Manifest de migração (tabelas, IDs, FKs, JSON, enums, timestamps, RLS) |
-| `src/lib/dataExportChecklist.md` | Checklist de exportação de dados |
+| `src/lib/supabaseMigrationManifest.md` | Manifest de migração (tabelas, IDs TEXT, FKs, JSON, enums, timestamps, RLS) |
+| `src/lib/dataExportChecklist.md` | Checklist de exportação de dados (contagens completas) |
 | `src/lib/legacyTechDebt.md` | Lista consolidada de tech debt |
 | `src/lib/base44ExitReadinessReport.md` | Este relatório |
+| `src/lib/preMigrationValidationReport.md` | Relatório de validação pré-migração (IDs, slugs, AnimeEntry, storage) |

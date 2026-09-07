@@ -14,21 +14,21 @@
 | 1 | DynamicWork | 797 | JSON (array de objetos) | 1ª (sem deps) |
 | 2 | WorkRelease | 214 | JSON | 2ª (dep: DynamicWork) |
 | 3 | ExternalMapping | 225 | JSON | 3ª (dep: DynamicWork, WorkRelease) |
-| 4 | CatalogSync | ~TBD | JSON | Paralelo (legacy) |
-| 5 | CardOverride | ~TBD | JSON | Paralelo |
-| 6 | WorkCategoryVisibility | ~TBD | JSON | Paralelo |
-| 7 | MediaWork | ~TBD | JSON | Paralelo (legacy) |
+| 4 | CatalogSync | 495 | JSON | Paralelo (legacy) |
+| 5 | CardOverride | 89 | JSON | Paralelo |
+| 6 | WorkCategoryVisibility | 23 | JSON | Paralelo |
+| 7 | MediaWork | 0 | JSON | Paralelo (legacy, vazio) |
 
 ### 1.2 Usuário e Progresso
 
 | # | Entidade | Quantidade Esperada | Formato | Ordem |
 |---|----------|---------------------|---------|-------|
-| 8 | User (emails) | ~TBD | CSV (email, role) | 1ª (auth) |
-| 9 | UserProfile | ~TBD | JSON | 2ª (dep: User) |
+| 8 | User (emails) | 15 | CSV (email, role) | 1ª (auth) |
+| 9 | UserProfile | 12 | JSON | 2ª (dep: User) |
 | 10 | AnimeEntry | 127 | JSON | 3ª (dep: User, WorkRelease) |
-| 11 | UserAchievement | ~TBD | JSON | 4ª (dep: User, Achievement) |
-| 12 | XpEvent | ~TBD | JSON | 4ª (dep: User) |
-| 13 | Achievement | ~TBD | JSON | 1ª (sem deps) |
+| 11 | UserAchievement | 456 | JSON | 4ª (dep: User, Achievement) |
+| 12 | XpEvent | 152 | JSON | 4ª (dep: User) |
+| 13 | Achievement | 74 | JSON | 1ª (sem deps) |
 
 ### 1.3 Sincronização
 
@@ -42,29 +42,29 @@
 
 | # | Entidade | Quantidade Esperada | Formato | Ordem |
 |---|----------|---------------------|---------|-------|
-| 17 | Friendship | ~TBD | JSON | 2ª (dep: User) |
-| 18 | Post | ~TBD | JSON | 3ª (dep: User, Community) |
-| 19 | Comment | ~TBD | JSON | 4ª (dep: Post) |
-| 20 | Community | ~TBD | JSON | 2ª (dep: User) |
-| 21 | SocialEvent | ~TBD | JSON | 2ª (dep: User) |
-| 22 | EventComment | ~TBD | JSON | 4ª (dep: SocialEvent) |
-| 23 | WatchTogether | ~TBD | JSON | 3ª (dep: User) |
-| 24 | DirectMessage | ~TBD | JSON | 3ª (dep: User) |
-| 25 | Notification | ~TBD | JSON | 3ª (dep: User) |
-| 26 | ActivityFeed | ~TBD | JSON | 3ª (dep: User) |
-| 27 | Debate | ~TBD | JSON | 1ª (sem deps) |
+| 17 | Friendship | 12 | JSON | 2ª (dep: User) |
+| 18 | Post | 5 | JSON | 3ª (dep: User, Community) |
+| 19 | Comment | 4 | JSON | 4ª (dep: Post) |
+| 20 | Community | 8 | JSON | 2ª (dep: User) |
+| 21 | SocialEvent | 3 | JSON | 2ª (dep: User) |
+| 22 | EventComment | 4 | JSON | 4ª (dep: SocialEvent) |
+| 23 | WatchTogether | 3 | JSON | 3ª (dep: User) |
+| 24 | DirectMessage | 35 | JSON | 3ª (dep: User) |
+| 25 | Notification | 893 | JSON | 3ª (dep: User) |
+| 26 | ActivityFeed | 12 | JSON | 3ª (dep: User) |
+| 27 | Debate | 4 | JSON | 1ª (sem deps) |
 
 ### 1.5 CMS / Admin
 
 | # | Entidade | Quantidade Esperada | Formato | Ordem |
 |---|----------|---------------------|---------|-------|
-| 28 | News | ~TBD | JSON | Paralelo |
-| 29 | FanArt | ~TBD | JSON | Paralelo |
-| 30 | PlatformBanner | ~TBD | JSON | Paralelo |
-| 31 | LoginBackgroundImage | ~TBD | JSON | Paralelo |
-| 32 | SiteConfig | ~TBD | JSON | Paralelo |
-| 33 | WorkSuggestion | ~TBD | JSON | Paralelo |
-| 34 | ContentReport | ~TBD | JSON | Paralelo |
+| 28 | News | 9 | JSON | Paralelo |
+| 29 | FanArt | 2 | JSON | Paralelo |
+| 30 | PlatformBanner | 0 | JSON | Paralelo (vazio) |
+| 31 | LoginBackgroundImage | 0 | JSON | Paralelo (vazio) |
+| 32 | SiteConfig | 1 | JSON | Paralelo |
+| 33 | WorkSuggestion | 0 | JSON | Paralelo (vazio) |
+| 34 | ContentReport | 0 | JSON | Paralelo (vazio) |
 
 ---
 
@@ -259,6 +259,33 @@ Para campos `*_id` que referenciam outras entidades: preservar UUID (não precis
 | SyncRun | 5 | 5 |
 | SyncLog | 27 | 27 |
 | SyncConflict | 0 | 0 |
+| UserProfile | 12 | 12 |
+| Achievement | 74 | 74 |
+| UserAchievement | 456 | 456 |
+| XpEvent | 152 | 152 |
+| User | 15 | 15 (recriados no Supabase Auth) |
+| Friendship | 12 | 12 |
+| Post | 5 | 5 |
+| Comment | 4 | 4 |
+| Community | 8 | 8 |
+| SocialEvent | 3 | 3 |
+| EventComment | 4 | 4 |
+| WatchTogether | 3 | 3 |
+| DirectMessage | 35 | 35 |
+| Notification | 893 | 893 |
+| ActivityFeed | 12 | 12 |
+| Debate | 4 | 4 |
+| News | 9 | 9 |
+| FanArt | 2 | 2 |
+| PlatformBanner | 0 | 0 |
+| LoginBackgroundImage | 0 | 0 |
+| SiteConfig | 1 | 1 |
+| WorkSuggestion | 0 | 0 |
+| ContentReport | 0 | 0 |
+| CatalogSync | 495 | 495 |
+| CardOverride | 89 | 89 |
+| WorkCategoryVisibility | 23 | 23 |
+| MediaWork | 0 | 0 |
 
 ---
 

@@ -73,21 +73,44 @@
 
 ### Princípio
 
-**Preservar os IDs atuais sempre que tecnicamente possível.**
+**PRESERVAÇÃO > NORMALIZAÇÃO.** A primeira migração deve reproduzir o estado atual com mínima transformação. Normalizações maiores ficam para fase posterior.
+
+### Formato real dos IDs (auditado 2026-09-07)
+
+Todos os IDs no Base44 são **MongoDB ObjectId** (24 caracteres hex), **NÃO UUID**.
+
+| Entidade | Sample ID | Comprimento | Formato |
+|----------|-----------|-------------|---------|
+| DynamicWork | `6a5074d40366340112f3fbb2` | 24 | ObjectId hex |
+| WorkRelease | `6a9bbdcb6e1c8e3f18eb7211` | 24 | ObjectId hex |
+| ExternalMapping | `6a8ba19fd17fe34f5a329bee` | 24 | ObjectId hex |
+| AnimeEntry | `6a9d0ba354824187fe114656` | 24 | ObjectId hex |
+| UserProfile | `6a9d081c2ec23aaf1eecfd2a` | 24 | ObjectId hex |
+| Post | `6a4e85c769b8bd97bcb1067d` | 24 | ObjectId hex |
+| SyncRun | `6a9e4a8136c1d255323f3347` | 24 | ObjectId hex |
 
 ### Estratégia
 
 | Entidade | ID Atual (Base44) | ID Supabase | Estratégia |
 |----------|-------------------|-------------|------------|
-| DynamicWork | String (UUID-like) | `uuid` | Preservar como `id` (uuid). Inserir com ID explícito. |
-| WorkRelease | String (UUID-like) | `uuid` | Preservar como `id`. |
-| ExternalMapping | String (UUID-like) | `uuid` | Preservar como `id`. |
-| AnimeEntry | String (UUID-like) | `uuid` | Preservar como `id`. |
-| SyncRun | String (UUID-like) | `uuid` | Preservar. |
-| SyncLog | String (UUID-like) | `uuid` | Preservar. |
-| UserProfile | String (UUID-like) | `uuid` | Preservar. Adicionar `user_id uuid` FK para `auth.users(id)`. |
-| User | String (Base44 internal) | `uuid` (Supabase auth) | **NÃO preservável** — recriar via `createUser()`, mapear email → novo ID. |
-| Social entities | String (UUID-like) | `uuid` | Preservar como `id`. |
+| DynamicWork | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar valor original. Inserir com ID explícito. |
+| WorkRelease | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar. |
+| ExternalMapping | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar. |
+| AnimeEntry | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar. Adicionar `user_id UUID FK → auth.users(id)`. |
+| SyncRun | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar. |
+| SyncLog | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar. |
+| UserProfile | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar. Adicionar `user_id UUID FK → auth.users(id)`. |
+| User | ObjectId (24-char hex) | `UUID` (Supabase auth) | **NÃO preservável** — recriar via `createUser()`, mapear email → novo UUID. |
+| Social entities | ObjectId (24-char hex) | `TEXT PRIMARY KEY` | Preservar. Adicionar `*_id UUID FK → auth.users(id)` onde aplicável. |
+
+### Regras
+
+1. **Preservar IDs Base44 como TEXT** — não converter para UUID (não são UUID válidos).
+2. **Usar TEXT PRIMARY KEY** em todas as tabelas migradas.
+3. **Usar TEXT nas foreign keys** entre entidades migradas.
+4. **NÃO gerar novos IDs** para entidades existentes durante a primeira migração.
+5. **Supabase `auth.users`** continua usando UUID próprio (built-in).
+6. **Adicionar `user_id UUID`** apenas onde houver relação com `auth.users` (novo campo, não substitui o email legado).
 
 ### Mapeamento User → auth.users
 
@@ -124,120 +147,143 @@ Como User é built-in no Base44 e não pode ser exportado diretamente:
 
 ## C. RELACIONAMENTOS (FOREIGN KEYS)
 
-### C.1 Catálogo
+### C.1 Catálogo (TEXT FKs — preservar ObjectIds)
 
 ```sql
--- work_releases → dynamic_works
+-- work_releases → dynamic_works (TEXT FK)
 ALTER TABLE work_releases ADD CONSTRAINT fk_wr_group
-  FOREIGN KEY (group_id) REFERENCES dynamic_works(id) ON DELETE CASCADE;
+  FOREIGN KEY (group_id TEXT) REFERENCES dynamic_works(id) ON DELETE CASCADE;
 
--- external_mappings → dynamic_works (nullable)
+-- external_mappings → dynamic_works (nullable, TEXT FK)
 ALTER TABLE external_mappings ADD CONSTRAINT fk_em_group
-  FOREIGN KEY (work_group_id) REFERENCES dynamic_works(id) ON DELETE SET NULL;
+  FOREIGN KEY (work_group_id TEXT) REFERENCES dynamic_works(id) ON DELETE SET NULL;
 
--- external_mappings → work_releases (nullable)
+-- external_mappings → work_releases (nullable, TEXT FK)
 ALTER TABLE external_mappings ADD CONSTRAINT fk_em_release
-  FOREIGN KEY (work_release_id) REFERENCES work_releases(id) ON DELETE SET NULL;
+  FOREIGN KEY (work_release_id TEXT) REFERENCES work_releases(id) ON DELETE SET NULL;
 ```
 
-### C.2 Usuário e Progresso
+### C.2 Usuário e Progresso (TEXT para entidades, UUID para auth.users)
 
 ```sql
--- user_profiles → auth.users
+-- user_profiles → auth.users (UUID FK — novo campo)
 ALTER TABLE user_profiles ADD CONSTRAINT fk_up_user
-  FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (user_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- anime_entries → auth.users
+-- anime_entries → auth.users (UUID FK — novo campo)
 ALTER TABLE anime_entries ADD CONSTRAINT fk_ae_user
-  FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (user_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- anime_entries → work_releases (nullable)
+-- anime_entries → work_releases (TEXT FK — preservar ObjectId)
 ALTER TABLE anime_entries ADD CONSTRAINT fk_ae_release
-  FOREIGN KEY (release_id) REFERENCES work_releases(id) ON DELETE SET NULL;
+  FOREIGN KEY (release_id TEXT) REFERENCES work_releases(id) ON DELETE SET NULL;
 
--- user_achievements → auth.users
+-- user_achievements → auth.users (UUID FK)
 ALTER TABLE user_achievements ADD CONSTRAINT fk_ua_user
-  FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (user_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- user_achievements → achievements
+-- user_achievements → achievements (TEXT FK por key)
 ALTER TABLE user_achievements ADD CONSTRAINT fk_ua_achievement
-  FOREIGN KEY (achievement_key) REFERENCES achievements(key) ON DELETE CASCADE;
+  FOREIGN KEY (achievement_key TEXT) REFERENCES achievements(key) ON DELETE CASCADE;
 
--- xp_events → auth.users
+-- xp_events → auth.users (UUID FK)
 ALTER TABLE xp_events ADD CONSTRAINT fk_xe_user
-  FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (user_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 ```
 
-### C.3 Sincronização
+### C.3 Sincronização (TEXT FKs)
 
 ```sql
--- sync_logs → sync_runs
+-- sync_logs → sync_runs (TEXT FK por run_id, não PK)
 ALTER TABLE sync_logs ADD CONSTRAINT fk_sl_run
-  FOREIGN KEY (run_id) REFERENCES sync_runs(run_id) ON DELETE CASCADE;
+  FOREIGN KEY (run_id TEXT) REFERENCES sync_runs(run_id) ON DELETE CASCADE;
 ```
 
-### C.4 Social
+### C.4 Social (TEXT para entidades, UUID para auth.users)
 
 ```sql
--- friendships → auth.users (requester, receiver)
+-- friendships → auth.users (UUID FKs — novos campos)
 ALTER TABLE friendships ADD CONSTRAINT fk_f_requester
-  FOREIGN KEY (requester_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (requester_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE friendships ADD CONSTRAINT fk_f_receiver
-  FOREIGN KEY (receiver_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (receiver_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- posts → auth.users (author)
+-- posts → auth.users (UUID FK)
 ALTER TABLE posts ADD CONSTRAINT fk_p_author
-  FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (author_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- posts → communities (nullable)
+-- posts → communities (TEXT FK — nullable)
 ALTER TABLE posts ADD CONSTRAINT fk_p_community
-  FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE SET NULL;
+  FOREIGN KEY (community_id TEXT) REFERENCES communities(id) ON DELETE SET NULL;
 
--- comments → posts
+-- comments → posts (TEXT FK)
 ALTER TABLE comments ADD CONSTRAINT fk_c_post
-  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+  FOREIGN KEY (post_id TEXT) REFERENCES posts(id) ON DELETE CASCADE;
 
--- comments → comments (self-ref, nullable)
+-- comments → comments (self-ref, TEXT FK, nullable)
 ALTER TABLE comments ADD CONSTRAINT fk_c_parent
-  FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE;
+  FOREIGN KEY (parent_id TEXT) REFERENCES comments(id) ON DELETE CASCADE;
 
--- communities → auth.users (creator)
+-- communities → auth.users (UUID FK — nullable)
 ALTER TABLE communities ADD CONSTRAINT fk_com_creator
-  FOREIGN KEY (creator_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+  FOREIGN KEY (creator_id UUID) REFERENCES auth.users(id) ON DELETE SET NULL;
 
--- social_events → auth.users (organizer)
+-- social_events → auth.users (UUID FK)
 ALTER TABLE social_events ADD CONSTRAINT fk_se_organizer
-  FOREIGN KEY (organizer_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (organizer_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- event_comments → social_events
+-- event_comments → social_events (TEXT FK)
 ALTER TABLE event_comments ADD CONSTRAINT fk_ec_event
-  FOREIGN KEY (event_id) REFERENCES social_events(id) ON DELETE CASCADE;
+  FOREIGN KEY (event_id TEXT) REFERENCES social_events(id) ON DELETE CASCADE;
 
--- event_comments → auth.users
+-- event_comments → auth.users (UUID FK)
 ALTER TABLE event_comments ADD CONSTRAINT fk_ec_author
-  FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (author_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- watch_togethers → auth.users (initiator, friend)
+-- watch_togethers → auth.users (UUID FKs)
 ALTER TABLE watch_togethers ADD CONSTRAINT fk_wt_initiator
-  FOREIGN KEY (initiator_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (initiator_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE watch_togethers ADD CONSTRAINT fk_wt_friend
-  FOREIGN KEY (friend_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (friend_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- direct_messages → auth.users (sender, receiver)
+-- direct_messages → auth.users (UUID FKs)
 ALTER TABLE direct_messages ADD CONSTRAINT fk_dm_sender
-  FOREIGN KEY (sender_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (sender_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE direct_messages ADD CONSTRAINT fk_dm_receiver
-  FOREIGN KEY (receiver_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (receiver_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- notifications → auth.users (recipient)
+-- notifications → auth.users (UUID FK)
 ALTER TABLE notifications ADD CONSTRAINT fk_n_recipient
-  FOREIGN KEY (recipient_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (recipient_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- activity_feed → auth.users (actor, target)
+-- activity_feed → auth.users (UUID FKs)
 ALTER TABLE activity_feed ADD CONSTRAINT fk_af_actor
-  FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  FOREIGN KEY (actor_id UUID) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE activity_feed ADD CONSTRAINT fk_af_target
-  FOREIGN KEY (target_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+  FOREIGN KEY (target_id UUID) REFERENCES auth.users(id) ON DELETE SET NULL;
+```
+
+### C.5 Constraints de unicidade (apenas onde validado)
+
+```sql
+-- WorkRelease: 0 slugs duplicados → UNIQUE seguro
+ALTER TABLE work_releases ADD CONSTRAINT uq_wr_slug UNIQUE (slug);
+
+-- ExternalMapping: 0 duplicatas → UNIQUE seguro
+ALTER TABLE external_mappings ADD CONSTRAINT uq_em_provider
+  UNIQUE (provider, provider_id);
+
+-- DynamicWork: 102 grupos duplicados → NÃO criar UNIQUE(slug) na primeira migração
+-- (resolver duplicatas em fase de normalização posterior)
+
+-- UserProfile: user_email único
+ALTER TABLE user_profiles ADD CONSTRAINT uq_up_email UNIQUE (user_email);
+
+-- Achievement: key único
+ALTER TABLE achievements ADD CONSTRAINT uq_ach_key UNIQUE (key);
+
+-- News: slug único
+ALTER TABLE news ADD CONSTRAINT uq_news_slug UNIQUE (slug);
 ```
 
 ---
@@ -379,10 +425,10 @@ CREATE TYPE preferred_language AS ENUM ('pt', 'en', 'es', 'ja', 'other');
 
 | Campo | Tipo Supabase | Notas |
 |------|---------------|-------|
-| `id` | `uuid PRIMARY KEY DEFAULT gen_random_uuid()` | Preservar valor na importação |
+| `id` | `TEXT PRIMARY KEY` | Preservar ObjectId (24-char hex). NÃO usar uuid. |
 | `created_date` | `timestamptz DEFAULT now()` | Preservar valor na importação |
 | `updated_date` | `timestamptz DEFAULT now()` | Trigger para auto-update |
-| `created_by_id` | `uuid REFERENCES auth.users(id)` | Mapear para novo user ID |
+| `created_by_id` | `TEXT` | Preservar ObjectId legado. Adicionar `created_by UUID` nullable para FK → auth.users(id). |
 
 ### F.2 Timestamps de domínio
 
@@ -430,17 +476,19 @@ CREATE TRIGGER trg_update_timestamp
 
 | Padrão Base44 | Equivalente Supabase |
 |---------------|---------------------|
-| `"created_by": "{{user.email}}"` | `auth.uid() = created_by_id` (após mapear para uuid) |
-| `"data.user_email": "{{user.email}}"` | `auth.jwt() ->> 'email' = user_email` |
+| `"created_by": "{{user.email}}"` | `auth.uid() = created_by` (novo campo UUID; legado `created_by_id` TEXT preservado) |
+| `"data.user_email": "{{user.email}}"` | `auth.jwt() ->> 'email' = user_email` (preservar email legado) |
 | `"data.organizer_email": "{{user.email}}"` | `auth.jwt() ->> 'email' = organizer_email` |
 | `"data.recipient_email": "{{user.email}}"` | `auth.jwt() ->> 'email' = recipient_email` |
 | `"data.participants": {"$in": ["{{user.email}}"]}` | `auth.jwt() ->> 'email' = ANY(participants)` |
-| `"user_condition": {"role": "admin"}` | `auth.jwt() ->> 'role' = 'admin'` |
+| `"user_condition": {"role": "admin"}` | `is_admin()` (helper function) |
 | `"data.visibility": "public"` | `visibility = 'public'` |
 | `"data.status": "publicado"` (News) | `status = 'publicado'` |
 | `"$or": [...]` | `(...) OR (...)` |
 | `read: {}` (público) | Sem policy de SELECT (ou `USING (true)`) |
-| `read: {"user_condition": {"role": "admin"}}` | `USING (auth.jwt() ->> 'role' = 'admin')` |
+| `read: {"user_condition": {"role": "admin"}}` | `USING (is_admin())` |
+
+**Nota:** Na primeira migração, RLS pode usar `*_email` (legado) em vez de `*_id` (UUID) para evitar dependência de mapeamento completo. Migrar para `*_id` em fase de normalização posterior.
 
 ### G.2 Tabelas com RLS admin-only (create/update/delete)
 
@@ -571,4 +619,4 @@ CREATE POLICY "avatar_upload" ON storage.objects
     bucket_id = 'public-assets'
     AND auth.uid() = owner
   );
-``
+`
