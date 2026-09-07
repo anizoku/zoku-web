@@ -1,18 +1,29 @@
 # Relatório Técnico — Fase 3D-1: Backend MAL/Jikan Catalog Sync
 
-**Data:** 2026-09-07
+**Data:** 2026-09-07 (atualizado)
 **Função:** `base44/functions/malCatalogSync/entry.ts`
 **Escopo:** 11 releases da regression suite, dry_run=true
-**Runs:** `run_mal_1788757729412_h7bahm` (11 releases) + `run_mal_1788757815036_hq5qjy` (3 retries)
+**Runs:** `run_mal_1788757729412_h7bahm` (11 releases) + `run_mal_1788757815036_hq5qjy` (3 retries) + `run_mal_1788758657618_d6hllc` (Re:Zero isolado, pós-hardening)
 
 ---
 
-## VEREDICTO
+## VEREDICTO OPERACIONAL DEFINITIVO
 
 | Componente | Status |
 |------------|--------|
 | **BACKEND_INFRASTRUCTURE** | **PASS** ✅ |
-| **MAL/JIKAN_PROVIDER_ACCESS** | **PARTIAL** ⚠️ (8/11 sucesso, 3/11 rate-limited) |
+| **MAL_JIKAN_PROVIDER_ACCESS_ON_BASE44** | **UNSTABLE** 🔴 |
+| **CATALOG_WRITES** | **NOT APPROVED** 🚫 |
+
+### Classificação operacional do provider
+
+**MAL/Jikan no ambiente Base44: UPSTREAM_UNSTABLE**
+
+Motivos:
+1. **429 sustentado em batch** — 3/11 releases falharam com HTTP 429 (Too Many Requests) mesmo após 3 retries com backoff exponencial, consumindo o budget do Jikan após 8 sucessos sequenciais.
+2. **5xx sustentado em request isolada** — Re:Zero (MAL 31240) falhou com HTTP 5xx (server error) em todos os 5 retries com backoff conservador (2s, 4s, 8s, 16s, 32s = ~30s backoff + request times = 65.8s total), mesmo após o hardening de rate limit (1200ms delay).
+
+**Decisão:** Não executar mais testes MAL/Jikan no Base44. Não executar dry_run=false. Não tentar proxy/bypass. A arquitetura está preservada e intacta para reativação futura quando o upstream estabilizar.
 
 ---
 
@@ -241,7 +252,7 @@ Jikan API retornou **HTTP 429 (Too Many Requests)** de forma sustentada para 3 r
 
 ---
 
-## 10. RECOMENDAÇÃO
+## 10. RECOMENDAÇÃO OPERACIONAL
 
 ### GO para arquitetura backend
 
@@ -251,20 +262,33 @@ A função `malCatalogSync` está validada:
 - Zero campos proibidos
 - dry_run=true: zero catalog writes
 - Identity via ExternalMapping provider="mal" (exact, nunca fuzzy)
+- Hardening conservador implementado (1200ms delay, 5 retries, backoff exponencial, Retry-After + buffer, global cooldown 10s mínimo, UPSTREAM_RATE_LIMITED classification)
 
-### PARTIAL para acesso Jikan
+### NO-GO para acesso Jikan no Base44
 
-3/11 releases falharam por Jikan 429 rate limit. Opções para resolver:
+**Provider MAL/Jikan marcado como UPSTREAM_UNSTABLE.**
 
-1. **Aumentar delay entre requests** (400ms → 800ms) para reduzir 429
-2. **Aumentar retries/backoff** (3 → 5, backoff maior)
-3. **Respeitar Retry-After header** com backoff maior (atualmente 2s/4s)
-4. **Re-executar as 3 falhas** após cooldown do Jikan (rate limit window reset)
+Evidências:
+- 429 sustentado em batch (3/11 releases)
+- 5xx sustentado em request isolada (Re:Zero, pós-hardening)
+- Falha persiste mesmo com rate limit conservador e 5 retries
+
+**Ação:** Não executar mais testes MAL/Jikan no Base44. Não executar dry_run=false. Não tentar proxy/bypass.
 
 ### NÃO EXECUTADO
 
-- dry_run=false (conforme instrução)
+- dry_run=false (não aprovado)
 - Modificação do backend AniList (preservado)
+- Novos retries MAL/Jikan no Base44 (encerrado)
+
+### Preservado
+
+- `base44/functions/malCatalogSync/entry.ts` (intacto)
+- `base44/shared/syncFieldPolicy.ts` — seção MAL (intacta)
+- `base44/shared/syncUtils.ts` (intacto)
+- `base44/entities/SyncLog.jsonc` (intacto)
+- `base44/entities/SyncRun.jsonc` (intacto)
+- `src/lib/malBackendTestSuiteReport.md` (este relatório)
 
 ---
 
@@ -280,5 +304,8 @@ A função `malCatalogSync` está validada:
 | Catalog writes (dry_run) | ✅ 0 |
 | SyncRun/SyncLog | ✅ Funcionando |
 | AniList backend | ✅ Preservado (BLOCKED_UPSTREAM) |
-| Jikan acesso | ⚠️ 8/11 (3 rate-limited) |
-| Critério "0 errors" | ❌ 3 errors (upstream 429) |
+| **MAL/Jikan no Base44** | 🔴 **UPSTREAM_UNSTABLE** |
+| **Catalog writes** | 🚫 **NOT APPROVED** |
+| Jikan acesso (batch) | ❌ 8/11 (3 rate-limited 429) |
+| Jikan acesso (isolado pós-hardening) | ❌ 0/1 (Re:Zero 5xx sustentado) |
+| Critério "0 errors" | ❌ Não atendido (429 + 5xx upstream) |
