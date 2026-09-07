@@ -132,10 +132,13 @@ export const AuthProvider = ({ children }) => {
     base44.auth.redirectToLogin(window.location.href);
   };
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <AuthContext.Provider value={{ 
       user, 
       isAuthenticated, 
+      isAdmin,
       isLoadingAuth,
       isLoadingPublicSettings,
       authError,

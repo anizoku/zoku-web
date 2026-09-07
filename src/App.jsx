@@ -29,7 +29,8 @@ import ObraProfile from '@/pages/ObraProfile';
 import PublicProfile from '@/pages/PublicProfile';
 import CommunityPage from '@/pages/CommunityPage';
 import Series from '@/pages/Series';
-import Admin from '@/pages/Admin';
+import RequireAdmin from '@/components/RequireAdmin';
+const Admin = lazy(() => import('@/pages/Admin'));
 import Ranking from '@/pages/Ranking';
 import Recommendations from '@/pages/Recommendations';
 import News from '@/pages/News';
@@ -37,7 +38,7 @@ import NewsDetail from '@/pages/NewsDetail';
 import Works from '@/pages/Works';
 import FrozenCategory from '@/pages/FrozenCategory';
 import { Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -118,7 +119,17 @@ const AuthenticatedApp = () => {
         <Route path="/u/:userEmail" element={<PublicProfile />} />
         <Route path="/communities/:communityId" element={<CommunityPage />} />
         <Route path="/obras" element={<Works />} />
-        <Route path="/admin" element={<Admin />} />
+        <Route element={<RequireAdmin />}>
+          <Route path="/admin" element={
+            <Suspense fallback={
+              <div className="fixed inset-0 flex items-center justify-center bg-background">
+                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+            }>
+              <Admin />
+            </Suspense>
+          } />
+        </Route>
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/recomendacoes" element={<Recommendations />} />
         <Route path="/noticias" element={<News />} />

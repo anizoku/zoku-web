@@ -1,196 +1,93 @@
-import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import AdminScopeStatus from "@/components/admin/AdminScopeStatus";
-import CategoryManager from "@/components/admin/CategoryManager";
-import CatalogSync from "@/components/admin/CatalogSync";
-import DynamicCatalogPanel from "@/components/admin/DynamicCatalogPanel";
+import { base44 } from "@/api/base44Client";
+import AdminShell from "@/components/admin/AdminShell";
+import AdminOverview from "@/components/admin/AdminOverview";
+import CatalogSection from "@/components/admin/CatalogSection";
 import SuggestionsPanel from "@/components/admin/SuggestionsPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
-import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
-import AppearanceManager from "@/components/admin/AppearanceManager";
-import FranchiseMerger from "@/components/admin/FranchiseMerger";
 import NewsManager from "@/components/news/NewsManager";
 import BannersPanel from "@/components/admin/BannersPanel";
 import FanArtPanel from "@/components/admin/fanart/FanArtPanel";
+import AppearanceManager from "@/components/admin/AppearanceManager";
+import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
 
+/**
+ * Admin — Modern admin area with vertical menu shell.
+ * Auth is handled by RequireAdmin route guard (defense-in-depth).
+ * This component only renders for authenticated admins.
+ */
 export default function Admin() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [section, setSection] = useState('overview');
 
-  useEffect(() => {
-    base44.auth.me()
-      .then((u) => {
-        setUser(u);
-        if (u.role !== "admin") navigate("/");
-      })
-      .catch(() => navigate("/"))
-      .finally(() => setLoading(false));
-  }, [navigate]);
-
-  // Hook must be called unconditionally — enabled flag controls execution
   const { data: pendingSuggestions = [] } = useQuery({
     queryKey: ["pending-suggestions-count"],
     queryFn: () => base44.entities.WorkSuggestion.list("-created_at", 200),
-    enabled: !!user && user.role === "admin",
     select: (data) => data.filter((s) => s.suggestion_status === "pending"),
   });
 
   const { data: pendingReports = [] } = useQuery({
     queryKey: ["pending-reports-count"],
     queryFn: () => base44.entities.ContentReport.list("-created_at", 200),
-    enabled: !!user && user.role === "admin",
     select: (data) => data.filter((r) => r.report_status === "pending"),
   });
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-          <span className="text-sm text-muted-foreground font-medium">Carregando...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user || user.role !== "admin") return null;
+  const communityBadge = pendingSuggestions.length + pendingReports.length;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 lg:px-6 py-6">
-      <Button variant="ghost" size="sm" className="mb-4 gap-2 text-muted-foreground hover:text-foreground -ml-2"
-        onClick={() => navigate(-1)}>
-        <ArrowLeft className="w-4 h-4" /> Voltar
-      </Button>
+    <AdminShell activeSection={section} onSectionChange={setSection} communityBadge={communityBadge}>
+      {section === 'overview' && <AdminOverview onNavigate={setSection} />}
 
-      <div className="space-y-6">
-        <div>
-          <h1 className="font-space font-bold text-3xl text-foreground">Área Admin</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gerencie o catálogo, obras e conteúdo da plataforma</p>
+      {section === 'catalog' && <CatalogSection />}
+
+      {section === 'community' && (
+        <div className="space-y-8">
+          <div>
+            <h2 className="font-space font-bold text-xl text-foreground mb-1">Sugestões</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {pendingSuggestions.length} sugestão(ões) pendente(s)
+            </p>
+            <SuggestionsPanel />
+          </div>
+          <div>
+            <h2 className="font-space font-bold text-xl text-foreground mb-1">Moderação</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {pendingReports.length} denúncia(s) pendente(s)
+            </p>
+            <ModerationPanel />
+          </div>
         </div>
+      )}
 
-        <Tabs defaultValue="catalog">
-          <TabsList className="bg-secondary flex-wrap h-auto gap-1">
-            <TabsTrigger value="catalog">Catálogo</TabsTrigger>
-            <TabsTrigger value="works">Obras</TabsTrigger>
-            <TabsTrigger value="community" className="relative">
-              Comunidade
-              {(pendingSuggestions.length > 0 || pendingReports.length > 0) && (
-                <Badge className="ml-1.5 text-[10px] bg-chart-4/15 text-chart-4 border-none px-1.5 py-0">
-                  {pendingSuggestions.length + pendingReports.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="content">Conteúdo</TabsTrigger>
-            <TabsTrigger value="settings">Configurações</TabsTrigger>
-          </TabsList>
+      {section === 'content' && (
+        <div className="space-y-8">
+          <div>
+            <h2 className="font-space font-bold text-xl text-foreground mb-4">Notícias</h2>
+            <NewsManager />
+          </div>
+          <div>
+            <h2 className="font-space font-bold text-xl text-foreground mb-4">Banners</h2>
+            <BannersPanel />
+          </div>
+          <div>
+            <h2 className="font-space font-bold text-xl text-foreground mb-4">Arte de fãs</h2>
+            <FanArtPanel />
+          </div>
+        </div>
+      )}
 
-          {/* ── CATÁLOGO ── */}
-          <TabsContent value="catalog" className="mt-6">
-            <AdminScopeStatus />
-            <Tabs defaultValue="actions">
-              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
-                <TabsTrigger value="actions">Ações</TabsTrigger>
-                <TabsTrigger value="sync">Histórico de sincronização</TabsTrigger>
-                <TabsTrigger value="visibility">Visibilidade</TabsTrigger>
-              </TabsList>
-              <TabsContent value="actions" className="mt-4">
-                <DynamicCatalogPanel />
-              </TabsContent>
-              <TabsContent value="sync" className="mt-4">
-                <CatalogSync />
-              </TabsContent>
-              <TabsContent value="visibility" className="mt-4">
-                <CategoryManager />
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-
-          {/* ── OBRAS ── */}
-          <TabsContent value="works" className="mt-6">
-            <Tabs defaultValue="franchise">
-              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
-                <TabsTrigger value="franchise">Unificar franquias</TabsTrigger>
-              </TabsList>
-              <TabsContent value="franchise" className="mt-4">
-                <FranchiseMerger />
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-
-          {/* ── COMUNIDADE ── */}
-          <TabsContent value="community" className="mt-6">
-            <Tabs defaultValue="suggestions">
-              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
-                <TabsTrigger value="suggestions" className="relative">
-                  Sugestões
-                  {pendingSuggestions.length > 0 && (
-                    <Badge className="ml-1.5 text-[10px] bg-chart-4/15 text-chart-4 border-none px-1.5 py-0">
-                      {pendingSuggestions.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="moderation" className="relative">
-                  Moderação
-                  {pendingReports.length > 0 && (
-                    <Badge className="ml-1.5 text-[10px] bg-destructive/15 text-destructive border-none px-1.5 py-0">
-                      {pendingReports.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="suggestions" className="mt-4">
-                <SuggestionsPanel />
-              </TabsContent>
-              <TabsContent value="moderation" className="mt-4">
-                <ModerationPanel />
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-
-          {/* ── CONTEÚDO ── */}
-          <TabsContent value="content" className="mt-6">
-            <Tabs defaultValue="news">
-              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
-                <TabsTrigger value="news">Notícias</TabsTrigger>
-                <TabsTrigger value="banners">Banners</TabsTrigger>
-                <TabsTrigger value="fanart">Arte de fãs</TabsTrigger>
-              </TabsList>
-              <TabsContent value="news" className="mt-4">
-                <NewsManager />
-              </TabsContent>
-              <TabsContent value="banners" className="mt-4">
-                <BannersPanel />
-              </TabsContent>
-              <TabsContent value="fanart" className="mt-4">
-                <FanArtPanel />
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-
-          {/* ── CONFIGURAÇÕES ── */}
-          <TabsContent value="settings" className="mt-6">
-            <Tabs defaultValue="appearance">
-              <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
-                <TabsTrigger value="appearance">Aparência</TabsTrigger>
-                <TabsTrigger value="advanced">Avançado</TabsTrigger>
-              </TabsList>
-              <TabsContent value="appearance" className="mt-4">
-                <AppearanceManager />
-              </TabsContent>
-              <TabsContent value="advanced" className="mt-4">
-                <MigrateEntriesPanel />
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+      {section === 'settings' && (
+        <div className="space-y-8">
+          <div>
+            <h2 className="font-space font-bold text-xl text-foreground mb-4">Aparência</h2>
+            <AppearanceManager />
+          </div>
+          <div>
+            <h2 className="font-space font-bold text-xl text-foreground mb-4">Avançado</h2>
+            <MigrateEntriesPanel />
+          </div>
+        </div>
+      )}
+    </AdminShell>
   );
 }

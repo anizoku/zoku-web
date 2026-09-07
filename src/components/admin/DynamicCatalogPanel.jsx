@@ -5,7 +5,7 @@ import { importTopWorks, syncCurrentlyAiring, discoverNewSeason, importTopWorksB
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
-import { isCategoryFrozen, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { isCategoryFrozen, ANIME_ONLY_MODE, hasActiveCategory } from "@/lib/scopeConfig";
 
 function LogLine({ log }) {
   const color =
@@ -35,9 +35,13 @@ export default function DynamicCatalogPanel() {
     queryKey: ["dynamic-catalog-stats"],
     queryFn: async () => {
       const works = await base44.entities.DynamicWork.list("popularity_rank", 5000);
+      const activeWorks = works.filter(w => {
+        const cats = typeof w.categories === 'string' ? JSON.parse(w.categories || '[]') : (w.categories || []);
+        return hasActiveCategory(cats);
+      }).length;
       const lastSync = localStorage.getItem("zoku_last_auto_sync");
       return {
-        total: works.length,
+        total: activeWorks,
         lastSync: lastSync ? new Date(parseInt(lastSync)).toLocaleString("pt-BR") : "Nunca",
       };
     },

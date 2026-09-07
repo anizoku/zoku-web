@@ -152,6 +152,15 @@
   100% { left: 100%; }
 }
 
+/* Hide scrollbar for horizontal scroll menus */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Brand gradient utility */
 .brand-gradient {
   background: linear-gradient(135deg, #00FF88, #6DFF3C);

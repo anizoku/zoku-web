@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { User, List, Users, Calendar, LogOut, ShieldCheck } from "lucide-react";
 import {
@@ -11,13 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getRankForLevel } from "@/lib/xpSystem";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function UserMenuButton() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-  }, []);
+  const { user, isAdmin } = useAuth();
 
   const { data: profiles } = useQuery({
     queryKey: ["user-profiles"],
@@ -79,7 +75,7 @@ export default function UserMenuButton() {
           </Link>
         </DropdownMenuItem>
 
-        {user?.role === "admin" && (
+        {isAdmin && (
           <>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem asChild className="gap-2 cursor-pointer text-primary focus:text-primary">
