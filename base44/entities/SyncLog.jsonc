@@ -37,6 +37,7 @@
         "MAL_NOT_FOUND",
         "MISSING_MAPPING",
         "SKIPPED_MANUAL_OVERRIDE",
+        "UPSTREAM_RATE_LIMITED",
         "ERROR"
       ],
       "description": "Classification of the release after policy application"

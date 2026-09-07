@@ -9,7 +9,7 @@
  * - Shared utilities from base44/shared/syncUtils.ts
  * - Batch processing with checkpoint/resume (SyncRun entity)
  * - Per-release audit logs (SyncLog entity)
- * - Rate limiting (400ms), retry/backoff (3 retries, exponential)
+ * - Rate limiting (1200ms), retry/backoff (5 retries, exponential), global cooldown on 429
  * - Idempotency (skip already-processed, skip manual_override)
  * - Admin-only (verifies user.role === 'admin')
  *
@@ -49,21 +49,27 @@ import { sleep, parseRetryAfterMs, chunk, generateRunId, createCache } from '../
 // ── Constants ──
 const JIKAN_BASE = 'https://api.jikan.moe/v4';
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const RATE_LIMIT_DELAY_MS = 400;
-const MAX_RETRIES = 3;
+const RATE_LIMIT_DELAY_MS = 1200;
+const MAX_RETRIES = 5;
 const BACKOFF_BASE_MS = 2000;
 const MAX_BATCH_SIZE = 50;
+const RETRY_AFTER_BUFFER_MS = 1000;
+const GLOBAL_COOLDOWN_MIN_MS = 10000;
 
 // ── In-memory cache (shared factory) ──
 const cache = createCache(CACHE_TTL_MS);
 
-// ── Jikan client with retry/backoff ──
+// ── Jikan client with conservative retry/backoff (5 retries, Retry-After + buffer, 429 tracking) ──
 async function jikanFetch(type, malId) {
   const cacheKey = `jikan_${type}_${malId}`;
   const cached = cache.get(cacheKey);
-  if (cached !== null) return { data: cached, cacheHit: true };
+  if (cached !== null) return { data: cached, cacheHit: false, rateLimited: false, hit429: false, retryAfterMs: null, error: null };
 
   let lastError = null;
+  let wasRateLimited = false;
+  let hit429 = false;
+  let lastRetryAfterMs = null;
+
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const res = await fetch(`${JIKAN_BASE}/${type}/${malId}`, {
@@ -73,11 +79,26 @@ async function jikanFetch(type, malId) {
         },
       });
 
-      if (res.status === 404) return { data: null, cacheHit: false };
+      if (res.status === 404) {
+        return { data: null, cacheHit: false, rateLimited: false, hit429, retryAfterMs: lastRetryAfterMs, error: null };
+      }
 
-      if (res.status === 429 || res.status >= 500) {
+      if (res.status === 429) {
+        hit429 = true;
+        wasRateLimited = true;
         const retryAfterMs = parseRetryAfterMs(res.headers.get('Retry-After'));
-        const backoffMs = retryAfterMs != null ? retryAfterMs : BACKOFF_BASE_MS * Math.pow(2, attempt);
+        if (retryAfterMs != null) lastRetryAfterMs = retryAfterMs;
+        // Respect Retry-After + 1000ms buffer; never retry before that period
+        const backoffMs = retryAfterMs != null
+          ? retryAfterMs + RETRY_AFTER_BUFFER_MS
+          : BACKOFF_BASE_MS * Math.pow(2, attempt);
+        await sleep(backoffMs);
+        continue;
+      }
+
+      if (res.status >= 500) {
+        wasRateLimited = false;
+        const backoffMs = BACKOFF_BASE_MS * Math.pow(2, attempt);
         await sleep(backoffMs);
         continue;
       }
@@ -89,15 +110,21 @@ async function jikanFetch(type, malId) {
       const json = await res.json();
       const data = json.data || null;
       if (data) cache.set(cacheKey, data);
-      return { data, cacheHit: false };
+      return { data, cacheHit: false, rateLimited: false, hit429, retryAfterMs: lastRetryAfterMs, error: null };
     } catch (err) {
       lastError = err;
+      wasRateLimited = false;
       if (attempt < MAX_RETRIES - 1) {
         await sleep(BACKOFF_BASE_MS * Math.pow(2, attempt));
       }
     }
   }
-  throw lastError || new Error('Jikan query failed after retries');
+
+  // All retries exhausted — classify by final state
+  if (wasRateLimited) {
+    return { data: null, cacheHit: false, rateLimited: true, hit429, retryAfterMs: lastRetryAfterMs, error: null };
+  }
+  return { data: null, cacheHit: false, rateLimited: false, hit429, retryAfterMs: lastRetryAfterMs, error: lastError?.message || 'Jikan query failed after retries' };
 }
 
 function getJikanType(category) {
@@ -225,7 +252,9 @@ export default async function(req) {
     let totalDwUpdates = prevSummary.total_dw_updates || 0;
     let missingMappingCount = prevSummary.missing_mapping || 0;
     let skippedOverride = prevSummary.skipped_override || 0;
+    let upstreamRateLimited = prevSummary.upstream_rate_limited || 0;
     let batchesCompleted = resumed ? (run.batches_completed || 0) : 0;
+    let globalCooldownUntil = 0;
 
     const allBatches = [];
     for (const batch of chunk(withMapping, batchSize)) {
@@ -286,69 +315,96 @@ export default async function(req) {
           classification = 'SKIPPED_MANUAL_OVERRIDE';
           skippedOverride++;
         } else {
+          // Global cooldown check (if a previous request hit 429)
+          if (Date.now() < globalCooldownUntil) {
+            await sleep(globalCooldownUntil - Date.now());
+          }
+
           try {
             const type = getJikanType(wr.category);
             const fetchResult = await jikanFetch(type, mal_id);
+
+            // Apply global cooldown if any 429 was encountered (even if eventually succeeded)
+            if (fetchResult.hit429 || fetchResult.rateLimited) {
+              const cooldownMs = fetchResult.retryAfterMs != null
+                ? fetchResult.retryAfterMs + RETRY_AFTER_BUFFER_MS
+                : GLOBAL_COOLDOWN_MIN_MS;
+              globalCooldownUntil = Date.now() + cooldownMs;
+            }
+
             if (fetchResult.cacheHit) cacheHits++; else jikanCalls++;
-            jikanData = fetchResult.data;
 
-            if (!jikanData) {
-              classification = 'MAL_NOT_FOUND';
-              notFound++;
+            // Rate-limited: all retries exhausted by 429 — NOT a permanent ERROR
+            if (fetchResult.rateLimited) {
+              classification = 'UPSTREAM_RATE_LIMITED';
+              upstreamRateLimited++;
+              // NOT added to processedIds — retryable in future run/resume
+            } else if (fetchResult.error) {
+              classification = 'ERROR';
+              errorMessage = fetchResult.error;
+              errors++;
+              batchErrors.push({ batch: batchesCompleted, release: wr.slug, error: fetchResult.error });
             } else {
-              // Validate identity (MAL ID returned must match the mapping)
-              matchValid = jikanData.mal_id === mal_id;
+              jikanData = fetchResult.data;
 
-              if (!matchValid) {
-                classification = 'ID_MISMATCH';
-                idMismatch++;
+              if (!jikanData) {
+                classification = 'MAL_NOT_FOUND';
+                notFound++;
               } else {
-                // Apply MAL Tier 1 policy
-                const normalized = normalizeJikanToWorkRelease(jikanData);
-                const result = applyMalTier1Policy(wr, normalized);
+                // Validate identity (MAL ID returned must match the mapping)
+                matchValid = jikanData.mal_id === mal_id;
 
-                proposedFields = result.updates.map(u => ({ field: u.field, action: u.action }));
-                reviews = result.reviews;
-
-                if (reviews.length > 0) {
-                  classification = 'REVIEW_REQUIRED';
-                  reviewRequired++;
-                } else if (result.updates.length === 0) {
-                  classification = 'NO_CHANGES';
-                  noChanges++;
+                if (!matchValid) {
+                  classification = 'ID_MISMATCH';
+                  idMismatch++;
                 } else {
-                  classification = 'SYNC_SAFE';
-                  syncSafe++;
-                  totalWrUpdates += result.updates.length;
+                  // Apply MAL Tier 1 policy
+                  const normalized = normalizeJikanToWorkRelease(jikanData);
+                  const result = applyMalTier1Policy(wr, normalized);
 
-                  // Prepare WR update (only if dry_run=false)
-                  if (!dryRun) {
-                    wrUpdateObj = { id: wr.id };
-                    for (const u of result.updates) {
-                      wrUpdateObj[u.field] = u.proposed;
-                    }
-                    for (const f of Object.keys(wrUpdateObj)) {
-                      if (f !== 'id' && MAL_PROHIBITED_FIELDS.includes(f)) {
-                        throw new Error(`PROHIBITED_FIELD: ${f} in ${wr.slug}`);
+                  proposedFields = result.updates.map(u => ({ field: u.field, action: u.action }));
+                  reviews = result.reviews;
+
+                  if (reviews.length > 0) {
+                    classification = 'REVIEW_REQUIRED';
+                    reviewRequired++;
+                  } else if (result.updates.length === 0) {
+                    classification = 'NO_CHANGES';
+                    noChanges++;
+                  } else {
+                    classification = 'SYNC_SAFE';
+                    syncSafe++;
+                    totalWrUpdates += result.updates.length;
+
+                    // Prepare WR update (only if dry_run=false)
+                    if (!dryRun) {
+                      wrUpdateObj = { id: wr.id };
+                      for (const u of result.updates) {
+                        wrUpdateObj[u.field] = u.proposed;
+                      }
+                      for (const f of Object.keys(wrUpdateObj)) {
+                        if (f !== 'id' && MAL_PROHIBITED_FIELDS.includes(f)) {
+                          throw new Error(`PROHIBITED_FIELD: ${f} in ${wr.slug}`);
+                        }
                       }
                     }
-                  }
 
-                  // DynamicWork updates (only if is_main_entry)
-                  if (wr.is_main_entry === true && dw) {
-                    const dwNorm = normalizeJikanToDynamicWork(jikanData, wr.category);
-                    const dwResult = applyMalDynamicWorkDerivedPolicy(dw, dwNorm);
-                    if (dwResult.updates.length > 0) {
-                      totalDwUpdates += dwResult.updates.length;
-                      dwUpdateFields = dwResult.updates.map(u => ({ field: u.field, action: u.action }));
-                      if (!dryRun) {
-                        dwUpdateObj = { id: dw.id };
-                        for (const u of dwResult.updates) {
-                          dwUpdateObj[u.field] = u.proposed;
-                        }
-                        for (const f of Object.keys(dwUpdateObj)) {
-                          if (f !== 'id' && MAL_PROHIBITED_FIELDS.includes(f)) {
-                            throw new Error(`PROHIBITED_FIELD: ${f} in DW ${dw.slug}`);
+                    // DynamicWork updates (only if is_main_entry)
+                    if (wr.is_main_entry === true && dw) {
+                      const dwNorm = normalizeJikanToDynamicWork(jikanData, wr.category);
+                      const dwResult = applyMalDynamicWorkDerivedPolicy(dw, dwNorm);
+                      if (dwResult.updates.length > 0) {
+                        totalDwUpdates += dwResult.updates.length;
+                        dwUpdateFields = dwResult.updates.map(u => ({ field: u.field, action: u.action }));
+                        if (!dryRun) {
+                          dwUpdateObj = { id: dw.id };
+                          for (const u of dwResult.updates) {
+                            dwUpdateObj[u.field] = u.proposed;
+                          }
+                          for (const f of Object.keys(dwUpdateObj)) {
+                            if (f !== 'id' && MAL_PROHIBITED_FIELDS.includes(f)) {
+                              throw new Error(`PROHIBITED_FIELD: ${f} in DW ${dw.slug}`);
+                            }
                           }
                         }
                       }
@@ -382,7 +438,10 @@ export default async function(req) {
         if (wrUpdateObj) wrUpdates.push(wrUpdateObj);
         if (dwUpdateObj) dwUpdates.push(dwUpdateObj);
 
-        processedIds.add(wr.id);
+        // UPSTREAM_RATE_LIMITED is NOT definitively processed — retryable in future run/resume
+        if (classification !== 'UPSTREAM_RATE_LIMITED') {
+          processedIds.add(wr.id);
+        }
 
         // Rate limit between Jikan requests
         await sleep(RATE_LIMIT_DELAY_MS);
@@ -443,6 +502,7 @@ export default async function(req) {
       id_mismatch: idMismatch, not_found: notFound, errors,
       total_wr_updates: totalWrUpdates, total_dw_updates: totalDwUpdates,
       missing_mapping: missingMappingCount, skipped_override: skippedOverride,
+      upstream_rate_limited: upstreamRateLimited,
       jikan_calls: jikanCalls, cache_hits: cacheHits,
     };
 
@@ -466,6 +526,7 @@ export default async function(req) {
       mal_not_found: notFound,
       missing_mapping: missingMappingCount,
       skipped_override: skippedOverride,
+      upstream_rate_limited: upstreamRateLimited,
       errors,
       total_wr_updates: totalWrUpdates,
       total_dw_updates: totalDwUpdates,
