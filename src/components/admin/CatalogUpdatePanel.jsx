@@ -32,6 +32,7 @@ function LogLine({ log }) {
  * CatalogUpdatePanel — Goal-oriented sync actions + update history.
  * Primary actions: sync currently airing + discover next season.
  * Import actions are in CatalogAdvancedPanel.
+ * Last update source: SyncRun (persisted), NOT localStorage.
  */
 export default function CatalogUpdatePanel() {
   const [running, setRunning] = useState(false);
@@ -45,14 +46,23 @@ export default function CatalogUpdatePanel() {
     queryFn: async () => {
       const works = await base44.entities.DynamicWork.list("popularity_rank", 5000);
       const activeWorks = works.filter(w => hasActiveCategory(parseCategories(w))).length;
-      const lastSync = localStorage.getItem("zoku_last_auto_sync");
-      return {
-        total: activeWorks,
-        lastSync: lastSync ? new Date(parseInt(lastSync)).toLocaleString("pt-BR") : "Nunca",
-      };
+      return { total: activeWorks };
     },
     staleTime: 60 * 1000,
   });
+
+  // Persisted last sync (SyncRun is the source of truth, NOT localStorage)
+  const { data: syncRuns = [] } = useQuery({
+    queryKey: ["catalog-last-sync-run"],
+    queryFn: () => base44.entities.SyncRun.list('-started_at', 1),
+    staleTime: 30 * 1000,
+  });
+
+  const lastRun = syncRuns[0];
+  const lastSyncDate = lastRun?.started_at
+    ? new Date(lastRun.started_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : 'Nunca';
+  const lastSyncStatus = lastRun?.status || '—';
 
   function addLog(msg, type = "info") {
     setLogs((prev) => [...prev, { message: msg, type }]);
@@ -64,7 +74,9 @@ export default function CatalogUpdatePanel() {
     const result = await syncCurrentlyAiring(addLog);
     addLog(`✓ +${result.added} novas, ${result.updated} atualizadas`, "success");
     refreshCatalog();
+    // Legacy localStorage kept for backward compat, NOT used as display source
     localStorage.setItem("zoku_last_auto_sync", Date.now().toString());
+    queryClient.invalidateQueries({ queryKey: ["catalog-last-sync-run"] });
     queryClient.invalidateQueries({ queryKey: ["catalog-update-stats"] });
     setRunning(false);
   }
@@ -75,6 +87,7 @@ export default function CatalogUpdatePanel() {
     const result = await discoverNewSeason(addLog);
     addLog(`✓ ${result.newCount} obras adicionadas`, "success");
     refreshCatalog();
+    queryClient.invalidateQueries({ queryKey: ["catalog-last-sync-run"] });
     queryClient.invalidateQueries({ queryKey: ["catalog-update-stats"] });
     setRunning(false);
   }
@@ -92,7 +105,7 @@ export default function CatalogUpdatePanel() {
         <div>
           <h3 className="font-space font-bold text-base text-foreground">Atualização do catálogo</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {stats?.total || 0} animes ativos · Última atualização: {stats?.lastSync}
+            {stats?.total || 0} animes ativos · Última atualização: {lastSyncDate} ({lastSyncStatus})
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

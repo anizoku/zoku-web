@@ -12,6 +12,26 @@ import FanArtPanel from "@/components/admin/fanart/FanArtPanel";
 import AppearanceManager from "@/components/admin/AppearanceManager";
 import MigrateEntriesPanel from "@/components/admin/MigrateEntriesPanel";
 
+function SubSectionNav({ tabs, active, onChange }) {
+  return (
+    <div className="flex gap-1 p-1 bg-secondary/30 rounded-lg w-fit mb-6">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className={`px-4 py-1.5 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+            active === t.id
+              ? "bg-primary text-primary-foreground font-medium"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Admin — Modern admin area with vertical menu shell.
  * Auth is handled by RequireAdmin route guard (defense-in-depth).

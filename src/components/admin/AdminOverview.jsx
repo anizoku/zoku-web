@@ -1,12 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Library, GitBranch, MessageSquare, Flag, RefreshCw, ArrowRight, Clock } from "lucide-react";
+import { Library, GitBranch, MessageSquare, Flag, RefreshCw, ArrowRight, Clock, Activity, AlertTriangle, FileSearch } from "lucide-react";
 import { hasActiveCategory, isCategoryActive, ANIME_ONLY_MODE, FROZEN_CATEGORIES, CATEGORY_DEFINITIONS } from "@/lib/scopeConfig";
 
 function parseCategories(work) {
   if (!work.categories) return [];
   if (Array.isArray(work.categories)) return work.categories;
   try { return JSON.parse(work.categories); } catch { return []; }
+}
+
+function parseSummary(summaryStr) {
+  try { return JSON.parse(summaryStr || '{}'); } catch { return {}; }
 }
 
 function StatCard({ icon: Icon, value, label, color }) {
@@ -44,8 +48,10 @@ function QuickAction({ icon: Icon, title, description, onClick, iconColor }) {
 }
 
 /**
- * AdminOverview — Dashboard with stat cards, catalog status, and quick actions.
- * Uses existing data (no new entities). Read-only — no actions execute automatically.
+ * AdminOverview — Dashboard with stat cards, catalog health, and quick actions.
+ * Uses existing data (SyncRun, SyncConflict, CatalogSync). No new entities.
+ * Last update source: SyncRun (persisted), NOT localStorage.
+ * Read-only — no actions execute automatically.
  */
 export default function AdminOverview({ onNavigate }) {
   const { data: dynamicWorks = [] } = useQuery({
@@ -72,12 +78,32 @@ export default function AdminOverview({ onNavigate }) {
     staleTime: 30 * 1000,
   });
 
+  // Persisted sync data (NOT localStorage)
+  const { data: syncRuns = [] } = useQuery({
+    queryKey: ['admin-overview-sync-runs'],
+    queryFn: () => base44.entities.SyncRun.list('-started_at', 1),
+    staleTime: 30 * 1000,
+  });
+
+  const { data: pendingConflicts = [] } = useQuery({
+    queryKey: ['admin-overview-pending-conflicts'],
+    queryFn: () => base44.entities.SyncConflict.filter({ status: 'pending' }, '-created_date', 100),
+    staleTime: 30 * 1000,
+  });
+
   const activeWorks = dynamicWorks.filter(w => hasActiveCategory(parseCategories(w))).length;
   const activeReleases = releases.filter(r => isCategoryActive(r.category)).length;
   const pendingSuggestions = suggestions.filter(s => s.suggestion_status === 'pending').length;
   const pendingReports = reports.filter(r => r.report_status === 'pending').length;
 
-  const lastSync = localStorage.getItem('zoku_last_auto_sync');
+  const lastRun = syncRuns[0];
+  const lastRunSummary = parseSummary(lastRun?.summary);
+  const lastRunErrors = lastRunSummary.errors || 0;
+  const lastRunDate = lastRun?.started_at
+    ? new Date(lastRun.started_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null;
+  const lastRunStatus = lastRun?.status || null;
+  const statusColor = lastRunStatus === 'completed' ? 'text-primary' : lastRunStatus === 'failed' ? 'text-destructive' : lastRunStatus === 'running' ? 'text-chart-4' : 'text-muted-foreground';
 
   return (
     <div className="space-y-6">
@@ -93,6 +119,44 @@ export default function AdminOverview({ onNavigate }) {
         <StatCard icon={GitBranch} value={activeReleases} label="Releases estruturadas" color="bg-chart-2/15 text-chart-2" />
         <StatCard icon={MessageSquare} value={pendingSuggestions} label="Sugestões pendentes" color="bg-chart-4/15 text-chart-4" />
         <StatCard icon={Flag} value={pendingReports} label="Denúncias pendentes" color="bg-destructive/15 text-destructive" />
+      </div>
+
+      {/* Catalog health */}
+      <div className="bg-card rounded-xl border border-border p-5">
+        <h3 className="font-space font-bold text-sm text-foreground mb-4 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-primary" />
+          Saúde do catálogo
+        </h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Última execução</span>
+            <span className="text-foreground font-medium">
+              {lastRunDate || 'Nunca'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Status</span>
+            <span className={`font-medium ${statusColor}`}>
+              {lastRunStatus ? (lastRun.dry_run ? `Simulação · ${lastRunStatus}` : lastRunStatus) : '—'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <AlertTriangle className="w-3 h-3" /> Erros
+            </span>
+            <span className={`font-medium ${lastRunErrors > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {lastRunErrors}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <FileSearch className="w-3 h-3" /> Reviews pendentes
+            </span>
+            <span className={`font-medium ${pendingConflicts.length > 0 ? 'text-chart-4' : 'text-muted-foreground'}`}>
+              {pendingConflicts.length}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Catalog status */}
@@ -120,7 +184,7 @@ export default function AdminOverview({ onNavigate }) {
               <Clock className="w-3 h-3" /> Última atualização
             </span>
             <span className="text-foreground font-medium">
-              {lastSync ? new Date(parseInt(lastSync)).toLocaleString('pt-BR') : 'Nunca'}
+              {lastRunDate || 'Nunca'}
             </span>
           </div>
         </div>
