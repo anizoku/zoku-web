@@ -29,12 +29,19 @@ export const FROZEN_CATEGORIES = ALL_CATEGORIES.filter(cat => !ACTIVE_CATEGORIES
 // Informational only — NEVER use for guards. Use isCategoryActive/isCategoryFrozen.
 export const ANIME_ONLY_MODE = ACTIVE_CATEGORIES.length === 1 && ACTIVE_CATEGORIES.includes('anime');
 
+// 'all' is a UI filter, NOT a content category — always active, never frozen.
+// Unknown/empty values are never frozen (safe default).
 export function isCategoryActive(category) {
+  if (category === 'all') return true;
+  if (!category) return false;
   return ACTIVE_CATEGORIES.includes(category);
 }
 
 export function isCategoryFrozen(category) {
-  return !isCategoryActive(category);
+  if (category === 'all') return false;
+  if (!category) return false;
+  if (!ALL_CATEGORIES.includes(category)) return false;
+  return !ACTIVE_CATEGORIES.includes(category);
 }
 
 /**

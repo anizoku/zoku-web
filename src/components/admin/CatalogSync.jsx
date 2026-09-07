@@ -7,6 +7,7 @@ import { runHybridAnimeSync, runHybridMangaSync } from "@/lib/catalogAutoSync";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
+import { isCategoryFrozen } from "@/lib/scopeConfig";
 
 function getAnimeSyncableWorks() {
   return CATALOG.filter((w) => {
@@ -157,6 +158,10 @@ export default function CatalogSync() {
   }
 
   async function handleSyncMangas() {
+    if (isCategoryFrozen("manga")) {
+      addLog("CATEGORY_FROZEN: Manga está congelada — sincronização não permitida.", "warn");
+      return;
+    }
     setRunning(true); setLogs([]); setAnimeSummary(null); setMangaSummary(null);
     abortRef.current = false;
     await runMangaSync();
@@ -170,10 +175,12 @@ export default function CatalogSync() {
 
     addLog("═══ FASE 1 — ANIMES ═══", "sep");
     await runAnimeSync();
-    if (!abortRef.current) {
+    if (!abortRef.current && !isCategoryFrozen("manga")) {
       addLog("═══ FASE 2 — MANGÁS ═══", "sep");
       await delay(600);
       await runMangaSync();
+    } else if (!abortRef.current && isCategoryFrozen("manga")) {
+      addLog("CATEGORY_FROZEN: Fase de Mangás pulada (categoria congelada).", "warn");
     }
     addLog("Sincronização completa!", "success");
     refreshCatalog();
@@ -190,6 +197,10 @@ export default function CatalogSync() {
   }
 
   async function handleSyncHybridMangas() {
+    if (isCategoryFrozen("manga")) {
+      addLog("CATEGORY_FROZEN: Manga está congelada — sincronização não permitida.", "warn");
+      return;
+    }
     setRunning(true); setLogs([]); setAnimeSummary(null); setMangaSummary(null);
     abortRef.current = false;
     const summary = await runHybridMangaSync(CATALOG, addLog, null, abortRef);
@@ -228,7 +239,7 @@ export default function CatalogSync() {
               <RefreshCw className="w-4 h-4" />
               Animes (Jikan)
             </Button>
-            <Button size="sm" variant="outline" onClick={handleSyncMangas} className="gap-2">
+            <Button size="sm" variant="outline" onClick={handleSyncMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
               <BookOpen className="w-4 h-4" />
               Mangás (Jikan)
             </Button>
@@ -241,7 +252,7 @@ export default function CatalogSync() {
                 <Zap className="w-4 h-4" />
                 Animes (Híbrida)
               </Button>
-              <Button size="sm" variant="outline" onClick={handleSyncHybridMangas} className="gap-2">
+              <Button size="sm" variant="outline" onClick={handleSyncHybridMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
                 <Zap className="w-4 h-4" />
                 Mangás (Híbrida)
               </Button>

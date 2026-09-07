@@ -10,7 +10,7 @@ import { CATALOG } from "@/lib/catalog";
 import { parseSeasons } from "@/lib/franchiseDetection";
 import { resolveReleasesSync } from "@/lib/workReleases";
 import { resolveAlias, isAliasSlug } from "@/lib/catalogAliases";
-import { hasActiveCategory, isCategoryFrozen, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { hasActiveCategory, isCategoryFrozen, FROZEN_CATEGORIES } from "@/lib/scopeConfig";
 
 const QUERY_KEY_SYNC = ["catalog-sync-records"];
 const QUERY_KEY_DYNAMIC = ["catalog-dynamic-works"];
@@ -205,11 +205,10 @@ export function CatalogProvider({ children }) {
       }
     }
 
-    // Deduplicar e filtrar alias slugs (fantasmas ocultos — canônico já está no catálogo)
-    // ANIME_ONLY: filtrar obras sem nenhuma categoria ativa (preserva obras com anime + manga)
+    // Deduplicate, drop alias slugs, keep only works with at least one active category
     return deduplicateCatalog(merged)
       .filter(item => !isAliasSlug(item.slug))
-      .filter(item => !ANIME_ONLY_MODE || hasActiveCategory(item.categories))
+      .filter(item => hasActiveCategory(item.categories))
       .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   }, [syncMap, dynamicWorks, releasesByGroupId]);
 
@@ -223,8 +222,10 @@ export function CatalogProvider({ children }) {
 
   const getByCategory = useCallback(
     (category) => {
-      // ANIME_ONLY: categorias congeladas retornam vazio
-      if (ANIME_ONLY_MODE && isCategoryFrozen(category)) return [];
+      // 'all' returns the full active catalog (already filtered to active categories)
+      if (category === 'all') return catalog;
+      // Frozen categories return empty
+      if (isCategoryFrozen(category)) return [];
       return catalog
         .filter((w) => w.categories?.includes(category))
         .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
@@ -250,11 +251,9 @@ export function CatalogProvider({ children }) {
         if (stats[cat] !== undefined) stats[cat]++;
       }
     }
-    // ANIME_ONLY: zerar contadores de categorias congeladas (não expor no produto ativo)
-    if (ANIME_ONLY_MODE) {
-      for (const frozen of ['manga', 'movie', 'liveaction']) {
-        stats[frozen] = 0;
-      }
+    // Zero counters for frozen categories (don't expose in active product)
+    for (const frozen of FROZEN_CATEGORIES) {
+      stats[frozen] = 0;
     }
     return stats;
   }, [catalog]);
