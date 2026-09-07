@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AnimatePresence, motion } from "framer-motion";
 import { getMyFriends } from "@/lib/social";
 import RelatedWorks from "@/components/media/RelatedWorks";
+import { isCategoryFrozen } from "@/lib/scopeConfig";
 
 const FORMAT_CONFIG = {
   liveaction: {
@@ -556,6 +557,11 @@ export default function ObraProfile() {
     if (!media) return;
     const isMangaOnly = media.categories.length === 1 && media.categories[0] === "manga";
     if (isMangaOnly) return;
+    // TMDB freeze: skip for frozen categories (movie-only, liveaction-only)
+    const isMovieOnly = media.categories.length === 1 && media.categories[0] === "movie";
+    const isLiveActionOnly = media.categories.length === 1 && media.categories[0] === "liveaction";
+    if (isMovieOnly && isCategoryFrozen("movie")) return;
+    if (isLiveActionOnly && isCategoryFrozen("liveaction")) return;
     const type = media.categories.includes("movie") && !media.categories.includes("anime") ? "movie" : "tv";
     setTmdbLoading(true);
     setTmdbError(null);

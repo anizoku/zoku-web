@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Loader2, Star, ExternalLink, CheckCircle2, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { isCategoryFrozen, ACTIVE_CATEGORIES } from "@/lib/scopeConfig";
 
 function slugify(title) {
   return title
@@ -22,8 +22,8 @@ function slugify(title) {
 }
 
 export default function SuggestWorkModal({ open, onClose, workType = "anime" }) {
-  // ANIME_ONLY: forçar anime durante o freeze
-  const effectiveWorkType = ANIME_ONLY_MODE ? "anime" : workType;
+  // If requested type is frozen, fall back to first active category
+  const effectiveWorkType = isCategoryFrozen(workType) ? (ACTIVE_CATEGORIES[0] || "anime") : workType;
   const [step, setStep] = useState("search"); // search | results | confirm | success
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);

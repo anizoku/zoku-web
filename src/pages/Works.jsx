@@ -20,7 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SuggestWorkModal from "@/components/catalog/SuggestWorkModal";
 import TrendingStrip from "@/components/catalog/TrendingStrip";
 import { hybridSearch } from "@/lib/hybridSearch";
-import { ACTIVE_CATEGORY_TABS, isCategoryFrozen, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { ACTIVE_CATEGORY_TABS, isCategoryFrozen, isCategoryActive } from "@/lib/scopeConfig";
+import { useToast } from "@/components/ui/use-toast";
 import FrozenCategory from "@/pages/FrozenCategory";
 
 // ANIME_ONLY: apenas categorias ativas aparecem nas tabs
@@ -80,6 +81,7 @@ export default function Works() {
   const filterVisibleManga = useVisibilityFilter("manga");
   const filterVisibleMovie = useVisibilityFilter("movie");
   const filterVisibleLive = useVisibilityFilter("liveaction");
+  const { toast } = useToast();
 
   useEffect(() => {
     base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
@@ -186,8 +188,12 @@ export default function Works() {
         .trim()
         .replace(/\s+/g, "-");
 
-      // ANIME_ONLY: forçar anime durante o freeze
-      const workType = ANIME_ONLY_MODE ? "anime" : (externalWork.type?.toLowerCase().includes("manga") ? "manga" : "anime");
+      const workType = externalWork.type?.toLowerCase().includes("manga") ? "manga" : "anime";
+      // CATEGORY_FROZEN: não prosseguir se a categoria não está ativa
+      if (isCategoryFrozen(workType)) {
+        toast({ title: "CATEGORY_FROZEN", description: `Categoria "${workType}" está congelada.` });
+        return;
+      }
       const categories = workType === "manga" ? ["manga"] : ["anime"];
       const source = externalWork._source || "jikan";
 
@@ -213,7 +219,7 @@ export default function Works() {
 
   // ANIME_ONLY: redirecionar categorias congeladas para a página de freeze
   // (depois de todos os hooks para não violar Rules of Hooks)
-  if (ANIME_ONLY_MODE && isCategoryFrozen(categoria)) {
+  if (isCategoryFrozen(categoria)) {
     return <FrozenCategory category={categoria} />;
   }
 

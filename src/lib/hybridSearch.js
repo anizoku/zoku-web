@@ -1,6 +1,6 @@
 import { searchAnime, searchManga } from "@/lib/jikan";
 import { getTMDBWorkDetails } from "@/lib/tmdb";
-import { ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { isCategoryActive, isCategoryFrozen } from "@/lib/scopeConfig";
 
 /**
  * Busca em Jikan + TMDB com deduplicação
@@ -12,9 +12,9 @@ export async function hybridSearch(query) {
 
   try {
     // 1. Busca no Jikan (anime + manga)
-    // ANIME_ONLY: pular busca de manga quando o freeze está ativo
+    // Skip manga search when manga is not active
     const animes = await searchAnime(query);
-    const mangas = ANIME_ONLY_MODE ? [] : await searchManga(query);
+    const mangas = isCategoryActive("manga") ? await searchManga(query) : [];
 
     const jikanWorks = [...animes, ...mangas];
     
@@ -35,7 +35,8 @@ export async function hybridSearch(query) {
 
   try {
     // 2. Busca no TMDB (apenas se houver poucas resultados do Jikan)
-    if (results.length < 6) {
+    // TMDB freeze: skip when movie/liveaction are frozen (TV search could return live-action)
+    if (results.length < 6 && !isCategoryFrozen("liveaction") && !isCategoryFrozen("movie")) {
       const tmdbData = await getTMDBWorkDetails(query, "tv");
       
       if (tmdbData && tmdbData.tmdbId) {

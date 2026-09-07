@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import EntryCard from "@/components/mylist/EntryCard";
 import ImportList from "@/components/mylist/ImportList";
 import { CATALOG } from "@/lib/catalog";
-import { ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { isCategoryFrozen } from "@/lib/scopeConfig";
 
 // ── Constantes ────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -246,8 +246,8 @@ export default function MyList() {
 
   // Deduplicate raw entries for this user
   const myEntriesRaw = entries.filter(e => e.created_by === user?.email);
-  // ANIME_ONLY: ocultar entries de manga da UI ativa (preservar no banco)
-  const myEntriesVisibleRaw = ANIME_ONLY_MODE
+  // Hide manga entries from active UI when manga is frozen (preserved in DB)
+  const myEntriesVisibleRaw = isCategoryFrozen("manga")
     ? myEntriesRaw.filter(e => e.type !== "manga")
     : myEntriesRaw;
   const myEntries = deduplicateEntries(myEntriesVisibleRaw);
@@ -284,8 +284,8 @@ export default function MyList() {
   const existingTitles = myEntries.map(e => e.title);
 
   function handleAdd(data) {
-    // ANIME_ONLY: forçar type=anime durante o freeze
-    const safeData = ANIME_ONLY_MODE ? { ...data, type: "anime" } : data;
+    // Force anime when requested type is frozen
+    const safeData = isCategoryFrozen(data.type) ? { ...data, type: "anime" } : data;
     const existing = myEntriesRaw.find(
       e => e.title.toLowerCase() === safeData.title.toLowerCase() && !e.genre?.startsWith("__format:")
     );

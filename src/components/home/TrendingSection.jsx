@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { fetchTMDBTrending } from "@/lib/tmdbTrending";
 import { CATALOG } from "@/lib/catalog";
-import { filterActiveWorks, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { filterActiveWorks } from "@/lib/scopeConfig";
 
-// Fallback: top rated from local catalog
-// ANIME_ONLY: filtrar para apenas obras com categoria ativa
-const fallbackItems = (ANIME_ONLY_MODE ? filterActiveWorks(CATALOG) : CATALOG)
+// Fallback: top rated from local catalog (filtered to active categories)
+const fallbackItems = filterActiveWorks(CATALOG)
   .sort((a, b) => b.rating - a.rating)
   .slice(0, 5)
   .map((item, i) => ({

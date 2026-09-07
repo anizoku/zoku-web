@@ -45,7 +45,7 @@ import {
   MAL_PROHIBITED_FIELDS,
 } from '../../shared/syncFieldPolicy.ts';
 import { sleep, parseRetryAfterMs, chunk, generateRunId, createCache } from '../../shared/syncUtils.ts';
-import { isCategoryFrozen, ANIME_ONLY_MODE } from '../../shared/scopeConfig.ts';
+import { isCategoryActive } from '../../shared/scopeConfig.ts';
 
 // ── Constants ──
 const JIKAN_BASE = 'https://api.jikan.moe/v4';
@@ -237,7 +237,7 @@ export default async function(req) {
     const missingMapping = [];
     const frozenCategory = [];
     for (const ctx of contexts) {
-      if (ANIME_ONLY_MODE && isCategoryFrozen(ctx.wr.category)) {
+      if (!isCategoryActive(ctx.wr.category)) {
         frozenCategory.push(ctx);
       } else if (!ctx.mal_id) {
         missingMapping.push(ctx);
@@ -288,7 +288,7 @@ export default async function(req) {
             match_valid: false,
             proposed_fields: '[]', written_fields: '[]',
             reviews: '[]', ignored: '[]', dw_updates: '[]',
-            error_message: `Category ${ctx.wr.category} is frozen (ANIME_ONLY mode)`,
+            error_message: `Category ${ctx.wr.category} is not active (frozen)`,
             timestamp: new Date().toISOString(),
           });
           processedIds.add(ctx.wr.id);
@@ -337,7 +337,7 @@ export default async function(req) {
         const { wr, dw, mal_id } = ctx;
 
         // Layer 2: pre-write guard — skip frozen categories (safety net)
-        if (ANIME_ONLY_MODE && isCategoryFrozen(wr.category)) {
+        if (!isCategoryActive(wr.category)) {
           skippedFrozen++;
           batchLogEntries.push({
             run_id: runId, release_id: wr.id, release_slug: wr.slug,
@@ -346,7 +346,7 @@ export default async function(req) {
             match_valid: false,
             proposed_fields: '[]', written_fields: '[]',
             reviews: '[]', ignored: '[]', dw_updates: '[]',
-            error_message: `Category ${wr.category} is frozen (ANIME_ONLY mode)`,
+            error_message: `Category ${wr.category} is not active (frozen)`,
             timestamp: new Date().toISOString(),
           });
           processedIds.add(wr.id);

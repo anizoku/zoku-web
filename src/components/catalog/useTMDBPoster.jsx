@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { isCategoryFrozen } from "@/lib/scopeConfig";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4MTZmODg0N2U2ZDU5MTNiMDU4ODc0MDhiNjkyY2Q0YyIsIm5iZiI6MTc3Nzk4Nzc3Ni45OTYsInN1YiI6IjY5ZjlmMGMwNjJkMjIyYmQ5YTU1ZjVkYSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.4efs6BG9Eadk5bqpUDdlGkxjAfqtECGqYofB62Fhaz4";
@@ -107,6 +108,16 @@ export function useTMDBPoster(item, forceCategory) {
           .finally(() => setLoading(false));
         return;
       }
+      setPosterUrl(item.cover || null);
+      return;
+    }
+
+    // TMDB freeze: skip TMDB calls for frozen categories (movie/liveaction)
+    if (isLiveActionContext && isCategoryFrozen("liveaction")) {
+      setPosterUrl(item.cover || null);
+      return;
+    }
+    if (isMovieOnly && isCategoryFrozen("movie")) {
       setPosterUrl(item.cover || null);
       return;
     }

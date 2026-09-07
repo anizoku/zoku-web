@@ -11,11 +11,10 @@ import SortControl from "@/components/catalog/SortControl";
 import { useSortedWorks } from "@/hooks/useSortedWorks";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { filterActiveWorks, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { filterActiveWorks } from "@/lib/scopeConfig";
 
-// Top trending — sorted by rating, top 18
-// ANIME_ONLY: filtrar para apenas obras com categoria ativa
-const trending = (ANIME_ONLY_MODE ? filterActiveWorks(CATALOG) : CATALOG)
+// Top trending — sorted by rating, top 18 (filtered to active categories)
+const trending = filterActiveWorks(CATALOG)
   .sort((a, b) => b.rating - a.rating)
   .slice(0, 18)
   .map((item, i) => ({ ...item, rank: i + 1 }));
