@@ -335,3 +335,202 @@ export function isLegacyOrDenormalized(entityType, field) {
   if (!fieldPolicy) return false;
   return fieldPolicy.mode === UPDATE_MODES.NEVER || fieldPolicy.mode === UPDATE_MODES.NEVER_FROM_ANILIST;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAL/JIKAN POLICY (Fase 3D-1)
+// ═══════════════════════════════════════════════════════════════════════════
+// MAL/Jikan is canonical for score, cover_url, and denormalized franchise fields.
+// Identity: ExternalMapping provider="mal", provider_id exact (never fuzzy/LLM/title).
+// AniZoku DB remains canonical; MAL proposes, policy decides acceptance.
+//
+// These policies are SEPARATE from the AniList policies above. The AniList
+// function (anilistCatalogSync) is NOT affected by any change here.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── MAL WorkRelease Field Policy ──
+// Only these 6 fields are authorized for MAL/Jikan sync on WorkRelease.
+export const MAL_WORK_RELEASE_POLICY = {
+  score:            { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.ALWAYS },
+  cover_url:        { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.ALWAYS },
+  episode_count:    { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.THRESHOLD, threshold: 1, reviewThreshold: 2 },
+  chapter_count:    { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.THRESHOLD, threshold: 1 },
+  duration_minutes: { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.FILL_NULL, reviewThreshold: 3 },
+  status:           { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.ALWAYS },
+};
+
+// ── MAL DynamicWork Field Policy (main entry only) ──
+// Only denormalized fields derived from the main entry's MAL data.
+// franchise_score (admin override) is NEVER touched.
+export const MAL_DYNAMIC_WORK_POLICY = {
+  score:                { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.ALWAYS },
+  episodes:             { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.THRESHOLD, threshold: 1 },
+  anime_status:         { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.ALWAYS },
+  franchise_poster_url: { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.ALWAYS },
+  popularity_rank:      { source: SOURCES.MAL_JIKAN, mode: UPDATE_MODES.ALWAYS },
+};
+
+// ── MAL Prohibited Fields (safety net — never written by MAL sync) ──
+// Everything NOT in the 6 WR + 5 DW authorized fields above.
+export const MAL_PROHIBITED_FIELDS = [
+  'title','title_romaji','title_english','title_native','synopsis','category','slug',
+  'format','season','season_year','banner_url','popularity','trending_score',
+  'is_special','is_movie','is_live_action','is_main_entry','release_order','display_order',
+  'group_id','group_slug','image_url','franchise_score','franchise_id','franchise_title',
+  'mal_id','manga_mal_id','is_trending','trending_rank','related_franchise_id',
+  'title_pt','categories','duration','season','seasons','romaji_title','genres','year',
+  'is_currently_airing','sync_status','last_synced_at','sync_release_completed','release_count',
+];
+
+// ── MAL/Jikan Transforms ──
+const MAL_STATUS_MAP = {
+  'Currently Airing': 'releasing',
+  'Finished Airing': 'finished',
+  'Not yet aired': 'not_yet_released',
+  'Publishing': 'releasing',
+  'Finished': 'finished',
+  'On Hiatus': 'hiatus',
+  'Discontinued': 'cancelled',
+};
+
+const MAL_ANIME_STATUS_PT_MAP = {
+  'Currently Airing': 'Em exibição',
+  'Finished Airing': 'Finalizado',
+  'Not yet aired': 'Em breve',
+};
+
+export function mapMalStatus(jikanStatus) {
+  if (!jikanStatus) return null;
+  return MAL_STATUS_MAP[jikanStatus] || null;
+}
+
+export function mapMalAnimeStatusPt(jikanStatus) {
+  if (!jikanStatus) return null;
+  return MAL_ANIME_STATUS_PT_MAP[jikanStatus] || null;
+}
+
+export function parseDurationMinutes(durationStr) {
+  if (!durationStr || typeof durationStr !== 'string') return null;
+  let minutes = 0;
+  const hrMatch = durationStr.match(/(\d+)\s*hr/);
+  const minMatch = durationStr.match(/(\d+)\s*min/);
+  if (hrMatch) minutes += parseInt(hrMatch[1], 10) * 60;
+  if (minMatch) minutes += parseInt(minMatch[1], 10);
+  return minutes > 0 ? minutes : null;
+}
+
+// ── MAL/Jikan Normalizers (pure, no writes) ──
+export function normalizeJikanToWorkRelease(jikanData) {
+  if (!jikanData) return null;
+  const images = jikanData.images || {};
+  const cover = images.jpg?.large_image_url || images.webp?.large_image_url || images.jpg?.image_url || null;
+  return {
+    score: jikanData.score ?? null,
+    cover_url: cover,
+    episode_count: jikanData.episodes ?? null,
+    chapter_count: jikanData.chapters ?? null,
+    duration_minutes: parseDurationMinutes(jikanData.duration),
+    status: mapMalStatus(jikanData.status),
+  };
+}
+
+export function normalizeJikanToDynamicWork(jikanData, category) {
+  if (!jikanData) return null;
+  const images = jikanData.images || {};
+  const cover = images.jpg?.large_image_url || images.webp?.large_image_url || null;
+  const isAnime = category !== 'manga';
+  return {
+    score: jikanData.score ?? null,
+    episodes: isAnime ? (jikanData.episodes ?? null) : null,
+    anime_status: isAnime ? mapMalAnimeStatusPt(jikanData.status) : null,
+    franchise_poster_url: cover,
+    popularity_rank: jikanData.rank ?? null,
+  };
+}
+
+// ── MAL/Jikan Policy Appliers (pure, no writes) ──
+export function applyMalTier1Policy(currentRelease, normalizedMal) {
+  const updates = [];
+  const reviews = [];
+  const ignored = [];
+
+  if (!normalizedMal) {
+    return { updates, reviews, ignored, error: 'No MAL data' };
+  }
+
+  for (const [field, policy] of Object.entries(MAL_WORK_RELEASE_POLICY)) {
+    const proposed = normalizedMal[field];
+    const current = currentRelease[field];
+
+    switch (policy.mode) {
+      case UPDATE_MODES.FILL_NULL:
+        if (isFillableNull(current, field) && proposed != null) {
+          updates.push({ field, action: 'fill_null', current, proposed });
+        } else if (policy.reviewThreshold && !isFillableNull(current, field) && proposed != null
+                   && typeof proposed === 'number' && typeof current === 'number'
+                   && Math.abs(proposed - current) >= policy.reviewThreshold) {
+          reviews.push({ field, action: 'review', current, proposed, diff: Math.abs(proposed - current), reason: 'exceeds_review_threshold' });
+        }
+        break;
+
+      case UPDATE_MODES.ALWAYS:
+        if (proposed != null && current !== proposed) {
+          updates.push({ field, action: 'always', current, proposed });
+        }
+        break;
+
+      case UPDATE_MODES.THRESHOLD:
+        if (proposed == null) break;
+        if (isFillableNull(current, field)) {
+          updates.push({ field, action: 'fill_null', current, proposed });
+        } else {
+          const diff = Math.abs(proposed - current);
+          if (diff >= (policy.threshold || 0)) {
+            if (policy.reviewThreshold && diff >= policy.reviewThreshold) {
+              reviews.push({ field, action: 'review', current, proposed, diff, reason: 'exceeds_review_threshold' });
+            } else {
+              updates.push({ field, action: 'threshold', current, proposed, diff });
+            }
+          }
+        }
+        break;
+    }
+  }
+
+  return { updates, reviews, ignored };
+}
+
+export function applyMalDynamicWorkDerivedPolicy(currentDynamicWork, normalizedMal) {
+  const updates = [];
+  const ignored = [];
+
+  if (!normalizedMal) {
+    return { updates, ignored, error: 'No MAL data' };
+  }
+
+  for (const [field, policy] of Object.entries(MAL_DYNAMIC_WORK_POLICY)) {
+    const proposed = normalizedMal[field];
+    const current = currentDynamicWork[field];
+
+    switch (policy.mode) {
+      case UPDATE_MODES.ALWAYS:
+        if (proposed != null && current !== proposed) {
+          updates.push({ field, action: 'always', current, proposed });
+        }
+        break;
+
+      case UPDATE_MODES.THRESHOLD:
+        if (proposed == null) break;
+        if (isFillableNull(current, field)) {
+          updates.push({ field, action: 'fill_null', current, proposed });
+        } else {
+          const diff = Math.abs(proposed - current);
+          if (diff >= (policy.threshold || 0)) {
+            updates.push({ field, action: 'threshold', current, proposed, diff });
+          }
+        }
+        break;
+    }
+  }
+
+  return { updates, ignored };
+}
