@@ -41,6 +41,7 @@ import {
   normalizeAniListToDynamicWork,
   PROHIBITED_FIELDS,
 } from '../../shared/syncFieldPolicy.ts';
+import { sleep, parseRetryAfterMs, chunk, generateRunId, createCache } from '../../shared/syncUtils.ts';
 
 // ── Constants ──
 const ANILIST_URL = 'https://graphql.anilist.co';
@@ -62,43 +63,8 @@ const MEDIA_FIELDS = `
   genres
 `;
 
-// ── In-memory cache ──
-const cache = new Map();
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (entry && entry.expires > Date.now()) return entry.data;
-  if (entry) cache.delete(key);
-  return null;
-}
-
-function setCached(key, data) {
-  cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// ── Retry-After parser (fix #3) ──
-// HTTP spec: Retry-After can be seconds (number) or HTTP-date.
-// sleep() uses ms, so convert.
-function parseRetryAfterMs(headerValue) {
-  if (!headerValue) return null;
-  const trimmed = headerValue.trim();
-  // Try as delta-seconds (integer)
-  if (/^\d+$/.test(trimmed)) {
-    const seconds = parseInt(trimmed, 10);
-    return seconds * 1000;
-  }
-  // Try as HTTP-date (RFC 7231)
-  const date = new Date(trimmed);
-  if (!isNaN(date.getTime())) {
-    const diff = date.getTime() - Date.now();
-    return Math.max(diff, 1000); // at least 1s
-  }
-  return null; // fallback to exponential backoff
-}
+// ── In-memory cache (shared factory) ──
+const cache = createCache(CACHE_TTL_MS);
 
 // ── AniList client with retry/backoff (fix #3) ──
 async function anilistQuery(query) {
@@ -148,7 +114,7 @@ async function fetchMediaByMalIds(malIds, type) {
   if (malIds.length === 0) return { map: result, cacheHit: false };
 
   const cacheKey = `mal_${type}_${malIds.slice().sort((a, b) => a - b).join(',')}`;
-  const cached = getCached(cacheKey);
+  const cached = cache.get(cacheKey);
   if (cached) {
     for (const m of cached) result.set(String(m.idMal), m);
     return { map: result, cacheHit: true };
@@ -158,7 +124,7 @@ async function fetchMediaByMalIds(malIds, type) {
   const data = await anilistQuery(query);
   const media = data?.Page?.media || [];
 
-  setCached(cacheKey, media);
+  cache.set(cacheKey, media);
   for (const m of media) result.set(String(m.idMal), m);
   return { map: result, cacheHit: false };
 }
@@ -168,7 +134,7 @@ async function fetchMediaByAnilistIds(ids, type) {
   if (ids.length === 0) return { map: result, cacheHit: false };
 
   const cacheKey = `anilist_${type}_${ids.slice().sort((a, b) => a - b).join(',')}`;
-  const cached = getCached(cacheKey);
+  const cached = cache.get(cacheKey);
   if (cached) {
     for (const m of cached) result.set(String(m.id), m);
     return { map: result, cacheHit: true };
@@ -178,23 +144,12 @@ async function fetchMediaByAnilistIds(ids, type) {
   const data = await anilistQuery(query);
   const media = data?.Page?.media || [];
 
-  setCached(cacheKey, media);
+  cache.set(cacheKey, media);
   for (const m of media) result.set(String(m.id), m);
   return { map: result, cacheHit: false };
 }
 
-// ── Helpers ──
-function generateRunId() {
-  return `run_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-}
-
-function chunk(arr, size) {
-  const chunks = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
-}
+// ── Helpers (generateRunId, chunk imported from syncUtils) ──
 
 // ── Main handler ──
 export default async function(req) {

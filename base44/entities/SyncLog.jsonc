@@ -24,7 +24,7 @@
     },
     "match_valid": {
       "type": "boolean",
-      "description": "true if AniList idMal matches ExternalMapping MAL ID"
+      "description": "true if external ID matches ExternalMapping provider_id"
     },
     "classification": {
       "type": "string",
@@ -34,6 +34,7 @@
         "REVIEW_REQUIRED",
         "ID_MISMATCH",
         "ANILIST_NOT_FOUND",
+        "MAL_NOT_FOUND",
         "MISSING_MAPPING",
         "SKIPPED_MANUAL_OVERRIDE",
         "ERROR"
