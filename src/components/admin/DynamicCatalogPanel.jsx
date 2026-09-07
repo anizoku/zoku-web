@@ -5,6 +5,7 @@ import { importTopWorks, syncCurrentlyAiring, discoverNewSeason, importTopWorksB
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useCatalog } from "@/contexts/CatalogContext";
+import { isCategoryFrozen } from "@/lib/scopeConfig";
 
 function LogLine({ log }) {
   const color =
@@ -65,6 +66,10 @@ export default function DynamicCatalogPanel() {
   }
 
   async function handleImportMangas() {
+    if (isCategoryFrozen("manga")) {
+      addLog("CATEGORY_FROZEN: Manga está congelada — importação bloqueada (0 API calls, 0 writes).", "warn");
+      return;
+    }
     setRunning(true);
     setLogs([]);
     setProgress(0);
@@ -144,9 +149,12 @@ export default function DynamicCatalogPanel() {
             <Download className="w-4 h-4" />
             Top 500 Animes (Jikan)
           </Button>
-          <Button size="sm" variant="outline" onClick={handleImportMangas} disabled={running} className="gap-2">
+          <Button size="sm" variant="outline" onClick={handleImportMangas} disabled={running || isCategoryFrozen("manga")} className="gap-2">
             <Download className="w-4 h-4" />
             Top 500 Mangás (Jikan)
+            {isCategoryFrozen("manga") && (
+              <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
+            )}
           </Button>
           <Button size="sm" variant="secondary" onClick={handleImportBothSources} disabled={running} className="gap-2">
             <Zap className="w-4 h-4" />

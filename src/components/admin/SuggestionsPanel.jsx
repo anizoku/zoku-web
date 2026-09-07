@@ -6,9 +6,10 @@ import { CATALOG } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, XCircle, ExternalLink, ChevronDown, ChevronUp, Star, Loader2, Trophy } from "lucide-react";
+import { CheckCircle2, XCircle, ExternalLink, ChevronDown, ChevronUp, Star, Loader2, Trophy, Snowflake } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isCategoryActive } from "@/lib/scopeConfig";
 
 function slugify(title) {
   return title
@@ -100,10 +101,15 @@ function SuggestionCard({ suggestion, profiles, onApprove, onReject, approving, 
               size="sm"
               className="text-xs bg-primary/15 text-primary hover:bg-primary/25 border-none flex-1"
               onClick={() => onApprove(suggestion)}
-              disabled={approving || rejecting}
+              disabled={approving || rejecting || !isCategoryActive(suggestion.type)}
             >
               {approving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
               Aprovar
+              {!isCategoryActive(suggestion.type) && (
+                <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold ml-1 inline-flex items-center gap-0.5">
+                  <Snowflake className="w-2.5 h-2.5" />FROZEN
+                </span>
+              )}
             </Button>
             {!showRejectNote ? (
               <Button
@@ -199,6 +205,12 @@ export default function SuggestionsPanel() {
 
   const approveMutation = useMutation({
     mutationFn: async (suggestion) => {
+      // ── FREEZE GUARD (mutation-level) ──────────────────────────────
+      // Blocks approval for frozen categories even if UI is bypassed.
+      if (!isCategoryActive(suggestion.type)) {
+        throw new Error(`CATEGORY_FROZEN: ${suggestion.type} is not active — approval blocked (0 CatalogSync writes).`);
+      }
+
       // Check if already in catalog
       const alreadyInCatalog = catalog.some(
         (w) => w.mal_id === suggestion.mal_id || w.manga_mal_id === suggestion.mal_id

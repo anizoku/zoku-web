@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { CATALOG } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, Info, Loader2, Wrench } from "lucide-react";
+import { isCategoryActive } from "@/lib/scopeConfig";
 
 // ── helpers ─────────────────────────────────────────────────────
 function delay(ms) {
@@ -38,6 +39,18 @@ function needsFix(entry) {
   if (isMovie) return false; // filmes não têm episódios
   const progress = isManga ? (entry.current_chapter || 0) : (entry.current_episode || 0);
   return progress === 0;
+}
+
+/** Determina a categoria de um entry para fins de freeze */
+function entryCategory(entry) {
+  if (entry.type === "manga") return "manga";
+  // AnimeEntry.type só é "anime" ou "manga"; format=MOVIE em anime continua ativo
+  return "anime";
+}
+
+/** Verifica se o entry pertence a uma categoria ativa (não congelada) */
+function isEntryActive(entry) {
+  return isCategoryActive(entryCategory(entry));
 }
 
 // ── LogLine (igual ao CatalogSync) ─────────────────────────────
@@ -92,14 +105,21 @@ export default function MigrateEntriesPanel() {
     }
 
     const completed = allEntries.filter((e) => e.status === "completed");
-    const toFix     = completed.filter(needsFix);
+    const allToFix  = completed.filter(needsFix);
+
+    // ── FREEZE GUARD: separar entries de categorias congeladas ──────
+    const frozenEntries = allToFix.filter((e) => !isEntryActive(e));
+    const toFix         = allToFix.filter((e) => isEntryActive(e));
 
     addLog(`Total concluídas encontradas: ${completed.length}`, "info");
     addLog(`Entradas que precisam de correção: ${toFix.length}`, toFix.length > 0 ? "warn" : "success");
+    if (frozenEntries.length > 0) {
+      addLog(`${frozenEntries.length} entrada(s) congelada(s) ignorada(s) — preservadas, sem alteração.`, "warn");
+    }
 
     if (toFix.length === 0) {
-      addLog("Nenhuma entrada precisa ser corrigida. ✓", "success");
-      setSummary({ total: completed.length, fixed: 0, skipped: 0, errors: 0 });
+      addLog("Nenhuma entrada ativa precisa ser corrigida. ✓", "success");
+      setSummary({ total: completed.length, fixed: 0, skipped: 0, errors: 0, frozen: frozenEntries.length });
       setRunning(false);
       return;
     }
@@ -145,10 +165,10 @@ export default function MigrateEntriesPanel() {
       if (i < toFix.length - 1) await delay(200);
     }
 
-    const finalSummary = { total: completed.length, fixed, skipped, errors };
+    const finalSummary = { total: completed.length, fixed, skipped, errors, frozen: frozenEntries.length };
     setSummary(finalSummary);
     addLog(
-      `Migração concluída! ${fixed} corrigidas · ${skipped} puladas · ${errors} erros`,
+      `Migração concluída! ${fixed} corrigidas · ${skipped} puladas · ${errors} erros${frozenEntries.length > 0 ? ` · ${frozenEntries.length} congeladas ignoradas` : ""}`,
       errors > 0 ? "warn" : "success"
     );
     setRunning(false);
@@ -226,7 +246,7 @@ export default function MigrateEntriesPanel() {
 
       {/* Sumário final */}
       {summary && (
-        <div className="bg-secondary/40 rounded-lg p-3 grid grid-cols-4 gap-3 text-center">
+        <div className="bg-secondary/40 rounded-lg p-3 grid grid-cols-4 md:grid-cols-5 gap-3 text-center">
           <div>
             <p className="font-bold text-foreground text-sm">{summary.total}</p>
             <p className="text-[10px] text-muted-foreground">Concluídas</p>
@@ -243,6 +263,12 @@ export default function MigrateEntriesPanel() {
             <p className="font-bold text-destructive text-sm">{summary.errors}</p>
             <p className="text-[10px] text-muted-foreground">Erros</p>
           </div>
+          {summary.frozen != null && (
+            <div>
+              <p className="font-bold text-chart-4 text-sm">{summary.frozen}</p>
+              <p className="text-[10px] text-muted-foreground">Congeladas</p>
+            </div>
+          )}
         </div>
       )}
     </div>

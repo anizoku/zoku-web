@@ -351,7 +351,52 @@ export const ACTIVE_CATEGORIES = ['anime', 'manga'];
 
 ---
 
-## 13. GO / NO-GO
+## 13. ADMIN FREEZE AUDIT
+
+### Resumo
+
+| Flag | Status |
+|------|--------|
+| MANGA_EXTERNAL_SYNC | BLOCKED |
+| MANGA_IMPORT | BLOCKED |
+| MANGA_ADMIN_WRITES | BLOCKED (except explicit developer/service-role) |
+| MOVIE_LIVEACTION_SYNC | BLOCKED |
+| TMDB_MOVIE_LIVEACTION_IMPORT | BLOCKED |
+| ANIME_SYNC | ACTIVE |
+| ANIME_FORMAT_MOVIE | ACTIVE |
+| ZERO DELETIONS | ✅ CONFIRMED |
+
+### Por aba
+
+| Aba | Lê frozen? | Escreve frozen? | API externa frozen? | Status |
+|-----|-----------|-----------------|---------------------|--------|
+| Catálogo Dinâmico | ✅ | ❌ BLOCKED | ❌ BLOCKED | SAFE |
+| Catálogo | ✅ | ❌ BLOCKED (disabled) | N/A | SAFE |
+| Sincronização | ✅ | ❌ BLOCKED | ❌ BLOCKED | SAFE |
+| Sugestões | ✅ | ❌ BLOCKED | N/A | SAFE |
+| Moderação | N/A | N/A | N/A | N/A |
+| Manutenção | ✅ | ❌ BLOCKED (filtrado) | N/A | SAFE |
+| Unificar Obras | ✅ | ❌ BLOCKED (manga-only excluído) | ✅ Jikan (anime only) | SAFE |
+| Notícias | ✅ | ✅ (editorial) | N/A | N/A |
+| Aparência | N/A | N/A | N/A | N/A |
+| Banners | N/A | N/A | N/A | N/A |
+| Arte de Fãs | ✅ | ✅ (comunidade) | N/A | N/A |
+| Editor de Card | ✅ | ❌ BLOCKED (disabled) | N/A | SAFE |
+
+### Defense-in-Depth
+
+Cada aba que toca catálogo tem guards em múltiplas camadas:
+1. **UI:** botões disabled + badges "FROZEN"
+2. **Handler:** early return antes de chamar library
+3. **Mutation:** throw antes de writes (SuggestionsPanel)
+4. **Library:** return antes de fetch/write (catalogAutoSync, jikan)
+5. **Backend:** Layer 1 grouping + Layer 2 pre-write (anilistCatalogSync, malCatalogSync)
+
+Relatório detalhado: `src/lib/adminAnimeOnlyAudit.md`
+
+---
+
+## 14. GO / NO-GO
 
 ### ✅ **GO** — AniZoku operacionalmente ANIME ONLY
 

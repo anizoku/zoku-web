@@ -4,8 +4,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, ImageOff, RotateCcw, Save, Tv, BookOpen, Film, Clapperboard, X, Upload } from "lucide-react";
+import { Loader2, ImageOff, RotateCcw, Save, Tv, BookOpen, Film, Clapperboard, X, Upload, Snowflake } from "lucide-react";
 import { toast } from "sonner";
+import { isCategoryFrozen } from "@/lib/scopeConfig";
 
 const CATEGORIES = [
   { key: "anime",      label: "Anime",       Icon: Tv,          color: "text-chart-2" },
@@ -24,6 +25,7 @@ function CategoryImageBlock({ catKey, label, Icon, color, overrideRecord, item, 
 
   const currentImage = overrideRecord?.override_image_url || null;
   const originalImage = overrideRecord?.original_snapshot?.cover || item?.cover || null;
+  const frozen = isCategoryFrozen(catKey);
 
   function handleFileChange(e) {
     const file = e.target.files?.[0];
@@ -113,11 +115,16 @@ function CategoryImageBlock({ catKey, label, Icon, color, overrideRecord, item, 
   const displayImage = previewUrl || currentImage;
 
   return (
-    <div className="border border-border rounded-lg p-3 space-y-2">
+    <div className={`border rounded-lg p-3 space-y-2 ${frozen ? "border-destructive/30 bg-destructive/5" : "border-border"}`}>
       {/* Header */}
       <div className={`flex items-center gap-2 text-xs font-semibold ${color}`}>
         <Icon className="w-3.5 h-3.5" />
         {label}
+        {frozen && (
+          <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold inline-flex items-center gap-0.5 ml-auto">
+            <Snowflake className="w-2.5 h-2.5" />FROZEN
+          </span>
+        )}
       </div>
 
       <div className="flex gap-3 items-start">
@@ -131,7 +138,9 @@ function CategoryImageBlock({ catKey, label, Icon, color, overrideRecord, item, 
 
         {/* Actions */}
         <div className="flex-1 space-y-1.5">
-          {previewUrl ? (
+          {frozen ? (
+            <p className="text-[10px] text-destructive/80 italic">Categoria congelada — upload de imagem desativado.</p>
+          ) : previewUrl ? (
             <div className="flex gap-1.5 flex-wrap">
               <Button size="sm" onClick={handleUpload} disabled={loading} className="h-7 text-xs gap-1">
                 {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
@@ -208,9 +217,12 @@ export default function AdminEditCardModal({ item, allOverridesByCategory, open,
     try {
       const user = await base44.auth.me();
       // Apply title/description to all existing overrides, or create a generic one if none
+      // ── FREEZE GUARD: skip overrides for frozen categories ──────
       const existing = allOverridesByCategory ? Object.values(allOverridesByCategory).filter(Boolean) : [];
-      if (existing.length > 0) {
-        await Promise.all(existing.map(o =>
+      const activeExisting = existing.filter(o => !o.category || !isCategoryFrozen(o.category));
+      const frozenSkipped = existing.length - activeExisting.length;
+      if (activeExisting.length > 0) {
+        await Promise.all(activeExisting.map(o =>
           base44.entities.CardOverride.update(o.id, {
             override_title: title.trim() || null,
             override_description: description.trim() || null,

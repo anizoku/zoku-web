@@ -13,6 +13,7 @@ import {
   checkWorkExistsInDb,
 } from "@/lib/franchiseDetection";
 import { invalidateStaleFranchiseCache } from "@/lib/catalogAutoSync";
+import { isCategoryActive } from "@/lib/scopeConfig";
 
 const BACKUP_KEY = "franchise_merge_backup";
 
@@ -354,8 +355,16 @@ export default function FranchiseMerger() {
         seasons: JSON.stringify(seasons),
       });
 
-      // 4. Delete absorbed DynamicWork records
+      // 4. Delete absorbed DynamicWork records — SKIP if any has a frozen category
+      //    (preserves manga/movie/liveaction data in multi-category works)
       for (const w of absorbed) {
+        let cats = [];
+        try { cats = w.categories ? JSON.parse(w.categories) : []; } catch {}
+        const hasFrozenCat = cats.some((c) => !isCategoryActive(c) && c !== "anime");
+        if (hasFrozenCat) {
+          console.warn(`Skipping deletion of "${w.title}" — has frozen category (manga/movie/liveaction data preserved).`);
+          continue;
+        }
         await base44.entities.DynamicWork.delete(w.id);
       }
 

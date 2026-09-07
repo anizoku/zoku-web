@@ -5,8 +5,9 @@ import { CATALOG } from "@/lib/catalog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Save, AlertCircle } from "lucide-react";
+import { Search, Save, AlertCircle, Snowflake } from "lucide-react";
 import { toast } from "sonner";
+import { isCategoryFrozen } from "@/lib/scopeConfig";
 
 const CATS = [
   { key: "show_in_animes", label: "Animes", catalogKey: "anime" },
@@ -69,6 +70,8 @@ export default function CategoryManager() {
   }
 
   function handleCheckboxChange(slug, title, catKey, catalogKey, newValue) {
+    // ── FREEZE GUARD: ignore changes to frozen categories ──────────
+    if (isCategoryFrozen(catalogKey)) return;
     const savedValue = getSavedValue(slug, catKey, catalogKey);
     setLocalChanges(prev => {
       const existing = prev[slug] || {};
@@ -221,14 +224,21 @@ export default function CategoryManager() {
                 {/* Category checkboxes */}
                 {CATS.map(cat => {
                   const checked = getCurrentValue(item.slug, cat.key, cat.catalogKey);
+                  const frozen = isCategoryFrozen(cat.catalogKey);
                   return (
-                    <div key={cat.key} className="flex justify-center">
+                    <div key={cat.key} className="flex flex-col items-center gap-0.5">
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={(e) => handleCheckboxChange(item.slug, item.title, cat.key, cat.catalogKey, e.target.checked)}
-                        className="w-4 h-4 accent-primary cursor-pointer"
+                        disabled={frozen}
+                        className={`w-4 h-4 ${frozen ? "opacity-40 cursor-not-allowed" : "accent-primary cursor-pointer"}`}
                       />
+                      {frozen && (
+                        <span className="text-[8px] text-destructive font-bold flex items-center gap-0.5" title="Categoria congelada (ANIME_ONLY)">
+                          <Snowflake className="w-2 h-2" />
+                        </span>
+                      )}
                     </div>
                   );
                 })}

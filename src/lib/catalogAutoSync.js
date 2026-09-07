@@ -3,6 +3,7 @@ import { CATALOG } from "@/lib/catalog";
 import { syncWorkFromJikan, delay } from "@/lib/jikan";
 import { getTMDBWorkDetails } from "@/lib/tmdb";
 import { getFranchiseRootViaJikan, buildSeasonsArray, parseSeasons } from "@/lib/franchiseDetection";
+import { isCategoryActive } from "@/lib/scopeConfig";
 
 // ─── FRANCHISE CACHE (mal_id → franchise_id) ───────────────────────────────
 // Persistido em CatalogSync para não reconsultar relations de temporadas já conhecidas.
@@ -128,6 +129,13 @@ export function normalizeJikanWork(data, type) {
 
 // ─── IMPORTAÇÃO EM MASSA (Top N) — FRANCHISE-AWARE ─────────────────────────
 export async function importTopWorks(type, totalPages, onLog, onProgress, abortRef) {
+  // ── FREEZE GUARD (library-level) ──────────────────────────────────
+  // Blocks import before ANY fetch or write for frozen categories.
+  if (!isCategoryActive(type)) {
+    onLog?.(`CATEGORY_FROZEN: ${type} is not active — import blocked (0 API calls, 0 writes).`, "warn");
+    return { added: 0, merged: 0, skipped: 0, errors: 0, works: [], categoryFrozen: true };
+  }
+
   let added = 0;
   let skipped = 0;
   let merged = 0;
@@ -319,6 +327,12 @@ export async function runHybridAnimeSync(catalog, onLog, onProgress, abortRef) {
 }
 
 export async function runHybridMangaSync(catalog, onLog, onProgress, abortRef) {
+  // ── FREEZE GUARD (library-level) ──────────────────────────────────
+  if (!isCategoryActive("manga")) {
+    onLog?.(`CATEGORY_FROZEN: manga is not active — hybrid manga sync blocked (0 API calls, 0 writes).`, "warn");
+    return { total: 0, updated: 0, unchanged: 0, notFound: 0, categoryFrozen: true };
+  }
+
   const works = catalog.filter((w) => {
     if (w.sync_status === "manual_override") return false;
     return w.categories?.includes("manga");
@@ -460,6 +474,12 @@ export async function syncWorkBothSources(work, type = "anime") {
 
 // ─── IMPORTAÇÃO HÍBRIDA (JIKAN + TMDB) — FRANCHISE-AWARE ────────────────
 export async function importTopWorksBothSources(type, totalPages, onLog, onProgress, abortRef) {
+  // ── FREEZE GUARD (library-level) ──────────────────────────────────
+  if (!isCategoryActive(type)) {
+    onLog?.(`CATEGORY_FROZEN: ${type} is not active — hybrid import blocked (0 API calls, 0 writes).`, "warn");
+    return { added: 0, skipped: 0, errors: 0, works: [], categoryFrozen: true };
+  }
+
   let added = 0;
   let skipped = 0;
   let merged = 0;

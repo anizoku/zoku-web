@@ -242,10 +242,13 @@ export default function CatalogSync() {
             <Button size="sm" variant="outline" onClick={handleSyncMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
               <BookOpen className="w-4 h-4" />
               Mangás (Jikan)
+              {isCategoryFrozen("manga") && (
+                <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
+              )}
             </Button>
             <Button size="sm" variant="secondary" onClick={handleSyncAll} className="gap-2">
               <Layers className="w-4 h-4" />
-              Tudo (Jikan)
+              {isCategoryFrozen("manga") ? "Todos os Animes (Jikan)" : "Tudo (Jikan)"}
             </Button>
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSyncHybridAnimes} className="gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10">
@@ -255,6 +258,9 @@ export default function CatalogSync() {
               <Button size="sm" variant="outline" onClick={handleSyncHybridMangas} disabled={isCategoryFrozen("manga")} className="gap-2">
                 <Zap className="w-4 h-4" />
                 Mangás (Híbrida)
+                {isCategoryFrozen("manga") && (
+                  <span className="text-[9px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-bold">FROZEN</span>
+                )}
               </Button>
             </div>
           </>

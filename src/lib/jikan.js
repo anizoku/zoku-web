@@ -1,6 +1,7 @@
 // Jikan API v4 — wrapper gratuito do MyAnimeList
 // Rate limit: ~3 req/s, sem autenticação
 import { base44 } from "@/api/base44Client";
+import { isCategoryActive } from "@/lib/scopeConfig";
 
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
@@ -112,7 +113,7 @@ export async function syncWorkFromJikan(work) {
     } catch {}
   }
 
-  if (isManga && work.mangaStatus === "Em publicação") {
+  if (isManga && work.mangaStatus === "Em publicação" && isCategoryActive("manga")) {
     await delay(400);
     try {
       const data = work.manga_mal_id
@@ -149,6 +150,12 @@ export async function syncMangaData(work, onLog) {
   if (work.sync_status === "manual_override") {
     onLog?.(`${work.title}: ignorado (manual_override)`, "warn");
     return null;
+  }
+
+  // ── FREEZE GUARD (library-level) ──────────────────────────────────
+  if (!isCategoryActive("manga")) {
+    onLog?.(`CATEGORY_FROZEN: manga is not active — syncMangaData blocked for "${work.title}" (0 API calls, 0 writes).`, "warn");
+    return { sync_status: "frozen", categoryFrozen: true };
   }
 
   const title = work.title;
@@ -220,6 +227,12 @@ export async function syncMangaData(work, onLog) {
 
 // Percorre todos os mangás em publicação e sincroniza (delay 400ms entre cada)
 export async function syncAllMangas(catalog, onLog, onProgress, abortRef) {
+  // ── FREEZE GUARD (library-level) ──────────────────────────────────
+  if (!isCategoryActive("manga")) {
+    onLog?.(`CATEGORY_FROZEN: manga is not active — syncAllMangas blocked (0 API calls, 0 writes).`, "warn");
+    return { total: 0, updated: 0, unchanged: 0, notFound: 0, categoryFrozen: true };
+  }
+
   const mangaWorks = catalog.filter((w) => {
     if (w.sync_status === "manual_override") return false;
     // Inclui mangás em publicação e opcionalmente em hiato (verificação mensal)
