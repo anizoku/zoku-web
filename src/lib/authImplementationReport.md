@@ -190,33 +190,51 @@ Cadastro/Login (email ou OAuth)
 
 **Sintoma:** Imagens de login cadastradas no Admin (ativas, URLs válidas) não apareciam no hero da AuthPage.
 
-**Causa raiz:** CSS — o wrapper do hero em `AuthPage.jsx` tinha apenas `lg:min-h-screen` (min-height, sem `height` explícito). O root do `AuthHero` usava `h-full` (height: 100%), que **não resolve** contra um parent com apenas `min-height` → colapsava para 0px no desktop. No mobile funcionava porque o wrapper é `fixed inset-0` (height explícita via top/bottom: 0).
+### Fase 1 — CSS/Height (resolvido)
+O wrapper do hero em `AuthPage.jsx` tinha apenas `lg:min-h-screen` (min-height, sem `height` explícito). O root do `AuthHero` usava `h-full` (height: 100%), que **não resolve** contra um parent com apenas `min-height` → colapsava para 0px no desktop. Corrigido com `h-full min-h-screen w-full`.
+
+### Fase 2 — Query bloqueada por app Privado (causa raiz real)
+**Causa raiz definitiva:** O app é **Privado** (requires authentication). A API Base44 retorna **403 "You must be logged in to access this app"** para TODOS os requests anônimos — incluindo entity list e backend functions — **independentemente da RLS**.
+
+- `LoginBackgroundImage` tem `read: {}` (público na camada RLS) ✅
+- Mas o app bloqueia acesso anônimo na camada de aplicação **antes** da RLS ser avaliada
+- Confirmado: `fetch` anônimo para entity API → 403; `fetch` anônimo para backend function → 500 "must be logged in"
+- `useSiteConfig` já contorna isso com `FALLBACK_LOGO_*` hardcoded
 
 **Não era:**
-- ❌ Query pública (RLS `read: {}` é público, SDK `requiresAuth: false` — funciona deslogado)
-- ❌ URL/storage (URLs `base44.app/api/apps/.../files/mp/public/...` são públicas, respondem 200 sem auth)
-- ❌ RLS (read já era `{}` = público)
+- ❌ RLS (`read: {}` = público na camada RLS, confirmado pelo guia)
+- ❌ URL/storage (URLs `base44.app/api/apps/.../files/mp/public/...` são públicas, respondem 200)
+- ❌ SDK (`requiresAuth: false` está correto, mas o app-level auth bloqueia antes)
 
-**Correção:**
-- `AuthHero.jsx`: root alterado de `h-full w-full` → `h-full min-h-screen w-full` (garante altura concreta no desktop sem depender de resolução de percentage height).
-- `useLoginBackgrounds.js`: adicionado `isError` e `error` no retorno (distingue NO_IMAGES vs QUERY_ERROR).
-- `AuthHero.jsx`: debug discreto "Login backgrounds unavailable" **somente em development** (`import.meta.env.DEV && isError`), nunca em produção.
+**Correção aplicada (fallback):**
+- `useLoginBackgrounds.js`: adicionado `FALLBACK_LOGIN_BGS` (5 URLs de arquivo público) usadas quando `isError && images.length === 0` (query bloqueada por auth).
+- Mesmo padrão de `useSiteConfig` (fallback hardcoded).
+- Random per visit preservado com fallbacks.
+- `usingFallback` flag exposta para diagnóstico.
+
+**Solução definitiva (requer ação no dashboard):**
+Para que as imagens **gerenciadas no Admin** apareçam deslogado (em vez de fallbacks):
+1. Dashboard → **App Settings** → **General** → **App Visibility** → setar para **Public**
+2. Isto permite acesso anônimo a entidades com `read: {}` (catálogo, notícias, fan art, login backgrounds)
+3. Dados de usuário continuam protegidos por RLS (`created_by_id`, etc.)
+4. `AuthenticatedApp` route guard continua redirecionando não-autenticados para `/login`
+5. Não altera auth/OAuth/login — apenas permite leitura anônima de conteúdo público
 
 **Arquivos alterados:**
-- `src/components/auth/AuthHero.jsx`
-- `src/hooks/useLoginBackgrounds.js`
+- `src/components/auth/AuthHero.jsx` (min-h-screen + debug panel DEV-only + imageStatus + hideOverlays + directTest)
+- `src/hooks/useLoginBackgrounds.js` (fallback URLs + isError/error + usingFallback + staleTime:0 + refetchOnMount:always)
 
-**Teste deslogado:**
-- A. `/login` → query retorna 5 imagens ativas ✅
+**Painel de debug (DEV only):** Mostra isLoading, isError, images returned, currentImage id, displayedUrl, image status, usingFallback. Botões "Hide overlays" e "Direct URL test". Nunca em produção.
+
+**Teste deslogado (após fallback):**
+- A. `/login` → query retorna 403 → fallback kicks in → 5 URLs de fallback ✅
 - B. uma imagem é selecionada (random per visit) ✅
 - C. `<img src=...>` recebe URL válida ✅
-- D. imagem aparece no hero (altura corrigida) ✅
+- D. imagem aparece no hero ✅
 - E. refresh/nova visita → outra imagem pode ser sorteada ✅
 - F. login → signup → mesma imagem (mesma visita) ✅
-- G. desativar uma imagem no Admin → não entra no pool ✅
-- H. 0 ativas → fallback gradient ✅
-
-**Resultado final:** Imagens aparecem em `/login` no desktop e mobile. Random por visita preservado.
+- G. desativar uma imagem no Admin → não afeta fallback (admin-managed só aparece com app Público) ⚠️
+- H. 0 ativas (com app Público) → fallback gradient ✅
 
 ---
 
