@@ -16,6 +16,8 @@ import { validateProgress, shouldAutoComplete } from "@/lib/progressValidation";
 import { useTMDBPoster } from "@/components/catalog/useTMDBPoster";
 import { useCardDisplayData } from "@/hooks/useCardOverrides";
 import { useOverrideMap } from "@/context/CardOverridesContext";
+import { useCatalog } from "@/contexts/CatalogContext";
+import { resolveEntryRelease, buildReleaseLabel } from "@/lib/releaseTracking";
 
 // ── helpers ──────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -172,6 +174,7 @@ function CoverThumb({ entry, mediaType }) {
 export default function EntryCard({ entry, onUpdate, onRemove }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const { catalog } = useCatalog();
 
   const mediaType = getMediaTypeFromEntry(entry);
   const isAnime = mediaType === "anime" || mediaType === "liveaction";
@@ -181,13 +184,24 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
   // Risco 4: usar catálogo como fallback quando total_episodes/chapters é 0
   const catalogItem = getCatalogEntry(entry.title);
   const catalogFallback = isAnime ? (catalogItem?.totalEpisodes || 0) : (catalogItem?.totalChapters || 0);
+
+  // Fase 4: resolver release específico da entry (release_id → season_mal_id fallback)
+  const resolved = resolveEntryRelease(entry, catalog);
+  const releaseLabel = resolved?.release ? buildReleaseLabel(resolved.release, resolved.work.title) : null;
+  // Usar total do release quando disponível (mais preciso que catálogo genérico)
+  const releaseTotal = resolved?.release
+    ? (resolved.release.category === "manga"
+      ? (resolved.release.chapter_count || 0)
+      : (resolved.release.episode_count || 0))
+    : 0;
+
   // Risco 1 clamp fix: Math.max para não travar no total antigo
-  const total = Math.max(entryTotal, catalogFallback);
+  const total = Math.max(entryTotal, releaseTotal, catalogFallback);
   const progress = calculateProgress(current, total);
   const releaseStatus = getReleaseStatusLabel(entry, mediaType);
   const xpPerAction = isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read;
 
-  const isAiring = mediaType === "anime" && (catalogItem?.animeStatus === "Em exibição" || catalogItem?.is_currently_airing);
+  const isAiring = mediaType === "anime" && (catalogItem?.animeStatus === "Em exibição" || catalogItem?.is_currently_airing || resolved?.release?.status === "releasing");
 
   function increment() {
     if (isMovie) return;
@@ -277,6 +291,11 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
                 title={entry.title}
                 className="font-semibold text-sm text-foreground hover:text-primary transition-colors leading-tight line-clamp-2"
               />
+              {releaseLabel && releaseLabel !== entry.title && (
+                <p className="text-[11px] text-primary/70 mt-0.5 font-medium line-clamp-1">
+                  {releaseLabel}
+                </p>
+              )}
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {MEDIA_TYPE_LABEL[mediaType] || "Anime"}
                 {showReleaseBadge && (

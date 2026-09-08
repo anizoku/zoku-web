@@ -47,6 +47,9 @@ function normalizeWorkRelease(r, malIdByReleaseId) {
     cover_url: r.cover_url || null,
     synopsis: r.synopsis || null,
     score: r.score ?? null,
+    status: r.status || null,
+    chapter_count: r.chapter_count ?? null,
+    duration_minutes: r.duration_minutes ?? null,
     mal_id: malIdByReleaseId?.get(r.id) ?? null,
     source: "work_release",
   };

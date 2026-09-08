@@ -79,10 +79,15 @@ function sortEntries(entries, sort) {
 }
 
 // ── Deduplication (same as before) ───────────────────────────
+// ── Deduplication ───────────────────────────────────────────
+// Fase 4: inclui release_id e season_mal_id na chave para NÃO deduplicar
+// entries de releases distintos (ex: HxH 1999 vs HxH 2011) que compartilham
+// o mesmo título e genre. Entries sem release_id/season_mal_id continuam
+// sendo deduplicadas pelo comportamento legado (title + genre).
 function deduplicateEntries(rawEntries) {
   return Object.values(
     rawEntries.reduce((acc, entry) => {
-      const key = `${entry.title}__${entry.genre || ""}`;
+      const key = `${entry.title}__${entry.genre || ""}__${entry.release_id || ""}__${entry.season_mal_id || ""}`;
       const existing = acc[key];
       if (!existing || new Date(entry.updated_date) > new Date(existing.updated_date)) {
         acc[key] = entry;

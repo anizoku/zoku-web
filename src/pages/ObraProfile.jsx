@@ -17,8 +17,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import RelatedWorks from "@/components/media/RelatedWorks";
+import ReleaseBlock from "@/components/obra/ReleaseBlock";
 import { isCategoryFrozen, isCategoryActive } from "@/lib/scopeConfig";
 import { validateProgress, computeXpDelta, shouldAutoComplete } from "@/lib/progressValidation";
+import { filterActiveReleases } from "@/lib/releaseTracking";
 
 const FORMAT_CONFIG = {
   liveaction: {
@@ -598,6 +600,18 @@ export default function ObraProfile() {
     }
   }, [media?.slug]);
 
+  // Scroll to specific release when ?release= param is present (shareable URLs)
+  useEffect(() => {
+    if (!useReleaseMode) return;
+    const params = new URLSearchParams(window.location.search);
+    const releaseId = params.get("release");
+    if (!releaseId) return;
+    const el = document.getElementById(`release-${releaseId}`);
+    if (el) {
+      setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+    }
+  }, [useReleaseMode, activeReleases]);
+
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
@@ -728,6 +742,13 @@ export default function ObraProfile() {
     return !!(media.liveActionTitle || media.liveActionStatus);
   });
 
+  // ── Release-based tracking (Fase 4) ──
+  // When the work has canonical WorkReleases, show one ReleaseBlock per release.
+  // Otherwise, fallback to legacy FormatBlock (one card per format category).
+  const allReleases = media.releases || [];
+  const activeReleases = filterActiveReleases(allReleases);
+  const useReleaseMode = media.has_work_releases && activeReleases.length > 0;
+
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6">
       {/* Back button */}
@@ -839,19 +860,35 @@ export default function ObraProfile() {
           </div>
         )}
 
-        {/* 5. Format blocks (anime, manga, movie, liveaction — skip liveaction if absent) */}
-        <div className={`grid gap-4 ${visibleFormats.length > 1 ? "sm:grid-cols-2" : "max-w-md"}`}>
-          {visibleFormats.map(f => (
-            <FormatBlock
-              key={f}
-              format={f}
-              media={media}
-              entries={entries}
-              user={user}
-              onMutate={refetch}
-            />
-          ))}
-        </div>
+        {/* 5. Tracking blocks — release mode (WorkRelease) or legacy format mode */}
+        {useReleaseMode ? (
+          <div className="space-y-4">
+            {activeReleases.map(r => (
+              <div key={r.release_id || r.id} id={`release-${r.release_id || ""}`}>
+                <ReleaseBlock
+                  release={r}
+                  media={media}
+                  entries={entries}
+                  user={user}
+                  onMutate={refetch}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={`grid gap-4 ${visibleFormats.length > 1 ? "sm:grid-cols-2" : "max-w-md"}`}>
+            {visibleFormats.map(f => (
+              <FormatBlock
+                key={f}
+                format={f}
+                media={media}
+                entries={entries}
+                user={user}
+                onMutate={refetch}
+              />
+            ))}
+          </div>
+        )}
 
         {/* 6. Elenco */}
         {tmdbData?.cast?.length > 0 && <CastSection cast={tmdbData.cast} />}
