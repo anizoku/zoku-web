@@ -151,6 +151,9 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       onMutate?.();
       showToast(`${cfg.label} adicionado!`, ListPlus, "bg-card border-primary/40 text-primary");
     },
+    onError: () => {
+      showToast("Erro ao adicionar. Tente novamente.", XCircle, "bg-card border-destructive/30 text-destructive");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -160,6 +163,9 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       onMutate?.();
       showToast("Obra removida da sua lista.", Trash2, "bg-card border-destructive/30 text-destructive");
     },
+    onError: () => {
+      showToast("Erro ao remover. Tente novamente.", XCircle, "bg-card border-destructive/30 text-destructive");
+    },
   });
 
   const updateMutation = useMutation({
@@ -167,6 +173,9 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
       onMutate?.();
+    },
+    onError: () => {
+      showToast("Erro ao salvar. Tente novamente.", XCircle, "bg-card border-destructive/30 text-destructive");
     },
   });
 
@@ -217,11 +226,12 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   }
 
   function handleAdd(status) {
-    if (!user) return;
+    if (!user || isMutating) return;
     // Upsert: if an entry already exists for this title+format, update instead of creating
     if (entry) {
-      updateMutation.mutate({ id: entry.id, data: { status } });
-      showToast(`Status: ${STATUS_LABELS[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      updateMutation.mutate({ id: entry.id, data: { status } }, {
+        onSuccess: () => showToast(`Status: ${STATUS_LABELS[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary"),
+      });
       return;
     }
     // Also check for entries without the format marker (created via MyList or MediaDrawer)
@@ -229,11 +239,12 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       (e) => e.created_by === user.email && e.title === media.title && !e.genre?.startsWith("__format:")
     ) : null;
     if (genericEntry) {
-      updateMutation.mutate({ id: genericEntry.id, data: { status, genre: formatMarker } });
-      showToast(`Status: ${STATUS_LABELS[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      updateMutation.mutate({ id: genericEntry.id, data: { status, genre: formatMarker } }, {
+        onSuccess: () => showToast(`Status: ${STATUS_LABELS[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary"),
+      });
       return;
     }
-    // Se status é "completed", preenche o progresso com o total e registra XP
+    // Se status é "completed", preenche o progresso com o total — XP só após persistir
     if (status === "completed") {
       const resolvedTotal = Math.max(catalogTotal, isMovie ? 1 : 0);
       const xpPerUnit = XP_REWARDS[cfg.xpKey];
@@ -249,10 +260,13 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
         total_chapters: format === "manga" ? resolvedTotal : 0,
         current_episode: format === "anime" || format === "liveaction" || format === "movie" ? resolvedTotal : 0,
         current_chapter: format === "manga" ? resolvedTotal : 0,
+      }, {
+        onSuccess: () => {
+          if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
+          recordXpEvent("work_completed", 125);
+          showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+        },
       });
-      if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
-      recordXpEvent("work_completed", 125);
-      showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
       return;
     }
     createMutation.mutate({
@@ -268,7 +282,7 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   }
 
   async function handleStatusChange(newStatus) {
-    if (!entry) return;
+    if (!entry || isMutating) return;
     if (newStatus === "completed") {
       // Resolve o total com múltiplos fallbacks: entry > catálogo > 1 (para filmes)
       const resolvedTotal = Math.max(
@@ -288,58 +302,80 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
         [cfg.progressKey]: resolvedTotal,
         [cfg.totalKey]: resolvedTotal,
       };
-      updateMutation.mutate({ id: entry.id, data: updates });
-      if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
-      recordXpEvent("work_completed", 125);
-      showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+      // XP só após persistência confirmada
+      updateMutation.mutate({ id: entry.id, data: updates }, {
+        onSuccess: () => {
+          if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
+          recordXpEvent("work_completed", 125);
+          showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+        },
+      });
     } else {
-      updateMutation.mutate({ id: entry.id, data: { status: newStatus } });
-      showToast(`Status: ${STATUS_LABELS[newStatus]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      updateMutation.mutate({ id: entry.id, data: { status: newStatus } }, {
+        onSuccess: () => showToast(`Status: ${STATUS_LABELS[newStatus]}`, CheckCircle2, "bg-card border-primary/30 text-primary"),
+      });
     }
   }
 
   function handleIncrement() {
-    if (!entry) return;
+    if (!entry || isMutating) return;
     if (effectiveTotal > 0 && current >= effectiveTotal) return;
     const field = cfg.progressKey;
     const cur = entry[field] || 0;
-    const newVal = effectiveTotal > 0 ? Math.min(cur + 1, effectiveTotal) : cur + 1;
+    const v = validateProgress(cur + 1, effectiveTotal > 0 ? effectiveTotal : null);
+    if (!v.valid) return;
+    const newVal = v.value;
     const updates = { [field]: newVal };
-    const willComplete = effectiveTotal > 0 && newVal >= effectiveTotal;
+    const willComplete = shouldAutoComplete(newVal, effectiveTotal, isAiring);
     if (willComplete) updates.status = "completed";
-    updateMutation.mutate({ id: entry.id, data: updates });
-    const xp = XP_REWARDS[cfg.xpKey];
-    showToast(`${cfg.unit} ${newVal}! +${xp} XP`, Zap, "bg-card border-primary/30 text-primary");
-    recordXpEvent(cfg.xpKey, xp);
-    if (willComplete) recordXpEvent("work_completed", 125);
+    const xpDelta = computeXpDelta(cur, newVal, XP_REWARDS[cfg.xpKey]);
+    updateMutation.mutate({ id: entry.id, data: updates }, {
+      onSuccess: () => {
+        if (xpDelta > 0) recordXpEvent(cfg.xpKey, xpDelta);
+        if (willComplete) recordXpEvent("work_completed", 125);
+        showToast(`${cfg.unit} ${newVal}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
+      },
+    });
   }
 
   function handleDecrement() {
-    if (!entry) return;
+    if (!entry || isMutating) return;
     const field = cfg.progressKey;
     const cur = entry[field] || 0;
     if (cur <= 0) return;
-    updateMutation.mutate({ id: entry.id, data: { [field]: cur - 1 } });
+    const v = validateProgress(cur - 1, effectiveTotal > 0 ? effectiveTotal : null);
+    if (!v.valid) return;
+    // Reduzir progresso de entrada concluída: manter coerência (sai de concluído se abaixo do total)
+    const updates = { [field]: v.value };
+    if (entry.status === "completed" && effectiveTotal > 0 && v.value < effectiveTotal) {
+      updates.status = "watching";
+    }
+    updateMutation.mutate({ id: entry.id, data: updates });
   }
 
   function handleJumpTo(newVal) {
-    if (!entry) return;
+    if (!entry || isMutating) return;
     const field = cfg.progressKey;
     const prev = entry[field] || 0;
+    const v = validateProgress(newVal, effectiveTotal > 0 ? effectiveTotal : null);
+    if (!v.valid) return;
+    newVal = v.value;
     if (newVal === prev) return;
     const updates = { [field]: newVal };
-    const willComplete = effectiveTotal > 0 && newVal >= effectiveTotal;
+    const willComplete = shouldAutoComplete(newVal, effectiveTotal, isAiring);
     if (willComplete) updates.status = "completed";
-    updateMutation.mutate({ id: entry.id, data: updates });
-    const diff = Math.max(0, newVal - prev);
-    const xp = XP_REWARDS[cfg.xpKey];
-    if (diff > 0) {
-      showToast(`Progresso → ${cfg.unit} ${newVal}! +${diff * xp} XP`, Zap, "bg-card border-primary/30 text-primary");
-      recordXpEvent(cfg.xpKey, diff * xp);
-    } else {
-      showToast(`Progresso atualizado para ${cfg.unit} ${newVal}`, CheckCircle2, "bg-card border-primary/30 text-primary");
-    }
-    if (willComplete) recordXpEvent("work_completed", 125);
+    const xpDelta = computeXpDelta(prev, newVal, XP_REWARDS[cfg.xpKey]);
+    updateMutation.mutate({ id: entry.id, data: updates }, {
+      onSuccess: () => {
+        if (xpDelta > 0) {
+          recordXpEvent(cfg.xpKey, xpDelta);
+          showToast(`Progresso → ${cfg.unit} ${newVal}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
+        } else {
+          showToast(`Progresso atualizado para ${cfg.unit} ${newVal}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+        }
+        if (willComplete) recordXpEvent("work_completed", 125);
+      },
+    });
   }
 
   const current = entry ? (entry[cfg.progressKey] || 0) : 0;
@@ -536,12 +572,28 @@ export default function ObraProfile() {
   const [romajiTitle, setRomajiTitle] = useState(null);
   const { getBySlug, isLoading: catalogLoading } = useCatalog();
 
-  // Read ?tipo= from URL
+  // Read ?tipo= from URL — normalize to valid active category (no loops)
   useEffect(() => {
+    if (!media) return;
     const params = new URLSearchParams(window.location.search);
     const tipo = params.get("tipo");
-    if (tipo) setActiveTab(tipo);
-  }, []);
+    if (!tipo) return;
+    if (isCategoryActive(tipo)) {
+      setActiveTab(tipo);
+      return;
+    }
+    // Frozen or invalid — normalize to first active category in this work
+    const firstActive = (media.categories || []).find(c => isCategoryActive(c));
+    if (firstActive) {
+      setActiveTab(firstActive);
+      const newParams = new URLSearchParams();
+      newParams.set("tipo", firstActive);
+      window.history.replaceState(null, "", `?${newParams.toString()}`);
+    } else {
+      // No active category available — remove ?tipo= entirely
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [media?.slug]);
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -667,8 +719,9 @@ export default function ObraProfile() {
     );
   }
 
-  const formats = media.categories || [];
-  const activeFormat = activeTab || formats[0];
+  const allFormats = media.categories || [];
+  const formats = allFormats.filter(f => isCategoryActive(f));
+  const activeFormat = activeTab && formats.includes(activeTab) ? activeTab : formats[0];
 
   // Friends watching/reading this work
   const myFriends = user ? getMyFriends(friendships, user.email) : [];
@@ -696,7 +749,7 @@ export default function ObraProfile() {
     return { label: f, icon: Tv, color: "text-foreground" };
   };
 
-  // Determine which format blocks to show — skip liveaction if not in catalog
+  // Only show blocks for active categories (Anime Only: manga/movie/liveaction hidden)
   const visibleFormats = formats.filter(f => {
     if (f !== "liveaction") return true;
     return !!(media.liveActionTitle || media.liveActionStatus);
@@ -837,7 +890,7 @@ export default function ObraProfile() {
         )}
 
         {/* 5. Format blocks (anime, manga, movie, liveaction — skip liveaction if absent) */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className={`grid gap-4 ${visibleFormats.length > 1 ? "sm:grid-cols-2" : "max-w-md"}`}>
           {visibleFormats.map(f => (
             <FormatBlock
               key={f}
