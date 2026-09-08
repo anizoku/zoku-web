@@ -13,6 +13,8 @@ import EntryCard from "@/components/mylist/EntryCard";
 import ImportList from "@/components/mylist/ImportList";
 import { CATALOG } from "@/lib/catalog";
 import { isCategoryFrozen } from "@/lib/scopeConfig";
+import { useCatalog } from "@/contexts/CatalogContext";
+import { resolveEntryRelease } from "@/lib/releaseTracking";
 
 // ── Constantes ────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -79,15 +81,30 @@ function sortEntries(entries, sort) {
 }
 
 // ── Deduplication (same as before) ───────────────────────────
-// ── Deduplication ───────────────────────────────────────────
-// Fase 4: inclui release_id e season_mal_id na chave para NÃO deduplicar
-// entries de releases distintos (ex: HxH 1999 vs HxH 2011) que compartilham
-// o mesmo título e genre. Entries sem release_id/season_mal_id continuam
-// sendo deduplicadas pelo comportamento legado (title + genre).
-function deduplicateEntries(rawEntries) {
+// ── Deduplication (visual — never deletes data) ───────────────
+// Fase 4 checkpoint: deduplicação VISUAL com identidade canônica de release.
+//
+// Estratégia:
+// 1. Tenta resolver cada entry ao WorkRelease canônico via resolveEntryRelease.
+//    - Se resolvido → chave visual = "release:<WorkRelease.id>"
+//    - Isso une entries antigas (release_id=null, season_mal_id=X) com
+//      entries modernas (release_id=R, season_mal_id=X) quando ambas
+//      resolvem para o MESMO WorkRelease (mapping exato, não fuzzy).
+// 2. Se não resolvido → chave legada = title + genre + release_id + season_mal_id.
+//
+// Regras:
+// - HxH 1999 (release_id=R1) e HxH 2011 (release_id=R2) → chaves diferentes → permanecem separadas.
+// - Entry antiga MAL=X + entry moderna release_id=R/MAL=X (mesmo WorkRelease) → mesma chave → dedup visual.
+// - MAL diferentes → chaves diferentes → permanecem separadas.
+// - Sem release resolvido → fallback legado (title + genre).
+// - NUNCA fuzzy matching por título. NUNCA apaga dados.
+function deduplicateEntries(rawEntries, catalog) {
   return Object.values(
     rawEntries.reduce((acc, entry) => {
-      const key = `${entry.title}__${entry.genre || ""}__${entry.release_id || ""}__${entry.season_mal_id || ""}`;
+      const resolved = catalog ? resolveEntryRelease(entry, catalog) : null;
+      const key = resolved?.release?.release_id
+        ? `release:${resolved.release.release_id}`
+        : `${entry.title}__${entry.genre || ""}__${entry.release_id || ""}__${entry.season_mal_id || ""}`;
       const existing = acc[key];
       if (!existing || new Date(entry.updated_date) > new Date(existing.updated_date)) {
         acc[key] = entry;
@@ -97,7 +114,12 @@ function deduplicateEntries(rawEntries) {
   );
 }
 
-// ── AddEntryDialog (preserved from original) ─────────────────
+// ── AddEntryDialog (LEGACY_MANUAL_ENTRY) ──────────────────────
+// STATUS: LEGACY_MANUAL_ENTRY — Este fluxo NÃO é release-aware.
+// Cria AnimeEntry genérica sem release_id nem season_mal_id.
+// Não faz fuzzy matching, não converte automaticamente para release.
+// Funcionalidade preservada como legado; migração para release-aware
+// fica documentada para uma fase futura.
 function AddEntryDialog({ onAdd, existingTitles = [] }) {
   const [title, setTitle] = useState("");
   const [type, setType] = useState("anime");
@@ -215,6 +237,7 @@ export default function MyList() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("title_az");
   const queryClient = useQueryClient();
+  const { catalog } = useCatalog();
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -256,7 +279,7 @@ export default function MyList() {
   const myEntriesVisibleRaw = isCategoryFrozen("manga")
     ? myEntriesRaw.filter(e => e.type !== "manga")
     : myEntriesRaw;
-  const myEntries = deduplicateEntries(myEntriesVisibleRaw);
+  const myEntries = deduplicateEntries(myEntriesVisibleRaw, catalog);
 
   // NOTE: Auto-delete of duplicates REMOVED — preserves entries with different
   // release_id or season_mal_id even when titles match. Display dedup

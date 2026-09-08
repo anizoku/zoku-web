@@ -17,7 +17,7 @@ import { useTMDBPoster } from "@/components/catalog/useTMDBPoster";
 import { useCardDisplayData } from "@/hooks/useCardOverrides";
 import { useOverrideMap } from "@/context/CardOverridesContext";
 import { useCatalog } from "@/contexts/CatalogContext";
-import { resolveEntryRelease, buildReleaseLabel } from "@/lib/releaseTracking";
+import { resolveEntryRelease, buildReleaseLabel, getReleaseStatusInfo } from "@/lib/releaseTracking";
 
 // ── helpers ──────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -188,20 +188,42 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
   // Fase 4: resolver release específico da entry (release_id → season_mal_id fallback)
   const resolved = resolveEntryRelease(entry, catalog);
   const releaseLabel = resolved?.release ? buildReleaseLabel(resolved.release, resolved.work.title) : null;
-  // Usar total do release quando disponível (mais preciso que catálogo genérico)
+  // Total do release específico (WorkRelease metadata tem prioridade sobre franchise)
   const releaseTotal = resolved?.release
     ? (resolved.release.category === "manga"
       ? (resolved.release.chapter_count || 0)
       : (resolved.release.episode_count || 0))
     : 0;
 
-  // Risco 1 clamp fix: Math.max para não travar no total antigo
-  const total = Math.max(entryTotal, releaseTotal, catalogFallback);
+  // ── Prioridade de total (Fase 4 checkpoint) ──
+  // SE release resolvido: total vem do release específico.
+  //   - releaseTotal > 0 → usar releaseTotal
+  //   - releaseTotal ausente → usar entryTotal
+  //   NUNCA Math.max com catalogFallback — franchise metadata não pode
+  //   sobrescrever WorkRelease metadata (HxH 1999 não pode virar 148 ep).
+  // SEM release resolvido: fallback legado (Math.max(entryTotal, catalogFallback)).
+  let total;
+  if (resolved?.release) {
+    total = releaseTotal > 0 ? releaseTotal : entryTotal;
+  } else {
+    total = Math.max(entryTotal, catalogFallback);
+  }
   const progress = calculateProgress(current, total);
-  const releaseStatus = getReleaseStatusLabel(entry, mediaType);
+
+  // ── Status do release (Fase 4 checkpoint) ──
+  // SE release resolvido: usar resolved.release.status (releasing/finished/etc.).
+  //   Status genérico da franquia NÃO sobrescreve o status do release específico.
+  // SEM release resolvido: fallback para catálogo legado (franchise status).
+  const releaseStatus = resolved?.release
+    ? getReleaseStatusInfo(resolved.release)
+    : getReleaseStatusLabel(entry, mediaType);
   const xpPerAction = isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read;
 
-  const isAiring = mediaType === "anime" && (catalogItem?.animeStatus === "Em exibição" || catalogItem?.is_currently_airing || resolved?.release?.status === "releasing");
+  const isAiring = mediaType === "anime" && (
+    resolved?.release
+      ? resolved.release.status === "releasing"
+      : (catalogItem?.animeStatus === "Em exibição" || catalogItem?.is_currently_airing)
+  );
 
   function increment() {
     if (isMovie) return;
@@ -265,7 +287,7 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
           if (s === "completed") {
             const field = isAnime ? "current_episode" : "current_chapter";
             const totalField = isAnime ? "total_episodes" : "total_chapters";
-            // total já inclui o fallback do catálogo (Math.max(entryTotal, catalogFallback))
+            // total já reflete release-specific (releaseTotal) ou fallback legado
             if (total > 0) {
               onUpdate(entry.id, { status: "completed", [field]: total, [totalField]: total });
             } else {

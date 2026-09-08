@@ -1,4 +1,4 @@
-# Release Tracking Implementation Report — Fase 4
+# Release Tracking Implementation Report — Fase 4 (Checkpoint Final)
 
 ## Configuração
 
@@ -9,6 +9,7 @@ LEGACY_FALLBACK = season_mal_id
 FUZZY_MATCHING = DISABLED
 ANIME_ONLY_CATEGORY_FILTER = ENABLED
 LEGACY_FORMAT_FALLBACK = ENABLED
+LEGACY_MANUAL_ENTRY = PRESERVED (not release-aware)
 ```
 
 ## Arquitetura
@@ -36,13 +37,110 @@ media.has_work_releases === true E activeReleases.length > 0?
 2. `AnimeEntry.season_mal_id === release.mal_id` — fallback legado via ExternalMapping
 3. `null` — sem match (NUNCA fuzzy matching por título/slug/genre)
 
-## Arquivos Alterados
+---
+
+## Regras Finais (Checkpoint)
+
+### 1. Prioridade de Total no EntryCard
+
+```
+SE resolved.release existir:
+  total = releaseTotal > 0 ? releaseTotal : entryTotal
+  (WorkRelease metadata tem prioridade sobre franchise metadata)
+
+SE NÃO houver release resolvido:
+  total = Math.max(entryTotal, catalogFallback)
+  (fallback legado — franchise catalog)
+```
+
+**NUNCA** `Math.max(releaseTotal, catalogFallback)` — franchise metadata não pode sobrescrever WorkRelease metadata.
+
+**Exemplo correto:**
+- HxH 1999: `releaseTotal = 62` → `total = 62` (não 148)
+- HxH 2011: `releaseTotal = 148` → `total = 148`
+
+**Aplicado a:** increment, decrement, jump, auto-complete, disabled state, progress bar.
+
+### 2. Status Airing no EntryCard
+
+```
+SE resolved.release existir:
+  releaseStatus = getReleaseStatusInfo(resolved.release)
+  isAiring = resolved.release.status === "releasing"
+
+SE NÃO houver release resolvido:
+  releaseStatus = getReleaseStatusLabel(entry, mediaType)  // franchise catalog
+  isAiring = catalogItem.animeStatus === "Em exibição" || catalogItem.is_currently_airing
+```
+
+Status genérico da franquia **NÃO** sobrescreve o status do release específico.
+
+### 3. Deduplicação Visual (MyList)
+
+**Estratégia:** identidade canônica de release + fallback legado.
+
+```
+Para cada entry:
+  resolved = resolveEntryRelease(entry, catalog)
+
+  SE resolved?.release?.release_id existir:
+    chave = "release:<WorkRelease.id>"          // canonical release identity
+  SENÃO:
+    chave = title__genre__release_id__season_mal_id  // legacy key
+```
+
+**Comportamento:**
+- Entry antiga (release_id=null, season_mal_id=X) + entry moderna (release_id=R, season_mal_id=X) onde X mapeia para R via ExternalMapping exato → **mesma chave** → dedup visual (não duplica).
+- HxH 1999 (release_id=R1) e HxH 2011 (release_id=R2) → **chaves diferentes** → permanecem separadas.
+- MAL diferentes → chaves diferentes → permanecem separadas.
+- Sem release resolvido → fallback legado (title + genre).
+
+**Regras:**
+- NUNCA fuzzy matching por título.
+- NUNCA apaga dados (dedup é apenas visual).
+- Resolução requer mapping exato (release_id ou season_mal_id via ExternalMapping).
+
+### 4. Releases Realmente Diferentes
+
+HxH 1999 e HxH 2011 compartilham:
+- Mesmo DynamicWork (group_id)
+- Mesmo título base da franquia
+- Mesma franquia
+
+Mas têm `release_id` diferentes (R1 ≠ R2) → **chaves de dedup diferentes** → **permanecem como duas entries separadas**. Confirmado.
+
+### 5. Add Entry Manual (LEGACY_MANUAL_ENTRY)
+
+**Estado:** `LEGACY_MANUAL_ENTRY` — preservado, não é release-aware.
+
+- Cria AnimeEntry genérica sem `release_id` nem `season_mal_id`.
+- Não faz fuzzy matching.
+- Não converte automaticamente para release-aware.
+- Funcionalidade preservada como legado.
+- Migração para release-aware documentada para fase futura (não expandida aqui).
+
+**Marcador explícito no código:** comentário `LEGACY_MANUAL_ENTRY` no `AddEntryDialog` em `MyList.jsx`.
+
+### 6. EntryCard Label
+
+Quando release resolvido, exibe de forma inequívoca:
+- `buildReleaseLabel(release, franchiseTitle)` retorna:
+  - "Hunter x Hunter (1999)" — título do release difere do franchise
+  - "Hunter x Hunter (2011)" — título do release difere do franchise
+  - "Attack on Titan — Temporada 2" — TV com season_number
+  - "OVA 1" — format=OVA com release_order
+
+O título principal continua sendo a franquia; o release label aparece como subtítulo logo abaixo, em verde (`text-primary/70`), visualmente inequívoco.
+
+---
+
+## Arquivos Alterados (Checkpoint)
 
 ### Novos Arquivos
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `src/lib/releaseTracking.js` | Helpers síncronos: `findEntryForRelease`, `filterActiveReleases`, `buildReleaseLabel`, `buildReleaseSubtitle`, `getReleaseStatusLabel`, `getReleaseMap`, `resolveEntryRelease` |
+| `src/lib/releaseTracking.js` | Helpers síncronos: `findEntryForRelease`, `filterActiveReleases`, `buildReleaseLabel`, `buildReleaseSubtitle`, `getReleaseMap`, `resolveEntryRelease`, `getReleaseStatusInfo` (novo) |
 | `src/components/obra/ReleaseBlock.jsx` | Componente de tracking por release — status/progresso/XP independentes por release |
 
 ### Arquivos Modificados
@@ -50,116 +148,25 @@ media.has_work_releases === true E activeReleases.length > 0?
 | Arquivo | Mudança |
 |---------|---------|
 | `src/lib/workReleases.js` | Adicionados `status`, `chapter_count`, `duration_minutes` à normalização de WorkRelease |
-| `src/pages/ObraProfile.jsx` | Modo release (ReleaseBlock) quando `has_work_releases && activeReleases.length > 0`; fallback legado (FormatBlock) caso contrário; suporte a `?release=<id>` para URLs compartilháveis |
-| `src/components/mylist/EntryCard.jsx` | Resolve release da entry via `resolveEntryRelease`; exibe label do release; usa total específico do release |
-| `src/pages/MyList.jsx` | `deduplicateEntries` inclui `release_id` e `season_mal_id` na chave — entries de releases distintos NÃO são deduplicadas |
+| `src/pages/ObraProfile.jsx` | Modo release (ReleaseBlock) quando `has_work_releases && activeReleases.length > 0`; fallback legado (FormatBlock); suporte a `?release=<id>` |
+| `src/components/mylist/EntryCard.jsx` | **Total com prioridade de release** (não Math.max com franchise); **status airing do release**; resolve e exibe label do release |
+| `src/pages/MyList.jsx` | **Dedup visual com identidade canônica** (`release:<id>` quando resolvido); `AddEntryDialog` marcado como `LEGACY_MANUAL_ENTRY` |
 
-## Como a Página Resolve WorkRelease
+---
 
-1. `useCatalog().getBySlug(slug)` retorna `media` com `media.releases` já pré-carregado pelo `CatalogContext`
-2. `media.releases` é populado por `resolveReleasesSync(dynamicWork, releasesByGroupId)` em `CatalogContext`
-3. `resolveReleasesSync` decide a fonte: WorkRelease (canônico) ou seasons[] (legado)
-4. `filterActiveReleases(releases)` filtra por `isCategoryActive(release.category)` — Anime Only respeita category, não format
-5. `media.has_work_releases === true` confirma que a fonte é WorkRelease (não legado)
+## Casos de Teste (A–G)
 
-## Como AnimeEntry é Associada ao Release
+| Caso | Descrição | Resultado Esperado | Status |
+|------|-----------|-------------------|--------|
+| A | HxH 1999 `releaseTotal=62` → EntryCard total | `total=62` (não 148) | ✅ Estático |
+| B | HxH 2011 `releaseTotal=148` → EntryCard total | `total=148` | ✅ Estático |
+| C | Incrementar HxH 1999 no ep. 62 | `validateProgress(63, 62)` → inválido → não permite 63 | ✅ Estático |
+| D | Incrementar HxH 1999 → HxH 2011 não afetado | Entries diferentes (`release_id` diferente), updateMutation age sobre `entry.id` específico | ✅ Estático |
+| E | Entry antiga MAL=X + moderna release_id=R/MAL=X (mesmo WorkRelease) | Ambas resolvem para mesmo `release_id` → mesma chave `release:R` → dedup visual | ✅ Estático |
+| F | MAL diferentes (X ≠ Y) | Chaves diferentes → permanecem separadas | ✅ Estático |
+| G | Sem release resolvido | Fallback legado: `total = Math.max(entryTotal, catalogFallback)`, status do franchise | ✅ Estático |
 
-### Criação (ReleaseBlock.handleAdd)
-
-```js
-entryData = {
-  title: media.title,           // franchise title (compat legado)
-  type: entryType,              // anime | manga
-  genre: `__format:${category}`,// marker legado
-  release_id: release.release_id,  // VÍNCULO CANÔNICO
-  season_mal_id: release.mal_id,   // fallback legado
-  total_episodes: release.episode_count,
-  total_chapters: release.chapter_count,
-  ...
-}
-```
-
-### Leitura (releaseTracking.findEntryForRelease)
-
-1. Filtra entries por `created_by === userEmail`
-2. Busca `entry.release_id === release.release_id` (match exato)
-3. Se não encontrar, busca `entry.season_mal_id === release.mal_id` (fallback legado)
-4. Se não encontrar, retorna `null` (não fuzzy match)
-
-## Como Legacy season_mal_id Funciona
-
-- Entradas antigas podem ter `release_id = null` e `season_mal_id` preenchido
-- `findEntryForRelease` tenta `season_mal_id` quando `release_id` não match
-- O `release.mal_id` vem do `ExternalMapping(provider=mal)` enriquecido por `getWorkReleases`
-- Se o mapping retorna exatamente 1 `work_release_id`, o match é confiável
-- Se retorna múltiplos (ambíguo), NÃO vincula automaticamente
-
-## Como MyList Foi Ajustado
-
-- `deduplicateEntries` agora usa chave: `${title}__${genre}__${release_id}__${season_mal_id}`
-- Entries com `release_id` diferente NÃO são deduplicadas (HxH 1999 e HxH 2011 aparecem separadas)
-- Entries sem `release_id` nem `season_mal_id` continuam sendo deduplicadas pelo comportamento legado
-- Nenhum auto-delete — apenas deduplicação visual
-
-## Como EntryCard Foi Ajustado
-
-- Usa `useCatalog()` + `resolveEntryRelease(entry, catalog)` para encontrar o release
-- Exibe `buildReleaseLabel(release, work.title)` como subtítulo quando diferente do título da franquia
-- Usa `release.episode_count` / `release.chapter_count` como total quando disponível (mais preciso)
-- Detecta airing via `release.status === "releasing"` além do catálogo legado
-
-## Como Múltiplos Releases Aparecem na Obra
-
-- Cada release ativo recebe um `ReleaseBlock` independente
-- Cada bloco mostra: label do release, format · episódios · ano, status do release
-- Cada bloco tem seu próprio: status selector, progresso, XP, botão remover
-- Ordenação: `display_order → release_order → season_number → title` (já existente em `compareReleases`)
-- `?release=<id>` na URL faz scroll suave para o bloco específico
-
-## Query Param de Release
-
-- `/obra/hunter-x-hunter?release=<release_id>` — scroll suave para o release
-- Compatível com `?tipo=` existente (não substitui, coexiste)
-- `?tipo=anime` continua válido para modo legado (FormatBlock)
-- Não cria rota nova — mesma rota `/obra/:slug`
-
-## Casos Reais Testados (Inspeção Estática)
-
-### Hunter x Hunter (3 releases)
-- `hunter-x-hunter-1999` — anime/TV, 62 ep, finished, 1999 → "Hunter x Hunter (1999)"
-- `hunter-x-hunter-2011` — anime/TV, 148 ep, finished, 2011 → "Hunter x Hunter (2011)"
-- `hunter-x-hunter-manga` — manga/MANGA, releasing, 1998 → **filtrado** (Anime Only)
-
-### Attack on Titan (7 releases)
-- 7 releases anime/TV, todos ativos durante Anime Only
-- Cada um com label próprio e progresso independente
-
-### One Piece (1 release)
-- 1 release → 1 ReleaseBlock (funciona como antes)
-
-### Gantz / Fullmetal Alchemist: Brotherhood / Your Name (sem releases)
-- Sem WorkReleases → fallback para FormatBlock legado
-
-## Casos de Teste (A–P)
-
-| Caso | Descrição | Status |
-|------|-----------|--------|
-| A | Obra com 1 release → funciona como antes | ✅ Estático |
-| B | Obra com 2+ releases → mostra separados | ✅ Estático |
-| C | Cada release tem status próprio | ✅ Estático |
-| D | Cada release tem progresso próprio | ✅ Estático |
-| E | Adicionar release A → não adiciona B | ✅ Estático (entry criada com release_id específico) |
-| F | Adicionar A e B → duas AnimeEntry | ✅ Estático (release_id diferente) |
-| G | Incrementar A → B não muda | ✅ Estático (updateMutation age sobre entry.id específico) |
-| H | Remover A → B permanece | ✅ Estático (deleteMutation deleta apenas entry.id específico) |
-| I | Legacy season_mal_id → resolvida quando mapping confiável | ✅ Estático (findEntryForRelease fallback) |
-| J | AnimeEntry moderna com release_id → prioridade máxima | ✅ Estático (release_id verificado primeiro) |
-| K | Manga não aparece em Anime Only | ✅ Estático (filterActiveReleases + isCategoryActive) |
-| L | Anime format MOVIE/OVA/SPECIAL aparece se category=anime | ✅ Estático (filtro por category, não format) |
-| M | MyList diferencia releases | ✅ Estático (dedup key inclui release_id) |
-| N | EntryCard diferencia releases | ✅ Estático (resolveEntryRelease + buildReleaseLabel) |
-| O | Nenhum auto-delete | ✅ Estático (apenas dedup visual) |
-| P | Nenhum fuzzy matching | ✅ Estático (apenas release_id e season_mal_id) |
+---
 
 ## Problemas Encontrados nos Dados
 
@@ -169,21 +176,25 @@ entryData = {
 
 3. **Sem idempotência backend para XP** — limitação pré-existente (documentada no checkpoint anterior). Não agravada nesta fase.
 
+4. **LEGACY_MANUAL_ENTRY não é release-aware** — entries criadas via "Adicionar título" não têm `release_id` nem `season_mal_id`. Continuam funcionando via fallback legado. Migração para release-aware fica para fase futura.
+
+---
+
 ## GO / PARTIAL GO / NO-GO
 
 **PARTIAL GO**
 
-- ✅ Release mode funcional para obras migradas (WorkRelease)
-- ✅ Legacy format mode preservado para obras não migradas
-- ✅ Anime Only filtra por category (não format) — anime MOVIE/OVA/SPECIAL permanece ativo
-- ✅ AnimeEntry vinculada por release_id (canônico) com fallback season_mal_id (legado)
-- ✅ MyList não deduplica releases distintos
-- ✅ EntryCard mostra label do release
-- ✅ ?release= param para URLs compartilháveis
-- ✅ Sem fuzzy matching, sem auto-delete, sem mudança de schema
-- ⚠️ Testes A–P validados apenas estaticamente (sem runtime test)
+- ✅ Total com prioridade de release (HxH 1999 = 62, não 148)
+- ✅ Status airing do release específico (não franchise)
+- ✅ Dedup visual com identidade canônica (une legado + moderno sem apagar)
+- ✅ Releases distintos permanecem separados (HxH 1999 ≠ HxH 2011)
+- ✅ LEGACY_MANUAL_ENTRY preservado, marcado, não fuzzy match
+- ✅ EntryCard label visualmente inequívoco
+- ✅ Sem auto-delete, sem migração automática, sem fuzzy matching
+- ⚠️ Testes A–G validados apenas estaticamente (sem runtime test)
 - ⚠️ Idempotência backend de XP não garantida (pré-existente)
-- ⚠️ WorkRelease sem campo `season_number` — label usa título/ano (funcional, mas menos estruturado)
+- ⚠️ WorkRelease sem campo `season_number` — label usa título/ano (funcional)
+- ⚠️ LEGACY_MANUAL_ENTRY não converte para release-aware (documentado para fase futura)
 
 ## Próximas Fases (NÃO iniciadas)
 

@@ -71,6 +71,17 @@ export function getReleaseStatusLabel(release) {
 }
 
 /**
+ * Retorna { label, airing } para o status do release.
+ * Usado pelo EntryCard para exibir badge de status com prioridade sobre o franchise.
+ */
+export function getReleaseStatusInfo(release) {
+  if (!release?.status) return null;
+  const label = RELEASE_STATUS_LABELS[release.status];
+  if (!label) return null;
+  return { label, airing: release.status === "releasing" };
+}
+
+/**
  * Constrói um label legível para o release.
  *
  * Exemplos:
