@@ -572,6 +572,9 @@ export default function ObraProfile() {
   const [romajiTitle, setRomajiTitle] = useState(null);
   const { getBySlug, isLoading: catalogLoading } = useCatalog();
 
+  // getBySlug já retorna o item mesclado com CatalogSync via CatalogContext
+  const media = getBySlug(slug);
+
   // Read ?tipo= from URL — normalize to valid active category (no loops)
   useEffect(() => {
     if (!media) return;
@@ -598,9 +601,6 @@ export default function ObraProfile() {
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
-
-  // getBySlug já retorna o item mesclado com CatalogSync via CatalogContext
-  const media = getBySlug(slug);
 
   // Dynamic page title using real work title
   usePageTitle(media?.title || slug?.replace(/-/g, " ") || "Obra");
