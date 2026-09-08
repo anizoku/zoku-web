@@ -186,6 +186,40 @@ Cadastro/Login (email ou OAuth)
 
 ---
 
+## 10.5. LOGIN_BACKGROUND_RENDER_FIX
+
+**Sintoma:** Imagens de login cadastradas no Admin (ativas, URLs válidas) não apareciam no hero da AuthPage.
+
+**Causa raiz:** CSS — o wrapper do hero em `AuthPage.jsx` tinha apenas `lg:min-h-screen` (min-height, sem `height` explícito). O root do `AuthHero` usava `h-full` (height: 100%), que **não resolve** contra um parent com apenas `min-height` → colapsava para 0px no desktop. No mobile funcionava porque o wrapper é `fixed inset-0` (height explícita via top/bottom: 0).
+
+**Não era:**
+- ❌ Query pública (RLS `read: {}` é público, SDK `requiresAuth: false` — funciona deslogado)
+- ❌ URL/storage (URLs `base44.app/api/apps/.../files/mp/public/...` são públicas, respondem 200 sem auth)
+- ❌ RLS (read já era `{}` = público)
+
+**Correção:**
+- `AuthHero.jsx`: root alterado de `h-full w-full` → `h-full min-h-screen w-full` (garante altura concreta no desktop sem depender de resolução de percentage height).
+- `useLoginBackgrounds.js`: adicionado `isError` e `error` no retorno (distingue NO_IMAGES vs QUERY_ERROR).
+- `AuthHero.jsx`: debug discreto "Login backgrounds unavailable" **somente em development** (`import.meta.env.DEV && isError`), nunca em produção.
+
+**Arquivos alterados:**
+- `src/components/auth/AuthHero.jsx`
+- `src/hooks/useLoginBackgrounds.js`
+
+**Teste deslogado:**
+- A. `/login` → query retorna 5 imagens ativas ✅
+- B. uma imagem é selecionada (random per visit) ✅
+- C. `<img src=...>` recebe URL válida ✅
+- D. imagem aparece no hero (altura corrigida) ✅
+- E. refresh/nova visita → outra imagem pode ser sorteada ✅
+- F. login → signup → mesma imagem (mesma visita) ✅
+- G. desativar uma imagem no Admin → não entra no pool ✅
+- H. 0 ativas → fallback gradient ✅
+
+**Resultado final:** Imagens aparecem em `/login` no desktop e mobile. Random por visita preservado.
+
+---
+
 ## 11. Hero Image Integration
 
 - `useLoginBackgrounds` hook busca `LoginBackgroundImage` onde `active === true`, ordenadas por `order`.

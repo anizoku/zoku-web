@@ -8,7 +8,7 @@ import { useLoginBackgrounds } from "@/hooks/useLoginBackgrounds";
  * ou se todas as imagens ativas falharem ao carregar.
  */
 export function AuthHero() {
-  const { currentImage, activeImages, hasImages } = useLoginBackgrounds();
+  const { currentImage, activeImages, hasImages, isError } = useLoginBackgrounds();
   const [displayedUrl, setDisplayedUrl] = useState(null);
   const [triedUrls, setTriedUrls] = useState(() => new Set());
 
@@ -36,7 +36,7 @@ export function AuthHero() {
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-background">
+    <div className="relative h-full min-h-screen w-full overflow-hidden bg-background">
       {/* Fallback gradient (base layer) */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary to-background" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_30%,rgba(109,255,60,0.06),transparent_50%)]" />
@@ -57,6 +57,13 @@ export function AuthHero() {
       {/* Overlays para legibilidade */}
       <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/30 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
+
+      {/* Debug discreto — somente em development (nunca em produção) */}
+      {import.meta.env.DEV && isError && (
+        <div className="absolute top-3 left-3 z-20 bg-destructive/90 text-destructive-foreground text-[10px] px-2 py-1 rounded">
+          Login backgrounds unavailable
+        </div>
+      )}
 
       {/* Texto editorial — desktop only */}
       <div className="hidden lg:flex absolute bottom-10 left-10 right-10 z-10 flex-col">

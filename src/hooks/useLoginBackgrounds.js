@@ -14,7 +14,7 @@ const LAST_BG_KEY = "zoku_last_login_bg_id";
  * NO_SLIDESHOW = true
  */
 export function useLoginBackgrounds() {
-  const { data: images = [], isLoading } = useQuery({
+  const { data: images = [], isLoading, isError, error } = useQuery({
     queryKey: ["login-bg-active"],
     queryFn: async () => {
       const all = await base44.entities.LoginBackgroundImage.list("order", 200);
@@ -56,5 +56,7 @@ export function useLoginBackgrounds() {
     activeImages: images,
     hasImages: images.length > 0,
     isLoading,
+    isError,
+    error,
   };
 }
