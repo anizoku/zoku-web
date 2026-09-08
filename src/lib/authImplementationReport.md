@@ -101,13 +101,25 @@ A configuração de self-signup público é controlada no **Dashboard → Settin
 
 ## 7. Apple Status
 
-### ✅ SUPPORTED (requer configuração externa)
+### ⏸️ TEMPORARILY_DISABLED_UI (código preservado)
 
-- `loginWithProvider('apple')` inicia fluxo OAuth redirect.
-- Botão "Continuar com Apple" com ícone Apple.
-- Mesmo fluxo de returnTo que Google.
+- `loginWithProvider('apple')` continua implementado em `AuthContext.signInWithApple`.
+- `handleApple` preservado em `LoginForm` e `SignupForm`.
+- `AppleIcon` e botão Apple preservados em `OAuthButtons` (atrás do gate).
+- Botão "Continuar com Apple" **não aparece** na UI pública.
+- Para reativar: setar `apple: true` em `src/lib/authProviders.js`. Nenhuma outra alteração necessária.
 
-**Pré-requisito:** Apple Sign In deve estar habilitado em Dashboard → Settings → Authentication. Requer configuração de Apple Developer Account (Service ID, Key, Redirect URI). Se não configurado, o botão falhará silenciosamente.
+**Motivo:** configuração externa Apple Developer ainda não concluída.
+
+**Controle central:** `src/lib/authProviders.js`
+```js
+export const AUTH_PROVIDERS = {
+  google: true,
+  apple: false, // TEMPORARILY_DISABLED_UI
+};
+```
+
+**Pré-requisito para reativação:** Apple Sign In habilitado em Dashboard → Settings → Authentication + Apple Developer Account (Service ID, Key, Redirect URI).
 
 ---
 
@@ -265,8 +277,8 @@ Cadastro/Login (email ou OAuth)
 
 **Pendências externas (não bloqueiam o código):**
 - ⚠️ Verificar no Dashboard → Settings → Authentication se o app está configurado como **público** (não invite-only) para aceitar novos usuários.
-- ⚠️ Verificar se Google e Apple estão habilitados como providers no dashboard.
-- ⚠️ Apple Sign In requer configuração de Apple Developer Account (Service ID, Key, Redirect URI).
+- ⚠️ Verificar se Google está habilitado como provider no dashboard.
+- ⏸️ Apple = TEMPORARILY_DISABLED_UI (botão oculto via `authProviders.js`; código preservado para reativação futura).
 
 **Se algum provider não estiver configurado no dashboard, o botão correspondente falhará silenciosamente.** O código está correto; a configuração é externa.
 

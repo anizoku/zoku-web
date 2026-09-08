@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { AUTH_PROVIDERS } from "@/lib/authProviders";
 
 function GoogleIcon() {
   return (
@@ -34,26 +35,35 @@ export function OAuthButtons({ onGoogle, onApple, disabled }) {
     // Não resetamos loading em sucesso — a página redireciona
   }
 
+  const showGoogle = AUTH_PROVIDERS.google;
+  const showApple = AUTH_PROVIDERS.apple;
+
+  if (!showGoogle && !showApple) return null;
+
   return (
     <div className="space-y-2">
-      <button
-        type="button"
-        disabled={disabled || loading !== null}
-        onClick={() => handle("google", onGoogle)}
-        className="w-full h-11 flex items-center justify-center gap-3 rounded-lg bg-secondary hover:bg-secondary/70 text-foreground font-medium text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        {loading === "google" ? <Loader2 className="w-5 h-5 animate-spin" /> : <GoogleIcon />}
-        Continuar com Google
-      </button>
-      <button
-        type="button"
-        disabled={disabled || loading !== null}
-        onClick={() => handle("apple", onApple)}
-        className="w-full h-11 flex items-center justify-center gap-3 rounded-lg bg-secondary hover:bg-secondary/70 text-foreground font-medium text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        {loading === "apple" ? <Loader2 className="w-5 h-5 animate-spin" /> : <AppleIcon />}
-        Continuar com Apple
-      </button>
+      {showGoogle && (
+        <button
+          type="button"
+          disabled={disabled || loading !== null}
+          onClick={() => handle("google", onGoogle)}
+          className="w-full h-11 flex items-center justify-center gap-3 rounded-lg bg-secondary hover:bg-secondary/70 text-foreground font-medium text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {loading === "google" ? <Loader2 className="w-5 h-5 animate-spin" /> : <GoogleIcon />}
+          Continuar com Google
+        </button>
+      )}
+      {showApple && (
+        <button
+          type="button"
+          disabled={disabled || loading !== null}
+          onClick={() => handle("apple", onApple)}
+          className="w-full h-11 flex items-center justify-center gap-3 rounded-lg bg-secondary hover:bg-secondary/70 text-foreground font-medium text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {loading === "apple" ? <Loader2 className="w-5 h-5 animate-spin" /> : <AppleIcon />}
+          Continuar com Apple
+        </button>
+      )}
     </div>
   );
 }
