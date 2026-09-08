@@ -577,6 +577,13 @@ export default function ObraProfile() {
   // getBySlug já retorna o item mesclado com CatalogSync via CatalogContext
   const media = getBySlug(slug);
 
+  // ── Release-based tracking (Fase 4) ──
+  // Derivado ANTES dos useEffects para evitar TDZ.
+  // Optional chaining pois media pode ser null durante carregamento.
+  const allReleases = media?.releases || [];
+  const activeReleases = filterActiveReleases(allReleases);
+  const useReleaseMode = !!media?.has_work_releases && activeReleases.length > 0;
+
   // Read ?tipo= from URL — normalize to valid active category (no loops)
   useEffect(() => {
     if (!media) return;
@@ -601,6 +608,8 @@ export default function ObraProfile() {
   }, [media?.slug]);
 
   // Scroll to specific release when ?release= param is present (shareable URLs)
+  // Dependências estáveis: useReleaseMode (boolean), media?.slug (string).
+  // activeReleases é um array novo a cada render — não usar como dep.
   useEffect(() => {
     if (!useReleaseMode) return;
     const params = new URLSearchParams(window.location.search);
@@ -610,7 +619,7 @@ export default function ObraProfile() {
     if (el) {
       setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
     }
-  }, [useReleaseMode, activeReleases]);
+  }, [useReleaseMode, media?.slug]);
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -741,13 +750,6 @@ export default function ObraProfile() {
     if (f !== "liveaction") return true;
     return !!(media.liveActionTitle || media.liveActionStatus);
   });
-
-  // ── Release-based tracking (Fase 4) ──
-  // When the work has canonical WorkReleases, show one ReleaseBlock per release.
-  // Otherwise, fallback to legacy FormatBlock (one card per format category).
-  const allReleases = media.releases || [];
-  const activeReleases = filterActiveReleases(allReleases);
-  const useReleaseMode = media.has_work_releases && activeReleases.length > 0;
 
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6">
