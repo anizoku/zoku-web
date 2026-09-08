@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import CatalogUpdatePanel from "./CatalogUpdatePanel";
+import ReleaseSyncPanel from "./ReleaseSyncPanel";
 import CategoryManager from "./CategoryManager";
 import CatalogAdvancedPanel from "./CatalogAdvancedPanel";
 
 const SUB_SECTIONS = [
   { key: 'update', label: 'Atualização' },
+  { key: 'releases', label: 'Releases' },
   { key: 'visibility', label: 'Visibilidade' },
   { key: 'advanced', label: 'Avançado' },
 ];
@@ -39,6 +41,7 @@ export default function CatalogSection() {
       </div>
 
       {sub === 'update' && <CatalogUpdatePanel />}
+      {sub === 'releases' && <ReleaseSyncPanel />}
       {sub === 'visibility' && <CategoryManager />}
       {sub === 'advanced' && (
         <div className="space-y-4">
