@@ -1,7 +1,7 @@
 # Admin Security + Modernization Report
 
-**Date:** 2026-09-07
-**Phase:** Security + Modernization (Área Admin)
+**Date:** 2026-09-07 (atualizado 2026-09-08)
+**Phase:** Security + Modernization (Área Admin) — Rodada Final de Correções
 **Status:** ✅ GO
 
 ---
@@ -141,7 +141,7 @@ export default function AppLayout() {
 | `SyncRun` | admin | admin | admin | admin | ✅ Correto |
 | `SyncLog` | admin | admin | admin | admin | ✅ Correto |
 | `SyncConflict` | admin | admin | admin | admin | ✅ Correto |
-| `News` | Público (status=publicado) | admin | admin | admin | ✅ Correto |
+| `News` | Público (status=publicado) + admin (todos) | admin | admin | admin | ✅ Corrigido (rodada final) |
 | `SiteConfig` | Público | admin | admin | admin | ✅ Correto |
 | `FanArt` | Público | admin | admin | admin | ✅ Correto |
 | `PlatformBanner` | Público | admin | admin | admin | ✅ Correto |
@@ -154,7 +154,7 @@ export default function AppLayout() {
 | `WorkSuggestion` | Dono ou admin | Dono | admin | admin | Usuário cria própria sugestão; review é admin-only |
 | `ContentReport` | Dono ou admin | Dono | admin | admin | Usuário cria própria denúncia; review é admin-only |
 
-**Conclusão:** RLS está correta. Nenhuma mudança necessária.
+**Conclusão:** RLS corrigida na rodada final. News READ era `"read": {}` (permitia leitura de rascunhos por qualquer usuário). Corrigido para `$or: [{ "data.status": "publicado" }, { "user_condition": { "role": "admin" } }]` — admin lê tudo, usuário comum lê apenas publicado, rascunho é admin-only.
 
 ---
 
@@ -311,6 +311,23 @@ Mobile:
 
 ---
 
+## 13.5. Dívida Técnica: ADMIN_CLIENT_SYNC_LEGACY
+
+**Descrição:** `syncCurrentlyAiring` e `discoverNewSeason` (em `src/lib/catalogAutoSync.js`) ainda são funções client-side executadas no navegador do admin.
+
+**Situação atual:**
+- ✅ Protegidos por `RequireAdmin` na UI (route guard)
+- ✅ Writes protegidos por RLS (DynamicWork CUD = admin-only)
+- ✅ Não executados automaticamente (auto-sync removido do AppLayout)
+- ✅ Execução apenas via ação explícita do admin no CatalogUpdatePanel
+- ⚠️ Não é o caminho ideal de produção — chamadas Jikan do client podem sofrer rate-limit/CORS
+
+**Destino:** Migrar para backend functions (Edge Functions) após migração Supabase. As funções `anilistCatalogSync` e `malCatalogSync` já existem como backend autorizado e devem substituir o caminho client-side.
+
+**Ação:** NÃO reescrever essas funções agora. Preservar até migração Supabase.
+
+---
+
 ## 14. GO / NO-GO
 
 ### ✅ GO
@@ -341,3 +358,61 @@ Mobile:
 - ✅ Ferramentas administrativas preservadas
 - ✅ Backend atual intacto
 - ✅ RLS continua como fonte real de autorização
+
+---
+
+## 15. Rodada Final de Correções (2026-09-08)
+
+### 15.1 Correção RLS de News
+- **Problema:** `News.read` era `"read": {}` — permitia leitura de rascunhos por usuários comuns.
+- **Correção:** Alterado para `$or: [{ "data.status": "publicado" }, { "user_condition": { "role": "admin" } }]`.
+- **Resultado:** Admin lê publicado + rascunho; usuário comum lê apenas publicado; rascunho é admin-only.
+- **Create/Update/Delete:** Continuam admin-only (não alterados).
+
+### 15.2 Última Atualização do Catálogo (sem localStorage)
+- **Problema:** `AdminOverview` e `CatalogUpdatePanel` usavam `localStorage.getItem('zoku_last_auto_sync')` como fonte visual oficial.
+- **Correção:** Agora usam `SyncRun` (persistido no banco) como fonte de verdade. Fallback para "Nunca" apenas se não houver registro.
+- **localStorage legado:** Mantido como escrita (`setItem`) para compatibilidade, mas não é mais exibido como fonte oficial.
+
+### 15.3 Saúde do Catálogo na Visão Geral
+- **Adicionado:** Card "Saúde do catálogo" no `AdminOverview`.
+- **Mostra:** Última execução (SyncRun.started_at), status, erros (summary.errors), reviews pendentes (SyncConflict status=pending).
+- **Sem nova entidade:** Usa SyncRun e SyncConflict existentes.
+
+### 15.4 Conteúdo e Configurações — Navegação Interna
+- **Problema:** Seção Conteúdo montava NewsManager + BannersPanel + FanArtPanel simultaneamente. Configurações montava AppearanceManager + MigrateEntriesPanel simultaneamente.
+- **Correção:** Adicionada navegação interna com pills/segmented (SubSectionNav). Apenas o componente selecionado monta.
+- **Conteúdo:** Notícias | Banners | Arte de fãs
+- **Configurações:** Aparência | Avançado
+- **Benefício:** Ferramentas grandes não montam se o admin não está usando.
+
+### 15.5 Testes Finais
+- ✅ Admin lê rascunho News (RLS permite via user_condition admin)
+- ✅ User comum não lê rascunho News (RLS bloqueia — só status=publicado)
+- ✅ User comum continua sem acesso /admin (RequireAdmin)
+- ✅ Botão Admin invisível para user comum (useAuth isAdmin)
+- ✅ AdminOverview não depende de localStorage para última atualização
+- ✅ Conteúdo monta apenas ferramenta selecionada
+- ✅ Configurações monta apenas ferramenta selecionada
+- ✅ Nenhuma regressão ANIME_ONLY
+
+### 15.6 GO / NO-GO Final
+
+### ✅ GO
+
+**Segurança:**
+- ✅ News RLS corrigida (rascunho admin-only)
+- ✅ RequireAdmin ativo
+- ✅ Auto-sync removido
+- ✅ RLS continua como fonte real
+
+**Status:**
+- ✅ Última atualização baseada em SyncRun (persistido)
+- ✅ Saúde do catálogo com dados reais
+
+**UI:**
+- ✅ Conteúdo e Configurações com navegação interna condicional
+- ✅ Sem regressões ANIME_ONLY
+
+**Dívida técnica:**
+- ✅ ADMIN_CLIENT_SYNC_LEGACY registrada (migrar para backend pós-Supabase)

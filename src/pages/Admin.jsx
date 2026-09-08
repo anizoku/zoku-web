@@ -80,34 +80,50 @@ export default function Admin() {
       )}
 
       {section === 'content' && (
-        <div className="space-y-8">
-          <div>
-            <h2 className="font-space font-bold text-xl text-foreground mb-4">Notícias</h2>
-            <NewsManager />
-          </div>
-          <div>
-            <h2 className="font-space font-bold text-xl text-foreground mb-4">Banners</h2>
-            <BannersPanel />
-          </div>
-          <div>
-            <h2 className="font-space font-bold text-xl text-foreground mb-4">Arte de fãs</h2>
-            <FanArtPanel />
-          </div>
-        </div>
+        <ContentSection />
       )}
 
       {section === 'settings' && (
-        <div className="space-y-8">
-          <div>
-            <h2 className="font-space font-bold text-xl text-foreground mb-4">Aparência</h2>
-            <AppearanceManager />
-          </div>
-          <div>
-            <h2 className="font-space font-bold text-xl text-foreground mb-4">Avançado</h2>
-            <MigrateEntriesPanel />
-          </div>
-        </div>
+        <SettingsSection />
       )}
     </AdminShell>
+  );
+}
+
+const CONTENT_TABS = [
+  { id: 'news', label: 'Notícias' },
+  { id: 'banners', label: 'Banners' },
+  { id: 'fanart', label: 'Arte de fãs' },
+];
+
+const SETTINGS_TABS = [
+  { id: 'appearance', label: 'Aparência' },
+  { id: 'advanced', label: 'Avançado' },
+];
+
+function ContentSection() {
+  const [tab, setTab] = useState('news');
+  return (
+    <div>
+      <h2 className="font-space font-bold text-xl text-foreground mb-1">Conteúdo</h2>
+      <p className="text-sm text-muted-foreground mb-4">Notícias, banners e arte de fãs</p>
+      <SubSectionNav tabs={CONTENT_TABS} active={tab} onChange={setTab} />
+      {tab === 'news' && <NewsManager />}
+      {tab === 'banners' && <BannersPanel />}
+      {tab === 'fanart' && <FanArtPanel />}
+    </div>
+  );
+}
+
+function SettingsSection() {
+  const [tab, setTab] = useState('appearance');
+  return (
+    <div>
+      <h2 className="font-space font-bold text-xl text-foreground mb-1">Configurações</h2>
+      <p className="text-sm text-muted-foreground mb-4">Aparência e ferramentas avançadas</p>
+      <SubSectionNav tabs={SETTINGS_TABS} active={tab} onChange={setTab} />
+      {tab === 'appearance' && <AppearanceManager />}
+      {tab === 'advanced' && <MigrateEntriesPanel />}
+    </div>
   );
 }
