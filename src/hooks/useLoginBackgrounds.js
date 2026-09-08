@@ -1,11 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 
+const LAST_BG_KEY = "zoku_last_login_bg_id";
+
 /**
- * Busca imagens ativas de LoginBackgroundImage e seleciona uma por hora
- * de forma determinística (currentHour % activeImages.length).
- * Atualiza automaticamente quando a hora muda (crossfade no componente).
+ * Busca imagens ativas de LoginBackgroundImage e seleciona UMA aleatoriamente
+ * por visita à página de login. A imagem não muda durante a mesma visita
+ * (re-renders, troca de modo login/signup/forgot, digitação, etc.).
+ *
+ * LOGIN_HERO_SELECTION = RANDOM_PER_VISIT
+ * ACTIVE_IMAGES_ONLY = true
+ * NO_SLIDESHOW = true
  */
 export function useLoginBackgrounds() {
   const { data: images = [], isLoading } = useQuery({
@@ -17,29 +23,38 @@ export function useLoginBackgrounds() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const [hour, setHour] = useState(() => new Date().getHours());
+  const [selectedImage, setSelectedImage] = useState(null);
+  const hasSelectedRef = useRef(false);
 
-  // Verifica mudança de hora a cada 60s (para crossfade automático)
+  // Seleciona UMA imagem quando a lista carrega pela primeira vez nesta visita.
+  // hasSelectedRef garante que não haja novo sorteio em re-renders ou refetch.
   useEffect(() => {
-    if (images.length <= 1) return;
-    const interval = setInterval(() => {
-      const now = new Date().getHours();
-      setHour((prev) => (prev !== now ? now : prev));
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [images.length]);
+    if (hasSelectedRef.current) return;
+    if (images.length === 0) return;
 
-  const activeImages = images;
-  const currentIndex = activeImages.length > 0 ? hour % activeImages.length : -1;
-  const nextIndex = activeImages.length > 1 ? (currentIndex + 1) % activeImages.length : -1;
+    hasSelectedRef.current = true;
 
-  const currentImage = currentIndex >= 0 ? activeImages[currentIndex] : null;
-  const nextImage = nextIndex >= 0 ? activeImages[nextIndex] : null;
+    let pool = images;
+
+    // Evitar repetição imediata da visita anterior (somente ID, nunca base64)
+    if (pool.length > 1) {
+      const lastId = sessionStorage.getItem(LAST_BG_KEY);
+      if (lastId) {
+        const filtered = pool.filter((img) => img.id !== lastId);
+        if (filtered.length > 0) pool = filtered;
+      }
+    }
+
+    const idx = Math.floor(Math.random() * pool.length);
+    const chosen = pool[idx];
+    setSelectedImage(chosen);
+    sessionStorage.setItem(LAST_BG_KEY, chosen.id);
+  }, [images]);
 
   return {
-    currentImage,
-    nextImage,
-    hasImages: activeImages.length > 0,
+    currentImage: selectedImage,
+    activeImages: images,
+    hasImages: images.length > 0,
     isLoading,
   };
 }

@@ -189,16 +189,30 @@ Cadastro/Login (email ou OAuth)
 ## 11. Hero Image Integration
 
 - `useLoginBackgrounds` hook busca `LoginBackgroundImage` onde `active === true`, ordenadas por `order`.
-- Seleção determinística por hora: `index = currentHour % activeImages.length`.
-- Crossfade suave (1s) via CSS `heroFadeIn` keyframe + `key` prop no `<img>`.
-- Verifica mudança de hora a cada 60s (atualiza se a página permanecer aberta).
-- Preload da próxima imagem via `<img loading="lazy" className="hidden">`.
-- Fallback: gradient escuro com glow verde/purple se nenhuma imagem ativa ou imagem falha.
+- **Seleção aleatória por visita** (RANDOM_PER_VISIT): ao entrar na página de login, uma imagem ativa é sorteada e mantida durante toda a visita.
+- A imagem **não muda** em re-renders, troca de modo (login/signup/forgot), digitação ou refetch da query.
+- Nova visita (desmontar + remontar AuthPage) faz novo sorteio.
+- Evita repetição imediata da visita anterior via `sessionStorage` (somente ID, nunca base64).
+- `Math.floor(Math.random() * eligibleImages.length)` — sem peso por `order`.
+- `order` continua servindo apenas para organização no Admin.
+- Apenas a imagem sorteada é baixada pelo browser (sem preload de outras).
+- Fallback: gradient escuro com glow verde/purple se 0 imagens ativas ou se todas falharem ao carregar.
+- Se a imagem sorteada falhar, tenta outra ativa ainda não tentada; se todas falharem → fallback gradient.
+- Fade-in suave (1s) via CSS `heroFadeIn` keyframe + `key` prop no `<img>`.
 - Overlays: gradient lateral + gradient inferior + radial highlights para legibilidade.
 
+```
+LOGIN_HERO_SELECTION = RANDOM_PER_VISIT
+ACTIVE_IMAGES_ONLY = true
+NO_SLIDESHOW = true
+```
+
 ### Admin:
-- `LoginImagesPanel` preservado em Admin → Configurações → Aparência → Imagens de Login.
-- Multi-upload, toggle active, reorder, delete — todos funcionais.
+- `LoginImagesPanel` em Admin → Configurações → Aparência → Imagens da página de login (entre Logos e Som de conquista).
+- Box/card consistente com o restante do Admin.
+- Contador de imagens ativas exibido ("N de M imagem(ns) ativa(s)").
+- Badge visual "Ativa"/"Inativa" em cada thumbnail.
+- Multi-upload (JPG/PNG/WebP, máx 5MB), toggle active, editar título, reorder, delete — todos funcionais.
 
 ---
 

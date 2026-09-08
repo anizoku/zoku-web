@@ -41,6 +41,13 @@ export default function LoginImagesPanel() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setMultiError("");
+    const MAX_SIZE = 5 * 1024 * 1024;
+    const oversized = files.filter((f) => f.size > MAX_SIZE);
+    if (oversized.length) {
+      setMultiError(`Imagem(ns) acima do limite de 5MB: ${oversized.map((f) => f.name).join(", ")}`);
+      e.target.value = "";
+      return;
+    }
     setUploading(true);
     try {
       const baseOrder = images.length ? Math.max(...images.map((i) => i.order || 0)) + 1 : 0;
@@ -63,13 +70,17 @@ export default function LoginImagesPanel() {
   };
 
   const sorted = [...images].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const activeCount = images.filter((i) => i.active).length;
 
   return (
-    <div className="space-y-6">
+    <div className="bg-card border border-border rounded-xl p-5 space-y-6">
       <div>
-        <h2 className="font-space font-bold text-xl text-foreground">Imagens de fundo do Login</h2>
+        <h2 className="font-space font-bold text-xl text-foreground">Imagens da página de login</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Imagens ativas fazem crossfade automático na tela de login, na ordem definida. Imagens inativas permanecem salvas mas não aparecem.
+          Escolha as imagens que podem aparecer no painel visual da tela de login.
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          {activeCount} de {images.length} imagem(ns) ativa(s) — todas as ativas têm a mesma chance no sorteio.
         </p>
       </div>
 
@@ -87,7 +98,7 @@ export default function LoginImagesPanel() {
           <div className="flex flex-col items-center gap-1.5">
             <Upload className="w-5 h-5 text-muted-foreground/60" />
             <span className="text-sm text-foreground">Enviar imagens (selecione várias de uma vez)</span>
-            <span className="text-[10px] text-muted-foreground">JPG, PNG ou WebP</span>
+            <span className="text-[10px] text-muted-foreground">JPG, PNG ou WebP · máx 5MB</span>
           </div>
         )}
         <input ref={inputRef} type="file" accept={ACCEPT} multiple className="hidden" onChange={handleMultiUpload} />
@@ -118,11 +129,14 @@ export default function LoginImagesPanel() {
                 <span className="absolute top-1.5 left-1.5 bg-background/80 backdrop-blur text-[10px] text-foreground px-1.5 py-0.5 rounded">
                   #{idx + 1}
                 </span>
-                {!img.active && (
-                  <span className="absolute top-1.5 right-1.5 bg-destructive/80 text-[10px] text-destructive-foreground px-1.5 py-0.5 rounded">
-                    Inativa
-                  </span>
-                )}
+                <span className={`absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                  img.active
+                    ? "bg-primary/20 text-primary"
+                    : "bg-destructive/20 text-destructive"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${img.active ? "bg-primary" : "bg-destructive"}`} />
+                  {img.active ? "Ativa" : "Inativa"}
+                </span>
               </div>
               <div className="p-2 space-y-2 flex-1 flex flex-col">
                 <Input

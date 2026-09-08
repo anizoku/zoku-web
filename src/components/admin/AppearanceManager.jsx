@@ -152,21 +152,13 @@ export default function AppearanceManager() {
         
       </div>
 
+      <LoginImagesPanel />
+
       <div className="space-y-6 bg-card border border-border rounded-xl p-5">
         <SoundUploader
           value={form.achievement_sound_url}
           onChange={(v) => setForm((f) => ({ ...f, achievement_sound_url: v }))}
         />
-      </div>
-
-      <div className="space-y-3">
-        <div>
-          <h3 className="font-space font-semibold text-lg text-foreground">Imagens de Login</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie as imagens de fundo exibidas na tela de login. Apenas as ativas entram na rotação.
-          </p>
-        </div>
-        <LoginImagesPanel />
       </div>
 
       <Button

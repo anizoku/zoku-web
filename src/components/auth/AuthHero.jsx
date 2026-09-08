@@ -1,12 +1,39 @@
+import { useState, useEffect } from "react";
 import { useLoginBackgrounds } from "@/hooks/useLoginBackgrounds";
 
 /**
  * Hero visual do login: imagem de fundo (LoginBackgroundImage) com overlays
- * e texto editorial. Crossfade suave quando a imagem muda (por hora).
- * Fallback: gradient escuro com glow verde/purple se nenhuma imagem ativa.
+ * e texto editorial. A imagem é sorteada uma vez por visita (random per visit).
+ * Fallback: gradient escuro com glow verde/purple se nenhuma imagem ativa
+ * ou se todas as imagens ativas falharem ao carregar.
  */
 export function AuthHero() {
-  const { currentImage, nextImage, hasImages } = useLoginBackgrounds();
+  const { currentImage, activeImages, hasImages } = useLoginBackgrounds();
+  const [displayedUrl, setDisplayedUrl] = useState(null);
+  const [triedUrls, setTriedUrls] = useState(() => new Set());
+
+  // Quando o hook seleciona uma imagem, exibe-a
+  useEffect(() => {
+    if (currentImage?.image_url) {
+      setDisplayedUrl(currentImage.image_url);
+      setTriedUrls(new Set([currentImage.image_url]));
+    }
+  }, [currentImage]);
+
+  // Se a imagem falhar ao carregar, tenta outra ativa ainda não tentada
+  const handleError = () => {
+    if (!displayedUrl) return;
+    const remaining = activeImages.filter((img) => !triedUrls.has(img.image_url));
+    if (remaining.length > 0) {
+      const idx = Math.floor(Math.random() * remaining.length);
+      const next = remaining[idx];
+      setDisplayedUrl(next.image_url);
+      setTriedUrls((prev) => new Set([...prev, next.image_url]));
+    } else {
+      // Todas falharam → fallback gradient
+      setDisplayedUrl(null);
+    }
+  };
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
@@ -15,12 +42,13 @@ export function AuthHero() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_30%,rgba(109,255,60,0.06),transparent_50%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_80%,rgba(120,80,255,0.05),transparent_50%)]" />
 
-      {/* Background image com crossfade */}
-      {hasImages && currentImage && (
+      {/* Background image — apenas a imagem sorteada é baixada */}
+      {hasImages && displayedUrl && (
         <img
-          key={currentImage.image_url}
-          src={currentImage.image_url}
+          key={displayedUrl}
+          src={displayedUrl}
           alt=""
+          onError={handleError}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ animation: "heroFadeIn 1s ease-in-out" }}
         />
@@ -29,11 +57,6 @@ export function AuthHero() {
       {/* Overlays para legibilidade */}
       <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/30 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
-
-      {/* Preload próxima imagem */}
-      {nextImage && nextImage.image_url !== currentImage?.image_url && (
-        <img src={nextImage.image_url} alt="" className="hidden" loading="lazy" />
-      )}
 
       {/* Texto editorial — desktop only */}
       <div className="hidden lg:flex absolute bottom-10 left-10 right-10 z-10 flex-col">
