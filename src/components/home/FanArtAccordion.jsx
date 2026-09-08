@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Twitter, Globe, ImageOff, ChevronDown } from "lucide-react";
+import { Instagram, Twitter, Globe, ExternalLink, ImageOff, ChevronDown } from "lucide-react";
+
+const AUTO_ROTATE_MS = 6000;
 
 function buildUrl(value, platform) {
   if (!value) return null;
@@ -22,6 +24,8 @@ function ArtOverlay({ art, title }) {
   const ig = buildUrl(art.artist_instagram, "instagram");
   const tw = buildUrl(art.artist_twitter, "twitter");
   const web = buildUrl(art.artist_website, null);
+  const source = buildUrl(art.source_url, null);
+  const hasLinks = ig || tw || web || source;
 
   return (
     <>
@@ -32,49 +36,72 @@ function ArtOverlay({ art, title }) {
         {art.work_title && (
           <p className="text-xs text-primary">Relacionado a {art.work_title}</p>
         )}
-        <div className="flex items-center gap-3 pt-1.5">
-          {ig && (
-            <a
-              href={ig}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Instagram do artista"
-              className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
-            >
-              <Instagram className="w-4 h-4" />
-            </a>
-          )}
-          {tw && (
-            <a
-              href={tw}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Twitter do artista"
-              className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
-            >
-              <Twitter className="w-4 h-4" />
-            </a>
-          )}
-          {web && (
-            <a
-              href={web}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Site do artista"
-              className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
-            >
-              <Globe className="w-4 h-4" />
-            </a>
-          )}
-          {art.work_slug && (
+        {hasLinks && (
+          <div className="flex items-center gap-3 pt-1.5">
+            {ig && (
+              <a
+                href={ig}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram do artista"
+                className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+              >
+                <Instagram className="w-4 h-4" />
+              </a>
+            )}
+            {tw && (
+              <a
+                href={tw}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Twitter do artista"
+                className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+              >
+                <Twitter className="w-4 h-4" />
+              </a>
+            )}
+            {web && (
+              <a
+                href={web}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Site do artista"
+                className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+              >
+                <Globe className="w-4 h-4" />
+              </a>
+            )}
+            {source && (
+              <a
+                href={source}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Origem da arte"
+                className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+            {art.work_slug && (
+              <Link
+                to={`/obra/${art.work_slug}`}
+                className="ml-2 inline-flex items-center text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                Ver obra
+              </Link>
+            )}
+          </div>
+        )}
+        {!hasLinks && art.work_slug && (
+          <div className="pt-1.5">
             <Link
               to={`/obra/${art.work_slug}`}
-              className="ml-2 inline-flex items-center text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="inline-flex items-center text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               Ver obra
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -107,11 +134,17 @@ function ArtImage({ src, alt, className }) {
  * Desktop: accordion horizontal — uma arte aberta + abas estreitas laterais.
  * Mobile: accordion vertical — cabeçalho + painel aberto.
  *
- * Animação via CSS transitions (transition-all duration-300 ease-out)
- * — sem dependência de motion adicionada.
+ * Auto-rotate: 2+ artes → troca automática a cada 6s.
+ * - Pausa em hover (desktop).
+ * - Clique manual reseta o timer.
+ * - Cleanup do intervalo no unmount.
+ *
+ * Animação via CSS transitions (transition-all duration-300 ease-out).
  */
 export default function FanArtAccordion({ arts, isLoading }) {
   const [openArtId, setOpenArtId] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [autoRotateKey, setAutoRotateKey] = useState(0);
 
   // Garante openArtId válido quando arts muda
   useEffect(() => {
@@ -119,6 +152,24 @@ export default function FanArtAccordion({ arts, isLoading }) {
       setOpenArtId(arts[0].id);
     }
   }, [arts, openArtId]);
+
+  // Auto-rotate: só ativa com 2+ artes e não pausado
+  useEffect(() => {
+    if (arts.length < 2 || isPaused) return;
+    const timer = setInterval(() => {
+      setOpenArtId((prev) => {
+        const idx = arts.findIndex((a) => a.id === prev);
+        if (idx === -1) return arts[0]?.id ?? prev;
+        return arts[(idx + 1) % arts.length].id;
+      });
+    }, AUTO_ROTATE_MS);
+    return () => clearInterval(timer);
+  }, [arts, isPaused, autoRotateKey]);
+
+  const handleManualSelect = (id) => {
+    setOpenArtId(id);
+    setAutoRotateKey((k) => k + 1); // reinicia contagem do timer
+  };
 
   if (isLoading) {
     return (
@@ -144,8 +195,12 @@ export default function FanArtAccordion({ arts, isLoading }) {
 
   return (
     <>
-      {/* Desktop: accordion horizontal */}
-      <div className="hidden lg:flex gap-2 h-[460px]">
+      {/* Desktop: accordion horizontal com auto-rotate + pause on hover */}
+      <div
+        className="hidden lg:flex gap-2 h-[460px]"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
         {arts.map((art) => {
           const isOpen = art.id === openArtId;
           const title = art.title || art.work_title || "Arte de fã";
@@ -168,28 +223,23 @@ export default function FanArtAccordion({ arts, isLoading }) {
             );
           }
 
+          // Faixa vertical: thumbnail circular limpa + título vertical
           return (
             <button
               key={art.id}
-              onClick={() => setOpenArtId(art.id)}
+              onClick={() => handleManualSelect(art.id)}
               aria-expanded={false}
               aria-controls={`fanart-panel-${art.id}`}
-              className="relative rounded-xl overflow-hidden border border-border bg-card hover:border-primary/40 transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="group relative rounded-xl overflow-hidden border border-border bg-card hover:border-primary/40 transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex flex-col items-center pt-3 pb-2 px-1"
               style={{ flexGrow: 0, flexBasis: 56, minWidth: 56 }}
             >
-              {/* Miniatura faint da arte */}
-              {art.image_url && (
-                <img
-                  src={art.image_url}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-25"
-                  onError={(e) => { e.currentTarget.style.display = "none"; }}
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-b from-card/70 to-card/95" />
+              {/* Thumbnail circular — limpa, sem blur/degradê/escurecimento */}
+              <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-border group-hover:border-primary/50 bg-secondary shrink-0 transition-colors">
+                <ArtImage src={art.image_url} alt="" className="w-full h-full object-cover" />
+              </div>
               {/* Título vertical */}
-              <div className="absolute inset-0 flex items-center justify-center p-2">
-                <span className="[writing-mode:vertical-rl] text-xs font-medium text-foreground/80 truncate max-h-full">
+              <div className="flex-1 flex items-center justify-center mt-2 w-full">
+                <span className="[writing-mode:vertical-rl] text-[11px] font-medium text-foreground/80 group-hover:text-foreground truncate max-h-full transition-colors">
                   {title}
                 </span>
               </div>
@@ -207,12 +257,12 @@ export default function FanArtAccordion({ arts, isLoading }) {
           return (
             <div key={art.id} className="rounded-xl border border-border overflow-hidden">
               <button
-                onClick={() => setOpenArtId(art.id)}
+                onClick={() => handleManualSelect(art.id)}
                 aria-expanded={isOpen}
                 aria-controls={`fanart-panel-${art.id}`}
                 className="w-full flex items-center gap-3 p-3 bg-card hover:bg-secondary/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <div className="w-10 h-10 rounded-lg overflow-hidden bg-secondary shrink-0">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary shrink-0">
                   <ArtImage src={art.image_url} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 text-left min-w-0">
