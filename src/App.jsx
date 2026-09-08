@@ -5,7 +5,6 @@ import { BrowserRouter as Router, Route, Routes, Navigate, Outlet, useLocation }
 
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import AppLayout from '@/components/layout/AppLayout';
 import { CardOverridesProvider } from '@/context/CardOverridesContext';
@@ -37,31 +36,36 @@ import News from '@/pages/News';
 import NewsDetail from '@/pages/NewsDetail';
 import Works from '@/pages/Works';
 import FrozenCategory from '@/pages/FrozenCategory';
-import AuthPage from '@/pages/AuthPage';
-import ResetPasswordPage from '@/pages/ResetPasswordPage';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { useState, useEffect, lazy, Suspense } from 'react';
 
 /**
- * Layout route que protege o app autenticado.
- * - Não autenticado → redirect para /login?returnTo=...
- * - user_not_registered → UserNotRegisteredError
- * - Profile incompleto → redirect para /profile-setup
- * - Saved returnTo (OAuth) → redirect após profile completo
- * - Caso contrário → <Outlet />
+ * RedirectToLogin — redirect to /login preserving the current path as ?returnTo.
  */
-const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated } = useAuth();
+const RedirectToLogin = () => {
+  const location = useLocation();
+  const returnTo = encodeURIComponent(location.pathname + location.search);
+  return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+};
+
+/**
+ * ProfileSetupGate — redirects users with incomplete profiles to /profile-setup.
+ * Sits inside ProtectedRoute, so only runs for authenticated users.
+ */
+const ProfileSetupGate = () => {
+  const { isAuthenticated, isLoadingAuth } = useAuth();
   const [profileChecked, setProfileChecked] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    if (isLoadingAuth || isLoadingPublicSettings) return;
-    if (authError) { setProfileChecked(true); return; }
-    if (!isAuthenticated) { setProfileChecked(true); return; }
+    if (isLoadingAuth || !isAuthenticated) { setProfileChecked(true); return; }
     base44.auth.me().then(async (u) => {
-      if (!u) { setProfileChecked(true); return; }
-      if (u.profile_setup_completed) { setProfileChecked(true); setNeedsSetup(false); return; }
+      if (!u || u.profile_setup_completed) { setProfileChecked(true); return; }
       try {
         const profiles = await base44.entities.UserProfile.filter({ user_email: u.email });
         const p = profiles[0];
@@ -75,31 +79,16 @@ const AuthenticatedApp = () => {
       }
       setProfileChecked(true);
     }).catch(() => { setProfileChecked(true); });
-  }, [isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated]);
+  }, [isLoadingAuth, isAuthenticated]);
 
-  if (isLoadingPublicSettings || isLoadingAuth || !profileChecked) {
+  if (!profileChecked) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-          <span className="text-sm text-muted-foreground font-medium">Carregando...</span>
-        </div>
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
-  // Não autenticado → redirect para /login com returnTo
-  if (!isAuthenticated || (authError && authError.type === 'auth_required')) {
-    const returnTo = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
-  }
-
-  // Usuário não registrado (app private/invite-only)
-  if (authError && authError.type === 'user_not_registered') {
-    return <UserNotRegisteredError />;
-  }
-
-  // Redirect para setup se necessário
   const currentPath = location.pathname;
   if (needsSetup && currentPath !== "/profile-setup") {
     return <Navigate to="/profile-setup" replace />;
@@ -108,7 +97,6 @@ const AuthenticatedApp = () => {
     return <Navigate to="/" replace />;
   }
 
-  // ReturnTo salvo do OAuth (após profile completo)
   if (!needsSetup) {
     const savedReturnTo = sessionStorage.getItem('auth_returnTo');
     if (savedReturnTo && savedReturnTo !== currentPath) {
@@ -129,16 +117,17 @@ function App() {
             <CardOverridesProvider>
               <ScrollMemory />
               <Routes>
-                {/* Rotas de auth públicas */}
-                <Route path="/login" element={<AuthPage mode="login" />} />
-                <Route path="/signup" element={<AuthPage mode="signup" />} />
-                <Route path="/forgot-password" element={<AuthPage mode="forgot" />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                {/* Auth routes (public) */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
-                {/* App protegido */}
-                <Route element={<AuthenticatedApp />}>
-                  <Route path="/profile-setup" element={<ProfileSetup />} />
-                  <Route element={<AppLayout />}>
+                {/* Protected app routes */}
+                <Route element={<ProtectedRoute unauthenticatedElement={<RedirectToLogin />} />}>
+                  <Route element={<ProfileSetupGate />}>
+                    <Route path="/profile-setup" element={<ProfileSetup />} />
+                    <Route element={<AppLayout />}>
                     <Route path="/" element={<Home />} />
                     <Route path="/trending" element={<Trending />} />
                     <Route path="/animes" element={<Navigate to="/obras?categoria=anime" replace />} />
@@ -169,6 +158,7 @@ function App() {
                     <Route path="/recomendacoes" element={<Recommendations />} />
                     <Route path="/noticias" element={<News />} />
                     <Route path="/noticias/:slug" element={<NewsDetail />} />
+                    </Route>
                   </Route>
                 </Route>
 
