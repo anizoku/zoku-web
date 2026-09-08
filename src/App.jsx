@@ -120,6 +120,7 @@ function App() {
                 {/* Auth routes (public) */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/signup" element={<Navigate to="/register" replace />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
 

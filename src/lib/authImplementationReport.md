@@ -404,3 +404,79 @@ NO_SLIDESHOW = true
 - ✅ RLS — não alterada
 - ✅ Backend functions — não alteradas
 - ✅ Dados existentes — zero alterações
+
+---
+
+## 20. CUSTOM_AUTH_PAGES REGRESSION FIX
+
+### Status
+
+```
+CUSTOM_AUTH_PAGES = ENABLED
+AUTH_VISUAL_IMPLEMENTATION = ZOKU_AUTH_PAGE
+ROUTE_GUARD = PROTECTED_ROUTE
+GOOGLE = ENABLED
+APPLE = TEMPORARILY_DISABLED_UI
+LOGIN_HERO = RANDOM_PER_VISIT
+LOGIN_BACKGROUND_SOURCE = PRIVATE_APP_FALLBACK_TEMPORARY
+```
+
+### Contexto
+
+Custom Auth Pages foi ativado no dashboard. A primeira conexão das rotas aos templates
+padrão da Base44 (`Login.jsx`, `Register.jsx`, `ForgotPassword.jsx`, `ResetPassword.jsx`
+com `AuthLayout`) substituiu o design Zoku aprovado por um layout genérico SaaS,
+reintroduziu Apple (regressão) e trocou textos PT-BR por inglês.
+
+### Correção
+
+Os 4 templates Base44 foram convertidos em **wrappers finos** que renderizam os
+componentes Zoku existentes, preservando a integração Custom Auth Pages da Base44:
+
+| Template (Base44 entrypoint) | Renderiza |
+|------------------------------|-----------|
+| `src/pages/Login.jsx` | `<AuthPage mode="login" />` |
+| `src/pages/Register.jsx` | `<AuthPage mode="signup" />` |
+| `src/pages/ForgotPassword.jsx` | `<AuthPage mode="forgot" />` |
+| `src/pages/ResetPassword.jsx` | `<ResetPasswordPage />` |
+
+Isso evita duplicação de formulário — um único código visual (Zoku) define a
+experiência pública. Os templates Base44 permanecem como entrypoints exigidos
+pelo scaffold, mas delegam aos componentes Zoku.
+
+### Arquitetura de rotas (preservada)
+
+```
+ProtectedRoute (auth gate → /login?returnTo=...)
+  → ProfileSetupGate (profile incompleto → /profile-setup)
+    → AppLayout
+      → app routes
+```
+
+- `AuthenticatedApp` NÃO foi restaurado.
+- `ProtectedRoute` + `ProfileSetupGate` permanecem.
+- `/signup` → redirect para `/register` (compatibilidade).
+
+### Apple
+
+`AUTH_PROVIDERS.apple = false` (não alterado). O botão Apple não aparece em nenhuma
+página pública. Código `signInWithApple` / `loginWithProvider('apple')` preservado
+para reativação futura. Status: `TEMPORARILY_DISABLED_UI`.
+
+### Debug visual removido
+
+O painel de debug do `AuthHero` (Login Hero Debug, Hide overlays, Direct URL test)
+foi removido completamente. Nenhuma caixa de debug aparece no preview normal.
+
+### Dívida técnica
+
+```
+LOGIN_BACKGROUND_PUBLIC_DATA_ACCESS
+```
+
+Enquanto o app estiver Private, `LoginBackgroundImage` não pode ser consultada
+anonimamente (API retorna 403 antes da RLS). `FALLBACK_LOGIN_BGS` (5 URLs públicas)
+está sendo usado temporariamente. Solução definitiva será decidida posteriormente,
+possivelmente: mudança de visibility após auditoria RLS, OU Supabase durante migração.
+
+**NÃO alterar App Visibility sem auditoria prévia de todas as entidades com read público.**
