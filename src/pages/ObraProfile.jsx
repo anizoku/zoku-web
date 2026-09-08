@@ -7,7 +7,7 @@ import { useCatalog } from "@/contexts/CatalogContext";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { getTMDBWorkDetails, getTMDBAlternativeTitles, findRomajiTitle, invalidateTMDBCache } from "@/lib/tmdb";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
-import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Users, Sparkles, XCircle } from "lucide-react";
+import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Sparkles, XCircle } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
 import TMDBDetails, { OverviewSection, InfoSection, TrailerSection, WatchSection, CastSection, SeasonsSection, TMDBUpdateButton } from "@/components/media/TMDBDetails";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { getMyFriends } from "@/lib/social";
 import RelatedWorks from "@/components/media/RelatedWorks";
 import { isCategoryFrozen, isCategoryActive } from "@/lib/scopeConfig";
 import { validateProgress, computeXpDelta, shouldAutoComplete } from "@/lib/progressValidation";
@@ -860,20 +859,7 @@ export default function ObraProfile() {
         {/* 7. Temporadas no final */}
         {tmdbData?.seasons?.length > 0 && <SeasonsSection seasons={tmdbData.seasons} />}
 
-        {/* 8. User count */}
-        {(() => {
-          const count = allEntries.filter(e => e.title === media.title).length;
-          return count > 0 ? (
-            <div className="bg-card rounded-xl border border-border px-4 py-3 flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">
-                <span className="font-bold text-foreground">{count}</span> usuário{count !== 1 ? "s" : ""} do ZOKU têm esta obra na lista
-              </span>
-            </div>
-          ) : null;
-        })()}
-
-        {/* 9. Obras relacionadas */}
+        {/* 8. Obras relacionadas */}
         <RelatedWorks item={media} entries={entries} />
 
         {/* Update button */}

@@ -216,8 +216,9 @@ export default function MyList() {
   }, []);
 
   const { data: entries = [], isLoading } = useQuery({
-    queryKey: ["anime-entries"],
-    queryFn: () => base44.entities.AnimeEntry.list("title", 100),
+    queryKey: ["anime-entries", user?.email],
+    queryFn: () => base44.entities.AnimeEntry.list("title", 500),
+    enabled: !!user,
     initialData: [],
   });
 

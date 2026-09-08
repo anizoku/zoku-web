@@ -335,6 +335,7 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
                   variant="ghost" size="icon" className="h-7 w-7"
                   onClick={decrement}
                   disabled={current <= 0}
+                  aria-label="Diminuir progresso"
                 >
                   <Minus className="w-3 h-3" />
                 </Button>
@@ -343,6 +344,7 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
                   onClick={increment}
                   disabled={total > 0 && current >= total}
                   title={`+${xpPerAction} XP`}
+                  aria-label="Aumentar progresso"
                 >
                   <Plus className="w-3 h-3" />
                 </Button>

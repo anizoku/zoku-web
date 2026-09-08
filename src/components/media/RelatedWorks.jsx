@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { getRelatedWorks } from "@/lib/recommendations";
 import { useTMDBPoster } from "@/components/catalog/useTMDBPoster";
+import { useCatalog } from "@/contexts/CatalogContext";
 
 function RelatedCard({ item }) {
   const navigate = useNavigate();
@@ -31,7 +32,8 @@ function RelatedCard({ item }) {
 }
 
 export default function RelatedWorks({ item, entries = [] }) {
-  const related = getRelatedWorks(item, entries, 6);
+  const { catalog } = useCatalog();
+  const related = getRelatedWorks(item, entries, 6, catalog);
   if (related.length === 0) return null;
 
   return (

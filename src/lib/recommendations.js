@@ -1,9 +1,9 @@
 // Sistema de recomendações baseado no perfil de gosto do usuário
 import { CATALOG } from "@/lib/catalog";
-import { filterActiveWorks, ANIME_ONLY_MODE } from "@/lib/scopeConfig";
+import { filterActiveWorks } from "@/lib/scopeConfig";
 
 // Build a taste profile from user's AnimeEntry list
-export function buildTasteProfile(entries) {
+export function buildTasteProfile(entries, catalog = CATALOG) {
   const genreWeights = {};
   const formatCounts = { anime: 0, manga: 0, movie: 0, liveaction: 0 };
   const completedTitles = new Set();
@@ -14,7 +14,7 @@ export function buildTasteProfile(entries) {
       : entry.type || "anime";
     formatCounts[fmt] = (formatCounts[fmt] || 0) + 1;
 
-    const work = CATALOG.find((w) => w.title === entry.title);
+    const work = catalog.find((w) => w.title === entry.title);
     if (!work) continue;
     completedTitles.add(work.slug);
 
@@ -49,10 +49,10 @@ function scoreWork(work, profile) {
 }
 
 // Get recommended works for a user
-export function getRecommendations(entries, filterCategory = null, limit = 30) {
-  const profile = buildTasteProfile(entries);
+export function getRecommendations(entries, filterCategory = null, limit = 30, catalog = CATALOG) {
+  const profile = buildTasteProfile(entries, catalog);
   const userTitles = new Set(entries.map((e) => e.title));
-  const activeCatalog = ANIME_ONLY_MODE ? filterActiveWorks(CATALOG) : CATALOG;
+  const activeCatalog = filterActiveWorks(catalog);
 
   let candidates = activeCatalog.filter((work) => {
     // Not already in user's list
@@ -84,13 +84,15 @@ export function getRecommendations(entries, filterCategory = null, limit = 30) {
 }
 
 // Get related works for a specific catalog item (same genres, not in user list)
-export function getRelatedWorks(item, entries, limit = 6) {
+export function getRelatedWorks(item, entries, limit = 6, catalog = CATALOG) {
   const userTitles = new Set(entries.map((e) => e.title));
   const itemGenres = new Set(item.genres || []);
-  const activeCatalog = ANIME_ONLY_MODE ? filterActiveWorks(CATALOG) : CATALOG;
+  const activeCatalog = filterActiveWorks(catalog);
 
   return activeCatalog.filter((work) => {
     if (work.slug === item.slug) return false;
+    // Exclude by franchise identity (same franchise = same work group)
+    if (item.franchise_id && work.franchise_id === item.franchise_id) return false;
     if (userTitles.has(work.title)) return false;
     if ((work.rating || 0) < 7.0) return false;
     const shared = (work.genres || []).filter((g) => itemGenres.has(g));
