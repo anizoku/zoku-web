@@ -7,7 +7,7 @@ import { useCatalog } from "@/contexts/CatalogContext";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { getTMDBWorkDetails, getTMDBAlternativeTitles, findRomajiTitle, invalidateTMDBCache } from "@/lib/tmdb";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
-import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Users, Sparkles } from "lucide-react";
+import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Users, Sparkles, XCircle } from "lucide-react";
 import ProgressInput from "@/components/media/ProgressInput";
 import TMDBDetails, { OverviewSection, InfoSection, TrailerSection, WatchSection, CastSection, SeasonsSection, TMDBUpdateButton } from "@/components/media/TMDBDetails";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AnimatePresence, motion } from "framer-motion";
 import { getMyFriends } from "@/lib/social";
 import RelatedWorks from "@/components/media/RelatedWorks";
-import { isCategoryFrozen } from "@/lib/scopeConfig";
+import { isCategoryFrozen, isCategoryActive } from "@/lib/scopeConfig";
+import { validateProgress, computeXpDelta, shouldAutoComplete } from "@/lib/progressValidation";
 
 const FORMAT_CONFIG = {
   liveaction: {

@@ -252,25 +252,10 @@ export default function MyList() {
     : myEntriesRaw;
   const myEntries = deduplicateEntries(myEntriesVisibleRaw);
 
-  // Clean up duplicates in background (same logic as before)
-  useEffect(() => {
-    if (!user?.email || myEntriesRaw.length === 0) return;
-    const groups = myEntriesRaw.reduce((acc, entry) => {
-      const key = `${entry.title}__${entry.genre || ""}`;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(entry);
-      return acc;
-    }, {});
-    Object.values(groups).forEach((group) => {
-      if (group.length <= 1) return;
-      const sorted = [...group].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
-      sorted.slice(1).forEach((dup) => {
-        base44.entities.AnimeEntry.delete(dup.id)
-          .then(() => queryClient.invalidateQueries({ queryKey: ["anime-entries"] }))
-          .catch(() => {});
-      });
-    });
-  }, [user?.email, myEntriesRaw.length]);
+  // NOTE: Auto-delete of duplicates REMOVED — preserves entries with different
+  // release_id or season_mal_id even when titles match. Display dedup
+  // (deduplicateEntries above) handles visual grouping without data loss.
+  // Ambiguous entries remain intact; no background deletion is performed.
 
   // Counters per status for tab badges
   const counts = useMemo(() => {
