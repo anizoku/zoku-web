@@ -12,6 +12,7 @@ import ProgressInput from "@/components/media/ProgressInput";
 import WorkLink from "@/components/media/WorkLink";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { CATALOG } from "@/lib/catalog";
+import { validateProgress, shouldAutoComplete } from "@/lib/progressValidation";
 import { useTMDBPoster } from "@/components/catalog/useTMDBPoster";
 import { useCardDisplayData } from "@/hooks/useCardOverrides";
 import { useOverrideMap } from "@/context/CardOverridesContext";
@@ -186,12 +187,16 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
   const releaseStatus = getReleaseStatusLabel(entry, mediaType);
   const xpPerAction = isAnime ? XP_REWARDS.episode_watched : XP_REWARDS.chapter_read;
 
+  const isAiring = mediaType === "anime" && (catalogItem?.animeStatus === "Em exibição" || catalogItem?.is_currently_airing);
+
   function increment() {
     if (isMovie) return;
     const field = isAnime ? "current_episode" : "current_chapter";
-    const newVal = total > 0 ? Math.min(current + 1, total) : current + 1;
+    const v = validateProgress(current + 1, total > 0 ? total : null);
+    if (!v.valid) return;
+    const newVal = v.value;
     const updates = { [field]: newVal };
-    if (total > 0 && newVal >= total) updates.status = "completed";
+    if (shouldAutoComplete(newVal, total, isAiring)) updates.status = "completed";
     // Se o total do catálogo é maior que o salvo, atualizar silenciosamente
     if (total > entryTotal && entryTotal >= 0) {
       const totalField = isAnime ? "total_episodes" : "total_chapters";
@@ -203,15 +208,24 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
   function decrement() {
     if (current <= 0 || isMovie) return;
     const field = isAnime ? "current_episode" : "current_chapter";
-    onUpdate(entry.id, { [field]: current - 1 });
+    const v = validateProgress(current - 1, total > 0 ? total : null);
+    if (!v.valid) return;
+    const updates = { [field]: v.value };
+    // Reduzir progresso de entrada concluída: manter coerência
+    if (entry.status === "completed" && total > 0 && v.value < total) {
+      updates.status = "watching";
+    }
+    onUpdate(entry.id, updates);
   }
 
   function jumpTo(newVal) {
     if (isMovie) return;
-    const clamped = total > 0 ? Math.min(Math.max(0, newVal), total) : Math.max(0, newVal);
+    const v = validateProgress(newVal, total > 0 ? total : null);
+    if (!v.valid) return;
+    const clamped = v.value;
     const field = isAnime ? "current_episode" : "current_chapter";
     const updates = { [field]: clamped };
-    if (total > 0 && clamped >= total) updates.status = "completed";
+    if (shouldAutoComplete(clamped, total, isAiring)) updates.status = "completed";
     onUpdate(entry.id, updates);
   }
 

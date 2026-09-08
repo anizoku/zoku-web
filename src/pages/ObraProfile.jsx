@@ -384,9 +384,10 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   const effectiveTotal = Math.max(entryTotal, catalogTotal);
   const total = entry ? effectiveTotal : catalogTotal;
   const progress = total > 0 ? Math.min((current / total) * 100, 100) : 0;
-  const isMutating = createMutation.isPending || updateMutation.isPending;
+  const isMutating = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
   const catalogStatus = media[cfg.catalogStatusKey];
   const isMovie = format === "movie";
+  const isAiring = format === "anime" && (media.is_currently_airing || catalogStatus === "Em exibição");
 
   // Risco 2 fix: detectar quando catalogTotal cresceu além do total salvo no entry
   const totalOutdated = entry && entryTotal > 0 && catalogTotal > entryTotal;
@@ -495,10 +496,10 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
                   )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <Button variant="outline" size="icon" className="h-8 w-8 border-border" onClick={handleDecrement} disabled={isMutating || current <= 0}>
+                      <Button variant="outline" size="icon" className="h-8 w-8 border-border" onClick={handleDecrement} disabled={isMutating || current <= 0} aria-label={`Diminuir ${cfg.unitLong}`}>
                         <Minus className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" className={`h-8 w-8 ${cfg.bg} ${cfg.color} border ${cfg.border} hover:opacity-80`} onClick={handleIncrement} disabled={isMutating || (effectiveTotal > 0 && current >= effectiveTotal)}>
+                      <Button size="icon" className={`h-8 w-8 ${cfg.bg} ${cfg.color} border ${cfg.border} hover:opacity-80`} onClick={handleIncrement} disabled={isMutating || (effectiveTotal > 0 && current >= effectiveTotal)} aria-label={`Aumentar ${cfg.unitLong}`}>
                         {isMutating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                       </Button>
                       <ProgressInput
@@ -664,35 +665,18 @@ export default function ObraProfile() {
       .finally(() => setTmdbLoading(false));
   }
 
+  // User-specific entries query — RLS ensures only own entries are returned.
+  // Key includes user email for cache isolation; limit raised to avoid truncation.
   const { data: entries, refetch } = useQuery({
-    queryKey: ["anime-entries"],
-    queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 200),
-    initialData: [],
-  });
-
-  const { data: friendships } = useQuery({
-    queryKey: ["friendships"],
-    queryFn: () => base44.entities.Friendship.list("-created_date", 200),
-    initialData: [],
-  });
-
-  const { data: allEntries } = useQuery({
-    queryKey: ["all-entries-public"],
+    queryKey: ["anime-entries", user?.email],
     queryFn: () => base44.entities.AnimeEntry.list("-updated_date", 500),
+    enabled: !!user,
     initialData: [],
   });
 
-  const { data: allUsers } = useQuery({
-    queryKey: ["all-users"],
-    queryFn: () => base44.entities.User.list("-created_date", 100),
-    initialData: [],
-  });
-
-  const { data: profiles } = useQuery({
-    queryKey: ["user-profiles"],
-    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
-    initialData: [],
-  });
+  // NOTE: "Friends watching" and "user count" indicators removed — AnimeEntry
+  // RLS restricts reads to own entries, so there's no authorized source for
+  // community-wide counts. To re-enable, a dedicated aggregated endpoint is needed.
 
   if (catalogLoading) {
     return (
@@ -722,16 +706,6 @@ export default function ObraProfile() {
   const allFormats = media.categories || [];
   const formats = allFormats.filter(f => isCategoryActive(f));
   const activeFormat = activeTab && formats.includes(activeTab) ? activeTab : formats[0];
-
-  // Friends watching/reading this work
-  const myFriends = user ? getMyFriends(friendships, user.email) : [];
-  const friendsWithWork = myFriends.filter(f => {
-    return allEntries.some(e => e.created_by === f.email && e.title === media.title);
-  }).map(f => {
-    const fEntry = allEntries.find(e => e.created_by === f.email && e.title === media.title);
-    const profile = profiles.find(p => p.user_email === f.email);
-    return { ...f, entry: fEntry, profile };
-  });
 
   const statusBadgeColor = (s) => {
     if (s === "Em exibição" || s === "Em publicação") return "bg-primary/15 text-primary";
@@ -807,29 +781,6 @@ export default function ObraProfile() {
               )}
             </div>
 
-            {/* Friends watching — compact avatar icons in header */}
-            {friendsWithWork.length > 0 && (
-              <div className="flex items-center shrink-0 self-end mb-0.5">
-                <div className="flex -space-x-2">
-                  {friendsWithWork.slice(0, 5).map(f => (
-                    <div
-                      key={f.email}
-                      title={`${f.name || f.email} · ${STATUS_LABELS[f.entry?.status] || f.entry?.status}`}
-                      className="w-7 h-7 rounded-full bg-primary/10 border-2 border-card flex items-center justify-center text-[10px] font-bold overflow-hidden"
-                    >
-                      {f.profile?.avatar_url
-                        ? <img src={f.profile.avatar_url} alt={f.name} className="w-full h-full object-cover" />
-                        : <span className="text-primary">{(f.name || "A")[0].toUpperCase()}</span>
-                      }
-                    </div>
-                  ))}
-                </div>
-                {friendsWithWork.length > 5 && (
-                  <span className="text-[10px] text-muted-foreground ml-1.5">+{friendsWithWork.length - 5}</span>
-                )}
-                <Users className="w-3 h-3 text-muted-foreground ml-1.5" />
-              </div>
-            )}
           </div>
         </div>
 
