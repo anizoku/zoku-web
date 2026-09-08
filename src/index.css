@@ -152,6 +152,12 @@
   100% { left: 100%; }
 }
 
+/* Hero crossfade — login background images */
+@keyframes heroFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Hide scrollbar for horizontal scroll menus */
 .scrollbar-hide {
   -ms-overflow-style: none;

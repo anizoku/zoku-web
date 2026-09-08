@@ -114,13 +114,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = (shouldRedirect = true) => {
+  const logout = (shouldRedirect = true, redirectUrl = null) => {
     setUser(null);
     setIsAuthenticated(false);
     
     if (shouldRedirect) {
       // Use the SDK's logout method which handles token cleanup and redirect
-      base44.auth.logout(window.location.href);
+      base44.auth.logout(redirectUrl || window.location.href);
     } else {
       // Just remove the token without redirect
       base44.auth.logout();
@@ -130,6 +130,39 @@ export const AuthProvider = ({ children }) => {
   const navigateToLogin = () => {
     // Use the SDK's redirectToLogin method
     base44.auth.redirectToLogin(window.location.href);
+  };
+
+  // ── Métodos de autenticação (wrappers do SDK Base44) ──────────────────
+  const signInWithEmail = async (email, password) => {
+    return await base44.auth.loginViaEmailPassword(email, password);
+  };
+
+  const signUpWithEmail = async (email, password) => {
+    return await base44.auth.register({ email, password });
+  };
+
+  const verifyEmailOtp = async (email, otpCode) => {
+    return await base44.auth.verifyOtp({ email, otpCode });
+  };
+
+  const signInWithGoogle = async () => {
+    return await base44.auth.loginWithProvider('google');
+  };
+
+  const signInWithApple = async () => {
+    return await base44.auth.loginWithProvider('apple');
+  };
+
+  const requestPasswordReset = async (email) => {
+    return await base44.auth.resetPasswordRequest(email);
+  };
+
+  const resetPassword = async (resetToken, newPassword) => {
+    return await base44.auth.resetPassword({ resetToken, newPassword });
+  };
+
+  const updateMe = async (data) => {
+    return await base44.auth.updateMe(data);
   };
 
   const isAdmin = user?.role === 'admin';
@@ -147,7 +180,15 @@ export const AuthProvider = ({ children }) => {
       logout,
       navigateToLogin,
       checkUserAuth,
-      checkAppState
+      checkAppState,
+      signInWithEmail,
+      signUpWithEmail,
+      verifyEmailOtp,
+      signInWithGoogle,
+      signInWithApple,
+      requestPasswordReset,
+      resetPassword,
+      updateMe
     }}>
       {children}
     </AuthContext.Provider>

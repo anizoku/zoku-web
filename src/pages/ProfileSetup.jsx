@@ -9,6 +9,7 @@ import { Camera, Upload, CheckCircle2, XCircle, Loader2, User, Sparkles, Globe }
 import { MascotDuo } from "@/components/mascots/ZokuMascot";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ANIME_ONLY_MODE } from "@/lib/scopeConfig";
 
 const USERNAME_REGEX = /^[a-z0-9_.]{3,20}$/;
 
@@ -141,7 +142,13 @@ export default function ProfileSetup() {
       // Mark on user entity too
       await base44.auth.updateMe({ profile_setup_completed: true });
       toast.success("Perfil criado com sucesso!");
-      window.location.replace("/");
+      const savedReturnTo = sessionStorage.getItem("auth_returnTo");
+      if (savedReturnTo) {
+        sessionStorage.removeItem("auth_returnTo");
+        window.location.href = savedReturnTo;
+      } else {
+        window.location.replace("/");
+      }
     } catch (err) {
       toast.error("Erro ao salvar o perfil. Tente novamente.");
     } finally {
@@ -280,7 +287,7 @@ export default function ProfileSetup() {
           </div>
 
           {/* Favorites */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid ${ANIME_ONLY_MODE ? "grid-cols-1" : "grid-cols-2"} gap-4`}>
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Anime favorito (opcional)</label>
               <Input
@@ -290,15 +297,17 @@ export default function ProfileSetup() {
                 className="bg-secondary border-none"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Mangá favorito (opcional)</label>
-              <Input
-                placeholder="Ex: Berserk"
-                value={favoriteManga}
-                onChange={(e) => setFavoriteManga(e.target.value)}
-                className="bg-secondary border-none"
-              />
-            </div>
+            {!ANIME_ONLY_MODE && (
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">Mangá favorito (opcional)</label>
+                <Input
+                  placeholder="Ex: Berserk"
+                  value={favoriteManga}
+                  onChange={(e) => setFavoriteManga(e.target.value)}
+                  className="bg-secondary border-none"
+                />
+              </div>
+            )}
           </div>
 
           {/* Country + Language */}
