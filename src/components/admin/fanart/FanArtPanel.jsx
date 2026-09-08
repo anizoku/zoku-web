@@ -4,13 +4,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import ImageUploadField from "@/components/news/ImageUploadField";
+import WorkPicker from "./WorkPicker";
 import { Loader2, Trash2, ChevronUp, ChevronDown, Plus, ImageOff } from "lucide-react";
 
 /**
  * Painel admin de Arte de Fãs (FanArt). CRUD completo: adicionar, editar
  * título/obra/artista/redes, ativar/desativar, reordenar, excluir.
  * Artes ativas aparecem embaralhadas na faixa da home.
+ *
+ * Curadoria editorial pelo admin — NÃO é UGC.
  */
 export default function FanArtPanel() {
   const queryClient = useQueryClient();
@@ -23,6 +27,8 @@ export default function FanArtPanel() {
     artist_instagram: "",
     artist_twitter: "",
     artist_website: "",
+    source_url: "",
+    credit_notes: "",
   });
 
   const { data: arts = [], isLoading } = useQuery({
@@ -42,6 +48,7 @@ export default function FanArtPanel() {
       setForm({
         image_url: "", title: "", work_slug: "", work_title: "",
         artist_name: "", artist_instagram: "", artist_twitter: "", artist_website: "",
+        source_url: "", credit_notes: "",
       });
     },
   });
@@ -61,8 +68,10 @@ export default function FanArtPanel() {
     onSuccess: invalidate,
   });
 
+  const canAdd = form.image_url && form.artist_name.trim();
+
   const handleAdd = () => {
-    if (!form.image_url) return;
+    if (!canAdd) return;
     const baseOrder = arts.length ? Math.max(...arts.map((a) => a.order || 0)) + 1 : 0;
     createMutation.mutate({ ...form, active: true, order: baseOrder });
   };
@@ -74,22 +83,33 @@ export default function FanArtPanel() {
       <div>
         <h3 className="font-space font-semibold text-lg text-foreground">Arte de Fãs</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Artes ativas aparecem embaralhadas na faixa da home. Vincule a uma obra (slug) para tornar o card clicável.
+          Artes ativas aparecem embaralhadas na faixa da home. Vincule a uma obra do catálogo para tornar o card clicável.
         </p>
       </div>
 
       {/* Nova arte */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <h4 className="text-sm font-semibold text-foreground">Adicionar arte</h4>
-        <ImageUploadField
-          label="Imagem da arte"
-          hint="Recomendado: retrato 4:5, pelo menos 800px de altura."
-          value={form.image_url}
-          onChange={(v) => setForm((f) => ({ ...f, image_url: v }))}
-        />
+        <div className="flex gap-4">
+          <ImageUploadField
+            label="Imagem da arte"
+            hint="Recomendado: retrato 4:5, pelo menos 800px de altura."
+            value={form.image_url}
+            onChange={(v) => setForm((f) => ({ ...f, image_url: v }))}
+          />
+          {/* Preview 4:5 */}
+          {form.image_url && (
+            <div className="relative w-28 aspect-[4/5] rounded-lg overflow-hidden bg-secondary shrink-0 border border-border">
+              <img src={form.image_url} alt="Preview" className="w-full h-full object-cover" />
+              <span className="absolute bottom-1 right-1 bg-background/80 text-[9px] text-muted-foreground px-1 rounded">
+                4:5
+              </span>
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-foreground font-medium mb-1 block">Título da arte</label>
+            <Label className="text-xs text-foreground font-medium mb-1 block">Título da arte</Label>
             <Input
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -98,34 +118,23 @@ export default function FanArtPanel() {
             />
           </div>
           <div>
-            <label className="text-xs text-foreground font-medium mb-1 block">Artista</label>
+            <Label className="text-xs text-foreground font-medium mb-1 block">Artista *</Label>
             <Input
               value={form.artist_name}
               onChange={(e) => setForm((f) => ({ ...f, artist_name: e.target.value }))}
-              placeholder="Nome do artista"
+              placeholder="Nome do artista (obrigatório)"
               className="bg-secondary border-none"
             />
           </div>
-          <div>
-            <label className="text-xs text-foreground font-medium mb-1 block">Slug da obra (opcional)</label>
-            <Input
-              value={form.work_slug}
-              onChange={(e) => setForm((f) => ({ ...f, work_slug: e.target.value }))}
-              placeholder="ex: attack-on-titan"
-              className="bg-secondary border-none"
+          <div className="sm:col-span-2">
+            <Label className="text-xs text-foreground font-medium mb-1 block">Obra relacionada (opcional)</Label>
+            <WorkPicker
+              value={{ work_slug: form.work_slug, work_title: form.work_title }}
+              onChange={(v) => setForm((f) => ({ ...f, work_slug: v.work_slug, work_title: v.work_title }))}
             />
           </div>
           <div>
-            <label className="text-xs text-foreground font-medium mb-1 block">Título da obra (opcional)</label>
-            <Input
-              value={form.work_title}
-              onChange={(e) => setForm((f) => ({ ...f, work_title: e.target.value }))}
-              placeholder="Para referência no admin"
-              className="bg-secondary border-none"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-foreground font-medium mb-1 block">Instagram (handle ou URL)</label>
+            <Label className="text-xs text-foreground font-medium mb-1 block">Instagram (handle ou URL)</Label>
             <Input
               value={form.artist_instagram}
               onChange={(e) => setForm((f) => ({ ...f, artist_instagram: e.target.value }))}
@@ -134,7 +143,7 @@ export default function FanArtPanel() {
             />
           </div>
           <div>
-            <label className="text-xs text-foreground font-medium mb-1 block">Twitter/X (handle ou URL)</label>
+            <Label className="text-xs text-foreground font-medium mb-1 block">Twitter/X (handle ou URL)</Label>
             <Input
               value={form.artist_twitter}
               onChange={(e) => setForm((f) => ({ ...f, artist_twitter: e.target.value }))}
@@ -143,7 +152,7 @@ export default function FanArtPanel() {
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-foreground font-medium mb-1 block">Site/portfólio (URL)</label>
+            <Label className="text-xs text-foreground font-medium mb-1 block">Site/portfólio (URL)</Label>
             <Input
               value={form.artist_website}
               onChange={(e) => setForm((f) => ({ ...f, artist_website: e.target.value }))}
@@ -151,11 +160,36 @@ export default function FanArtPanel() {
               className="bg-secondary border-none"
             />
           </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs text-foreground font-medium mb-1 block">URL de origem (opcional)</Label>
+            <Input
+              value={form.source_url}
+              onChange={(e) => setForm((f) => ({ ...f, source_url: e.target.value }))}
+              placeholder="https://origem-da-arte.com/post"
+              className="bg-secondary border-none"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs text-foreground font-medium mb-1 block">
+              Notas de crédito (interno, admin only)
+            </Label>
+            <Input
+              value={form.credit_notes}
+              onChange={(e) => setForm((f) => ({ ...f, credit_notes: e.target.value }))}
+              placeholder="Observação sobre crédito/permissão"
+              className="bg-secondary border-none"
+            />
+          </div>
         </div>
-        <Button className="gap-2" onClick={handleAdd} disabled={!form.image_url || createMutation.isPending}>
+        <Button className="gap-2" onClick={handleAdd} disabled={!canAdd || createMutation.isPending}>
           {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           Adicionar arte
         </Button>
+        {!canAdd && (
+          <p className="text-xs text-muted-foreground">
+            Imagem e nome do artista são obrigatórios.
+          </p>
+        )}
       </div>
 
       {/* Lista */}
@@ -204,22 +238,13 @@ export default function FanArtPanel() {
                     }}
                     className="bg-secondary border-none h-8 text-sm"
                   />
-                  <Input
-                    defaultValue={a.work_slug || ""}
-                    placeholder="Slug da obra"
-                    onBlur={(e) => {
-                      if (e.target.value !== (a.work_slug || "")) updateMutation.mutate({ id: a.id, data: { work_slug: e.target.value } });
-                    }}
-                    className="bg-secondary border-none h-8 text-sm"
-                  />
-                  <Input
-                    defaultValue={a.work_title || ""}
-                    placeholder="Título da obra"
-                    onBlur={(e) => {
-                      if (e.target.value !== (a.work_title || "")) updateMutation.mutate({ id: a.id, data: { work_title: e.target.value } });
-                    }}
-                    className="bg-secondary border-none h-8 text-sm"
-                  />
+                  <div className="sm:col-span-2">
+                    <span className="text-[10px] text-muted-foreground block mb-1">Obra relacionada</span>
+                    <WorkPicker
+                      value={{ work_slug: a.work_slug, work_title: a.work_title }}
+                      onChange={(v) => updateMutation.mutate({ id: a.id, data: v })}
+                    />
+                  </div>
                   <Input
                     defaultValue={a.artist_instagram || ""}
                     placeholder="Instagram"
@@ -241,6 +266,22 @@ export default function FanArtPanel() {
                     placeholder="Site"
                     onBlur={(e) => {
                       if (e.target.value !== (a.artist_website || "")) updateMutation.mutate({ id: a.id, data: { artist_website: e.target.value } });
+                    }}
+                    className="bg-secondary border-none h-8 text-sm sm:col-span-2"
+                  />
+                  <Input
+                    defaultValue={a.source_url || ""}
+                    placeholder="URL de origem"
+                    onBlur={(e) => {
+                      if (e.target.value !== (a.source_url || "")) updateMutation.mutate({ id: a.id, data: { source_url: e.target.value } });
+                    }}
+                    className="bg-secondary border-none h-8 text-sm sm:col-span-2"
+                  />
+                  <Input
+                    defaultValue={a.credit_notes || ""}
+                    placeholder="Notas de crédito (interno)"
+                    onBlur={(e) => {
+                      if (e.target.value !== (a.credit_notes || "")) updateMutation.mutate({ id: a.id, data: { credit_notes: e.target.value } });
                     }}
                     className="bg-secondary border-none h-8 text-sm sm:col-span-2"
                   />
