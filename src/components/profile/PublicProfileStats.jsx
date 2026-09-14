@@ -29,7 +29,7 @@ export default function PublicProfileStats({ entries }) {
   // Favorite genre (most common in completed entries)
   const genreCounts = {};
   entries.filter(e => e.status === "completed" && e.genre).forEach(e => {
-    const genres = e.genre.split(",").map(g => g.trim()).filter(Boolean);
+    const genres = e.genre.split(",").map(g => g.trim()).filter(Boolean).filter(g => !g.startsWith("__"));
     genres.forEach(g => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
   });
   const topGenre = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";

@@ -2,16 +2,14 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Tv, BookOpen, Star, Trophy, Twitter, Instagram, Globe, Calendar, Users, Zap, Share2, Flag } from "lucide-react";
+import { ArrowLeft, Tv, BookOpen, Star, Trophy, Calendar, Users } from "lucide-react";
 import AchievementsPanel from "@/components/profile/AchievementsPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import LevelBadge from "@/components/profile/LevelBadge";
-import XpProgressBar from "@/components/profile/XpProgressBar";
-import { computeStats, computeTotalXp, getXpProgress, getRankForLevel, getUnlockedAchievements } from "@/lib/xpSystem";
+import { computeStats, computeTotalXp, getUnlockedAchievements } from "@/lib/xpSystem";
 import { getMyFriends } from "@/lib/social";
-import FriendshipButton from "@/components/profile/FriendshipButton";
+import PublicProfileHero from "@/components/profile/PublicProfileHero";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import WorkLink from "@/components/media/WorkLink";
@@ -70,8 +68,6 @@ export default function PublicProfile() {
   const stats = computeStats(userEntries, userPosts, [], [], profile);
   const totalXp = computeTotalXp(stats);
   const publicUnlocked = getUnlockedAchievements(stats).map(a => a.id);
-  const { level, percent } = getXpProgress(totalXp);
-  const rank = getRankForLevel(level);
 
   const [listStatusFilter, setListStatusFilter] = useState("all");
   const [listTypeFilter, setListTypeFilter] = useState("all");
@@ -105,89 +101,17 @@ export default function PublicProfile() {
         <ArrowLeft className="w-4 h-4" /> Voltar
       </Button>
 
-      {/* Header card */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        {/* Banner */}
-        <div className="h-32 relative overflow-hidden">
-          {profile?.banner_url
-            ? <img src={profile.banner_url} alt="banner" className="w-full h-full object-cover" />
-            : <div className="w-full h-full bg-gradient-to-r from-primary/30 via-chart-2/15 to-chart-3/10" />
-          }
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-secondary">
-            <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
-
-        <div className="px-5 pb-5">
-          <div className="flex flex-col sm:flex-row items-start gap-4 -mt-10">
-            <div className="w-20 h-20 rounded-full border-4 border-card flex items-center justify-center relative shrink-0 overflow-hidden bg-secondary">
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
-                : <span className={`font-bold text-2xl font-space ${rank.color}`}>{(displayName)[0].toUpperCase()}</span>
-              }
-              <div className="absolute -bottom-1 -right-1">
-                <LevelBadge level={level} size="sm" />
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0 pt-2">
-              <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                <h1 className="font-space font-bold text-xl text-foreground">{displayName}</h1>
-                <span className={`text-sm font-semibold ${rank.color}`}>{rank.title}</span>
-              </div>
-              {profile?.username && (
-                <p className="text-sm text-primary/80 font-medium mb-1">@{profile.username}</p>
-              )}
-              {profile?.bio && (
-                <p className="text-sm text-foreground/80 leading-relaxed">{profile.bio}</p>
-              )}
-              {profile?.links && Object.values(profile.links).some(Boolean) && (
-                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                  {profile.links.twitter && (
-                    <a href={`https://x.com/${profile.links.twitter.replace("@","")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
-                      <Twitter className="w-3 h-3" /> {profile.links.twitter}
-                    </a>
-                  )}
-                  {profile.links.instagram && (
-                    <a href={`https://instagram.com/${profile.links.instagram.replace("@","")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
-                      <Instagram className="w-3 h-3" /> {profile.links.instagram}
-                    </a>
-                  )}
-                  {profile.links.website && (
-                    <a href={profile.links.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
-                      <Globe className="w-3 h-3" /> Site
-                    </a>
-                  )}
-                </div>
-              )}
-              <div className="max-w-xs mt-3">
-                <XpProgressBar totalXp={totalXp} />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2 flex-wrap">
-              {!isOwnProfile && currentUser && (
-                <FriendshipButton
-                  currentUser={currentUser}
-                  targetEmail={userEmail}
-                  targetName={displayName}
-                  targetProfile={profile}
-                  friendships={friendships}
-                />
-              )}
-              <Button size="sm" variant="outline" onClick={handleShareProfile} className="h-8 text-xs gap-1.5">
-                <Share2 className="w-3.5 h-3.5" /> Compartilhar perfil
-              </Button>
-              {!isOwnProfile && currentUser && (
-                <Button size="sm" variant="ghost" onClick={() => setShowReportProfile(true)}
-                  className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive">
-                  <Flag className="w-3.5 h-3.5" /> Reportar perfil
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <PublicProfileHero
+        profile={profile}
+        displayName={displayName}
+        totalXp={totalXp}
+        isOwnProfile={isOwnProfile}
+        currentUser={currentUser}
+        targetEmail={userEmail}
+        friendships={friendships}
+        onShare={handleShareProfile}
+        onReport={() => setShowReportProfile(true)}
+      />
 
       <ReportModal
         open={showReportProfile}

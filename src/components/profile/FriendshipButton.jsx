@@ -105,14 +105,14 @@ export default function FriendshipButton({ currentUser, targetEmail, targetName,
   if (status.status === "accepted") {
     return (
       <>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
               <Check className="w-3.5 h-3.5 text-primary" /> Amigos
               <ChevronDown className="w-3 h-3 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" side="bottom" collisionPadding={8} className="z-50">
             <DropdownMenuItem className="text-destructive focus:text-destructive"
               onClick={() => setShowUnfriendConfirm(true)}>
               <UserMinus className="w-3.5 h-3.5 mr-2" /> Desfazer amizade
