@@ -101,7 +101,11 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
   }
 
   function handleConfirm() {
-    onConfirm({ imageUrl, scale, offsetX: offset.x, offsetY: offset.y });
+    const baseScale = fitScale(imgNatural.w, imgNatural.h);
+    const zoom = baseScale > 0 ? +(scale / baseScale).toFixed(3) : 1;
+    const offsetXPct = cropW > 0 ? +((offset.x / cropW) * 100).toFixed(2) : 0;
+    const offsetYPct = cropH > 0 ? +((offset.y / cropH) * 100).toFixed(2) : 0;
+    onConfirm({ version: 2, zoom: Math.max(1, zoom), offsetXPct, offsetYPct, imageUrl });
     onClose();
   }
 

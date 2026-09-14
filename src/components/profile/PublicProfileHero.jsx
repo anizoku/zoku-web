@@ -4,8 +4,13 @@ import { Button } from "@/components/ui/button";
 import XpProgressBar from "@/components/profile/XpProgressBar";
 import FriendshipButton from "@/components/profile/FriendshipButton";
 import DirectChatDialog from "@/components/social/DirectChatDialog";
+import ProfileBanner from "@/components/profile/ProfileBanner";
+import ProfileFavorites from "@/components/profile/ProfileFavorites";
+import { getAvatarCropStyle } from "@/lib/cropHelpers";
 import { getXpProgress, getRankForLevel } from "@/lib/xpSystem";
 import { getFriendshipStatus } from "@/lib/social";
+import { ACHIEVEMENTS, getAchievementColor } from "@/lib/achievements";
+import { getAchievementIcon } from "@/lib/achievementIcons";
 
 export default function PublicProfileHero({
   profile, displayName, totalXp,
@@ -18,26 +23,31 @@ export default function PublicProfileHero({
   const friendshipStatus = getFriendshipStatus(friendships, currentUser?.email, targetEmail);
   const isFriend = friendshipStatus?.status === "accepted";
 
+  // Selected achievement badge (read-only)
+  const selectedBadgeId = profile?.selected_badge_id;
+  const selectedAchievement = ACHIEVEMENTS.find(a => a.id === selectedBadgeId);
+  const BadgeIcon = selectedAchievement ? getAchievementIcon(selectedAchievement.icon) : null;
+
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden">
-      {/* Banner — standard height, no overlays */}
-      <div className="h-32 sm:h-52 relative overflow-hidden">
-        {profile?.banner_url
-          ? <img src={profile.banner_url} alt="banner" className="w-full h-full object-cover" />
-          : <div className="w-full h-full bg-gradient-to-r from-primary/20 via-chart-2/10 to-chart-3/5" />
-        }
-      </div>
+      {/* Banner — shared component */}
+      <ProfileBanner bannerUrl={profile?.banner_url} bannerCrop={profile?.banner_crop} />
 
       <div className="px-5 sm:px-6 pb-5">
         {/* Avatar + Identity */}
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
-          {/* Avatar — overlapping banner, no badge */}
+          {/* Avatar — overlapping banner, no level badge, achievement badge bottom-right */}
           <div className="flex justify-center sm:justify-start shrink-0 -mt-10 sm:-mt-12 relative z-10">
-            <div className="w-20 h-20 rounded-full border-4 border-card bg-secondary overflow-hidden">
+            <div className="w-20 h-20 rounded-full border-4 border-card bg-secondary overflow-hidden relative">
               {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" style={getAvatarCropStyle(profile?.avatar_crop)} />
                 : <span className={`w-full h-full flex items-center justify-center font-bold text-2xl font-space ${rank.color}`}>{(displayName)[0].toUpperCase()}</span>
               }
+              {BadgeIcon && (
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-card flex items-center justify-center bg-secondary z-10" title={selectedAchievement.label}>
+                  <BadgeIcon className={`w-3.5 h-3.5 ${getAchievementColor(selectedBadgeId)}`} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -101,6 +111,9 @@ export default function PublicProfileHero({
         <div className="mt-5 pt-5 border-t border-border">
           <XpProgressBar totalXp={totalXp} />
         </div>
+
+        {/* Favorites — shared component */}
+        <ProfileFavorites profile={profile} />
       </div>
 
       {/* Direct chat dialog — only for accepted friends */}

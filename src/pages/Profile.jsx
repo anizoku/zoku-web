@@ -26,6 +26,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import MySuggestions from "@/components/profile/MySuggestions";
+import ProfileBanner from "@/components/profile/ProfileBanner";
+import ProfileFavorites from "@/components/profile/ProfileFavorites";
+import { getAvatarCropStyle } from "@/lib/cropHelpers";
 
 const statusLabels = { watching: "Assistindo", reading: "Lendo", completed: "Concluído", planned: "Planejado", dropped: "Dropado", on_hold: "Pausado" };
 const statusColors = {
@@ -131,31 +134,13 @@ export default function Profile() {
   ];
 
   const avatarCrop = myProfile?.avatar_crop;
-  const bannerCrop = myProfile?.banner_crop;
-
-  const avatarStyle = avatarCrop ? {
-    transform: `translate(${avatarCrop.offsetX || 0}px, ${avatarCrop.offsetY || 0}px) scale(${avatarCrop.scale || 1})`,
-    transformOrigin: "center center",
-  } : {};
-
-  const bannerStyle = bannerCrop ? {
-    transform: `translate(${bannerCrop.offsetX || 0}px, ${bannerCrop.offsetY || 0}px) scale(${bannerCrop.scale || 1})`,
-    transformOrigin: "center center",
-    width: "100%", height: "100%", position: "absolute",
-  } : {};
 
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 space-y-6">
       {/* Profile Header */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         {/* Banner */}
-        <div className="h-36 relative overflow-hidden">
-          {myProfile?.banner_url ? (
-            <img src={myProfile.banner_url} alt="banner" style={bannerStyle.transform ? bannerStyle : {}} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-r from-primary/30 via-chart-2/15 to-chart-3/10" />
-          )}
-        </div>
+        <ProfileBanner bannerUrl={myProfile?.banner_url} bannerCrop={myProfile?.banner_crop} />
 
         <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
@@ -165,7 +150,7 @@ export default function Profile() {
                 {myProfile?.avatar_url ? (
                   <img src={myProfile.avatar_url} alt="avatar"
                     className="w-full h-full object-cover"
-                    style={avatarStyle.transform ? avatarStyle : {}}
+                    style={getAvatarCropStyle(avatarCrop)}
                   />
                 ) : (
                   <span className={`font-bold text-3xl font-space ${rank.color}`}>
@@ -253,30 +238,7 @@ export default function Profile() {
           </div>
 
           {/* Favorites */}
-          {(myProfile?.favorite_animes?.length > 0 || myProfile?.favorite_mangas?.length > 0) && (
-            <div className="mt-4 pt-4 border-t border-border space-y-2">
-              {myProfile.favorite_animes?.length > 0 && (
-                <div className="flex items-start gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
-                    <Tv className="w-3 h-3" /> Animes fav.:
-                  </span>
-                  {myProfile.favorite_animes.map(a => (
-                    <Badge key={a} variant="outline" className="text-[10px] border-chart-2/20 text-chart-2 px-1.5 py-0">{a}</Badge>
-                  ))}
-                </div>
-              )}
-              {myProfile.favorite_mangas?.length > 0 && (
-                <div className="flex items-start gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
-                    <BookOpen className="w-3 h-3" /> Mangás fav.:
-                  </span>
-                  {myProfile.favorite_mangas.map(m => (
-                    <Badge key={m} variant="outline" className="text-[10px] border-chart-3/20 text-chart-3 px-1.5 py-0">{m}</Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <ProfileFavorites profile={myProfile} />
         </div>
       </div>
 

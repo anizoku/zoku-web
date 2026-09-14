@@ -10,6 +10,7 @@ import { Edit2, Save, Upload, Eye, Loader2, Camera, Crop, Volume2 } from "lucide
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CropImageModal from "./CropImageModal";
+import { getAvatarCropStyle, getBannerCropStyle } from "@/lib/cropHelpers";
 
 function ImageUploader({ label, value, onChange, onCropConfirm, shape = "banner", cropData }) {
   const [uploading, setUploading] = useState(false);
@@ -26,10 +27,7 @@ function ImageUploader({ label, value, onChange, onCropConfirm, shape = "banner"
     setShowCrop(true);
   };
 
-  const imgStyle = cropData ? {
-    transform: `translate(${cropData.offsetX || 0}px, ${cropData.offsetY || 0}px) scale(${cropData.scale || 1})`,
-    transformOrigin: "center center",
-  } : {};
+  const imgStyle = shape === "circle" ? getAvatarCropStyle(cropData) : getBannerCropStyle(cropData);
 
   return (
     <div>
@@ -205,7 +203,7 @@ export default function EditProfileDialog({ user, onSaved }) {
               label="Foto de perfil (circular)"
               value={form.avatar_url}
               onChange={v => set("avatar_url", v)}
-              onCropConfirm={({ scale, offsetX, offsetY }) => set("avatar_crop", { scale, offsetX, offsetY })}
+              onCropConfirm={(crop) => set("avatar_crop", crop)}
               shape="circle"
               cropData={form.avatar_crop}
             />
@@ -213,7 +211,7 @@ export default function EditProfileDialog({ user, onSaved }) {
               label="Banner do perfil"
               value={form.banner_url}
               onChange={v => set("banner_url", v)}
-              onCropConfirm={({ scale, offsetX, offsetY }) => set("banner_crop", { scale, offsetX, offsetY })}
+              onCropConfirm={(crop) => set("banner_crop", crop)}
               shape="banner"
               cropData={form.banner_crop}
             />
