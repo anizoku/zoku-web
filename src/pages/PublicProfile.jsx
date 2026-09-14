@@ -109,7 +109,6 @@ export default function PublicProfile() {
         currentUser={currentUser}
         targetEmail={userEmail}
         friendships={friendships}
-        onShare={handleShareProfile}
         onReport={() => setShowReportProfile(true)}
       />
 

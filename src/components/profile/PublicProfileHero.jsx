@@ -1,16 +1,22 @@
-import { Twitter, Instagram, Globe, Share2, Flag } from "lucide-react";
+import { useState } from "react";
+import { Twitter, Instagram, Globe, Flag, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import XpProgressBar from "@/components/profile/XpProgressBar";
 import FriendshipButton from "@/components/profile/FriendshipButton";
+import DirectChatDialog from "@/components/social/DirectChatDialog";
 import { getXpProgress, getRankForLevel } from "@/lib/xpSystem";
+import { getFriendshipStatus } from "@/lib/social";
 
 export default function PublicProfileHero({
   profile, displayName, totalXp,
   isOwnProfile, currentUser, targetEmail, friendships,
-  onShare, onReport,
+  onReport,
 }) {
+  const [showChat, setShowChat] = useState(false);
   const { level } = getXpProgress(totalXp);
   const rank = getRankForLevel(level);
+  const friendshipStatus = getFriendshipStatus(friendships, currentUser?.email, targetEmail);
+  const isFriend = friendshipStatus?.status === "accepted";
 
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden">
@@ -24,9 +30,9 @@ export default function PublicProfileHero({
 
       <div className="px-5 sm:px-6 pb-5">
         {/* Avatar + Identity */}
-        <div className="flex flex-col sm:flex-row gap-4 -mt-12 sm:-mt-14">
-          {/* Avatar — no badge */}
-          <div className="flex justify-center sm:block shrink-0">
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
+          {/* Avatar — overlapping banner, no badge */}
+          <div className="flex justify-center sm:justify-start shrink-0 -mt-10 sm:-mt-12 relative z-10">
             <div className="w-20 h-20 rounded-full border-4 border-card bg-secondary overflow-hidden">
               {profile?.avatar_url
                 ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
@@ -36,7 +42,7 @@ export default function PublicProfileHero({
           </div>
 
           {/* Identity */}
-          <div className="flex-1 min-w-0 text-center sm:text-left pt-1">
+          <div className="flex-1 min-w-0 text-center sm:text-left sm:pt-8">
             <h1 className="font-space font-bold text-xl text-foreground">{displayName}</h1>
             {profile?.username && (
               <p className="text-sm text-primary/80 font-medium">@{profile.username}</p>
@@ -78,9 +84,11 @@ export default function PublicProfileHero({
               friendships={friendships}
             />
           )}
-          <Button size="sm" variant="outline" onClick={onShare} className="h-8 text-xs gap-1.5">
-            <Share2 className="w-3.5 h-3.5" /> Compartilhar
-          </Button>
+          {isFriend && (
+            <Button size="sm" variant="outline" onClick={() => setShowChat(true)} className="h-8 text-xs gap-1.5">
+              <MessageCircle className="w-3.5 h-3.5" /> Mensagem
+            </Button>
+          )}
           {!isOwnProfile && currentUser && (
             <Button size="sm" variant="ghost" onClick={onReport}
               className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive">
@@ -94,6 +102,18 @@ export default function PublicProfileHero({
           <XpProgressBar totalXp={totalXp} />
         </div>
       </div>
+
+      {/* Direct chat dialog — only for accepted friends */}
+      {isFriend && (
+        <DirectChatDialog
+          open={showChat}
+          onClose={() => setShowChat(false)}
+          currentUser={currentUser}
+          friendEmail={targetEmail}
+          friendName={displayName}
+          friendAvatar={profile?.avatar_url}
+        />
+      )}
     </div>
   );
 }
