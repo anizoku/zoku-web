@@ -14,9 +14,11 @@
         "episode_watched",
         "chapter_read",
         "post_created",
-        "work_completed"
+        "work_completed",
+        "anime_added",
+        "legacy_migration"
       ],
-      "description": "Tipo do evento"
+      "description": "Tipo do evento. legacy_migration = baseline de migra\u00e7\u00e3o de XP legado (exclu\u00eddo do ranking semanal/mensal)."
     },
     "achievement_id": {
       "type": "string",
@@ -25,12 +27,24 @@
     "xp_amount": {
       "type": "number",
       "default": 0,
-      "description": "Quantidade de XP concedida"
+      "description": "Quantidade de XP concedida. Resolvido centralmente por grantXpEvent \u2014 componentes n\u00e3o devem definir este valor."
     },
     "event_date": {
       "type": "string",
       "format": "date-time",
       "description": "Timestamp do evento (para ranking mensal/semanal)"
+    },
+    "source_type": {
+      "type": "string",
+      "description": "Tipo da fonte que gerou o evento (ex: anime_entry, post, achievement). Para auditoria."
+    },
+    "source_id": {
+      "type": "string",
+      "description": "ID da entidade fonte (ex: entry_id, post_id, achievement_id). Para auditoria."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Chave de idempot\u00eancia \u00fanica por usu\u00e1rio+a\u00e7\u00e3o. Garante que a mesma a\u00e7\u00e3o n\u00e3o conceda XP duas vezes. No Supabase: UNIQUE(user_id, idempotency_key)."
     }
   },
   "required": [

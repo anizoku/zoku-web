@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Trophy, Medal, Crown, Zap, BookOpen, Tv } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { computeStats, computeTotalXp, getXpProgress, getRankForLevel, getLevelFromXp } from "@/lib/xpSystem";
+import { computeStats, getRankForLevel, getLevelFromXp } from "@/lib/xpSystem";
+import { getTotalXpFromEvents, getPeriodXpFromEvents } from "@/lib/xpEvents";
 import AchievementBadge from "@/components/profile/AchievementBadge";
 import LevelBadge from "@/components/profile/LevelBadge";
 
@@ -93,19 +94,18 @@ export default function Ranking() {
   const rankingData = allUsers.map(u => {
     const profile  = profiles.find(p => p.user_email === u.email);
     const myEntries = entries.filter(e => e.created_by === u.email);
-    const myPosts   = posts.filter(p => p.created_by === u.email);
-    const stats    = computeStats(myEntries, myPosts, [], [], profile);
-    const xp       = computeTotalXp(stats);
-    const level    = getLevelFromXp(xp);
+    const stats    = computeStats(myEntries, [], [], [], profile);
     const completed = stats.completedTitles;
 
-    // Period XP from xpEvents
+    // XP from ledger (canonical source — no computeTotalXp for ranking authority)
     const now = new Date();
     const weekAgo  = new Date(now - 7 * 86400000);
     const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
     const userEvents = xpEvents.filter(ev => ev.user_email === u.email);
-    const weeklyXp  = userEvents.filter(ev => new Date(ev.event_date) >= weekAgo ).reduce((s, ev) => s + (ev.xp_amount || 0), 0);
-    const monthlyXp = userEvents.filter(ev => new Date(ev.event_date) >= monthAgo).reduce((s, ev) => s + (ev.xp_amount || 0), 0);
+    const totalXp   = getTotalXpFromEvents(userEvents);
+    const weeklyXp  = getPeriodXpFromEvents(userEvents, weekAgo);
+    const monthlyXp = getPeriodXpFromEvents(userEvents, monthAgo);
+    const level    = getLevelFromXp(totalXp);
 
     return {
       email: u.email,
@@ -113,7 +113,7 @@ export default function Ranking() {
       username: profile?.username || null,
       avatar_url: profile?.avatar_url || null,
       selected_badge_id: profile?.selected_badge_id || null,
-      xp, level, completed, weeklyXp, monthlyXp,
+      xp: totalXp, level, completed, weeklyXp, monthlyXp,
     };
   });
 

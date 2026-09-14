@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCatalog } from "@/contexts/CatalogContext";
 import { XP_REWARDS } from "@/lib/xpSystem";
+import { grantXpEvent, grantEpisodeRange } from "@/lib/xpEvents";
 import { getTMDBWorkDetails, getTMDBAlternativeTitles, findRomajiTitle, invalidateTMDBCache } from "@/lib/tmdb";
 import { useAutoImageRefresh } from "@/hooks/useAutoImageRefresh";
 import { ArrowLeft, Star, Tv, BookOpen, Film, Plus, Minus, Zap, CheckCircle2, ListPlus, Loader2, Trash2, Sparkles, XCircle } from "lucide-react";
@@ -181,45 +182,7 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
   });
 
   // Helper: create XpEvent + update streak on profile
-  async function recordXpEvent(eventType, xpAmount) {
-    if (!user?.email) return;
-    const today = new Date().toISOString().slice(0, 10);
-    // Map internal keys to XpEvent enum values
-    const typeMap = {
-      episode_watched: "episode_watched",
-      chapter_read: "chapter_read",
-      work_completed: "work_completed",
-    };
-    const mappedType = typeMap[eventType] || "episode_watched";
-    // Fire-and-forget — don't block the UI
-    base44.entities.XpEvent.create({
-      user_email: user.email,
-      event_type: mappedType,
-      xp_amount: xpAmount,
-      event_date: new Date().toISOString(),
-    }).catch(() => {});
-
-    // Update streak on UserProfile
-    try {
-      const profiles = await base44.entities.UserProfile.filter({ user_email: user.email });
-      const profile = profiles[0];
-      if (!profile) return;
-      const lastActivity = profile.last_activity_date;
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      let newStreak = profile.current_streak || 0;
-      if (lastActivity === today) {
-        // already updated today, keep streak
-      } else if (lastActivity === yesterday) {
-        newStreak += 1;
-      } else {
-        newStreak = 1;
-      }
-      base44.entities.UserProfile.update(profile.id, {
-        last_activity_date: today,
-        current_streak: newStreak,
-      }).catch(() => {});
-    } catch {}
-  }
+  // XP granting + streak update now handled by grantXpEvent from @/lib/xpEvents.
 
   function showToast(msg, icon, color) {
     setToast({ message: msg, icon, color });
@@ -250,7 +213,8 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       const resolvedTotal = Math.max(catalogTotal, isMovie ? 1 : 0);
       const xpPerUnit = XP_REWARDS[cfg.xpKey];
       const xpEarned = resolvedTotal > 0 ? resolvedTotal * xpPerUnit : 0;
-      const bonusXp = 125;
+      const wType = format === "manga" ? "manga" : "anime";
+      const bonusXp = wType === "manga" ? XP_REWARDS.manga_completed : XP_REWARDS.anime_completed;
       const totalXp = xpEarned + bonusXp;
       createMutation.mutate({
         title: media.title,
@@ -262,9 +226,10 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
         current_episode: format === "anime" || format === "liveaction" || format === "movie" ? resolvedTotal : 0,
         current_chapter: format === "manga" ? resolvedTotal : 0,
       }, {
-        onSuccess: () => {
-          if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
-          recordXpEvent("work_completed", 125);
+        onSuccess: (created) => {
+          grantXpEvent({ userEmail: user.email, eventType: "anime_added", sourceType: "anime_entry", sourceId: created.id, idempotencyKey: `entry:${created.id}:created` }).catch(() => {});
+          grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: created.id, workType: wType, idempotencyKey: `completion:${created.id}` }).catch(() => {});
+          if (xpEarned > 0) grantXpEvent({ userEmail: user.email, eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: created.id, count: resolvedTotal, idempotencyKey: `episodes-bulk:${created.id}:add-completed` }).catch(() => {});
           showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
         },
       });
@@ -279,6 +244,10 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       total_chapters: format === "manga" ? catalogTotal : 0,
       current_episode: 0,
       current_chapter: 0,
+    }, {
+      onSuccess: (created) => {
+        grantXpEvent({ userEmail: user.email, eventType: "anime_added", sourceType: "anime_entry", sourceId: created.id, idempotencyKey: `entry:${created.id}:created` }).catch(() => {});
+      },
     });
   }
 
@@ -295,7 +264,8 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       const missing = resolvedTotal > 0 ? Math.max(0, resolvedTotal - prev) : 0;
       const xpPerUnit = XP_REWARDS[cfg.xpKey];
       const xpEarned = missing > 0 ? missing * xpPerUnit : 0;
-      const bonusXp = 125;
+      const wType = format === "manga" ? "manga" : "anime";
+      const bonusXp = wType === "manga" ? XP_REWARDS.manga_completed : XP_REWARDS.anime_completed;
       const totalXp = xpEarned + bonusXp;
       // Sempre preenche o progresso com o total resolvido
       const updates = {
@@ -306,8 +276,8 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
       // XP só após persistência confirmada
       updateMutation.mutate({ id: entry.id, data: updates }, {
         onSuccess: () => {
-          if (xpEarned > 0) recordXpEvent(cfg.xpKey, xpEarned);
-          recordXpEvent("work_completed", 125);
+          grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id, workType: wType, idempotencyKey: `completion:${entry.id}` }).catch(() => {});
+          if (xpEarned > 0) grantXpEvent({ userEmail: user.email, eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: entry.id, count: missing, idempotencyKey: `episodes-bulk:${entry.id}:status-completed` }).catch(() => {});
           showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
         },
       });
@@ -330,10 +300,12 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     const willComplete = shouldAutoComplete(newVal, effectiveTotal, isAiring);
     if (willComplete) updates.status = "completed";
     const xpDelta = computeXpDelta(cur, newVal, XP_REWARDS[cfg.xpKey]);
+    const wType = format === "manga" ? "manga" : "anime";
+    const epKey = cfg.xpKey === "chapter_read" ? "chapter" : "episode";
     updateMutation.mutate({ id: entry.id, data: updates }, {
       onSuccess: () => {
-        if (xpDelta > 0) recordXpEvent(cfg.xpKey, xpDelta);
-        if (willComplete) recordXpEvent("work_completed", 125);
+        grantXpEvent({ userEmail: user.email, eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: entry.id, idempotencyKey: `${epKey}:${entry.id}:${newVal}` }).catch(() => {});
+        if (willComplete) grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id, workType: wType, idempotencyKey: `completion:${entry.id}` }).catch(() => {});
         showToast(`${cfg.unit} ${newVal}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
       },
     });
@@ -366,15 +338,16 @@ function FormatBlock({ format, media, entries, user, onMutate }) {
     const willComplete = shouldAutoComplete(newVal, effectiveTotal, isAiring);
     if (willComplete) updates.status = "completed";
     const xpDelta = computeXpDelta(prev, newVal, XP_REWARDS[cfg.xpKey]);
+    const wType = format === "manga" ? "manga" : "anime";
     updateMutation.mutate({ id: entry.id, data: updates }, {
       onSuccess: () => {
         if (xpDelta > 0) {
-          recordXpEvent(cfg.xpKey, xpDelta);
+          grantEpisodeRange({ userEmail: user.email, entryId: entry.id, fromNum: prev, toNum: newVal, eventType: cfg.xpKey }).catch(() => {});
           showToast(`Progresso → ${cfg.unit} ${newVal}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
         } else {
           showToast(`Progresso atualizado para ${cfg.unit} ${newVal}`, CheckCircle2, "bg-card border-primary/30 text-primary");
         }
-        if (willComplete) recordXpEvent("work_completed", 125);
+        if (willComplete) grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id, workType: wType, idempotencyKey: `completion:${entry.id}` }).catch(() => {});
       },
     });
   }

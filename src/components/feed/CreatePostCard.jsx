@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, ImagePlus, X, Loader2 } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { computeStats, computeTotalXp, getXpProgress } from "@/lib/xpSystem";
+import { grantXpEvent } from "@/lib/xpEvents";
 
 export default function CreatePostCard({ user }) {
   const [content, setContent] = useState("");
@@ -48,17 +49,29 @@ export default function CreatePostCard({ user }) {
   const handlePost = async () => {
     if (!content.trim()) return;
     setIsPosting(true);
-    await base44.entities.Post.create({
-      content,
-      image_url: imageUrl || undefined,
-      post_type: postType,
-      author_name: user?.full_name || "Anônimo",
-      author_avatar: user?.avatar_url || "",
-      author_level: level,
-      likes_count: 0,
-      comments_count: 0,
-      liked_by: [],
-    });
+    try {
+      const created = await base44.entities.Post.create({
+        content,
+        image_url: imageUrl || undefined,
+        post_type: postType,
+        author_name: user?.full_name || "Anônimo",
+        author_avatar: user?.avatar_url || "",
+        author_level: level,
+        likes_count: 0,
+        comments_count: 0,
+        liked_by: [],
+      });
+      // Grant post_created XP (idempotent — only once per post)
+      if (user?.email && created?.id) {
+        grantXpEvent({
+          userEmail: user.email,
+          eventType: "post_created",
+          sourceType: "post",
+          sourceId: created.id,
+          idempotencyKey: `post:${created.id}:create`,
+        }).catch(() => {});
+      }
+    } catch {}
     setContent("");
     setImageUrl("");
     setPostType("general");

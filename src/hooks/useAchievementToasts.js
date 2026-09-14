@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { getLevelFromXp } from "@/lib/xpSystem";
 import { ACHIEVEMENTS } from "@/lib/achievements";
+import { grantAchievement } from "@/lib/xpEvents";
 import { useAchievementSound } from "@/hooks/useAchievementSound";
 
 // Check if user is among first 10 registered users
@@ -72,11 +73,7 @@ export function useAchievementToasts({ stats, totalXp, userEmail, enabled = true
             reference_id: "achievements",
             is_read: false,
           }).catch(() => {});
-          base44.entities.UserAchievement.create({
-            user_email: userEmail,
-            achievement_key: id,
-            unlocked_at: new Date().toISOString(),
-          }).catch(() => {});
+          grantAchievement({ userEmail, achievementId: id }).catch(() => {});
         }
       }
     }

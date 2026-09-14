@@ -84,6 +84,8 @@ export function computeStats(entries, posts, friendships = [], events = [], prof
   const totalChapters  = myManga.reduce((s, e) => s + (e.current_chapter || 0), 0);
   const totalMovies    = myMovies.filter((e) => e.status === "completed").length;
   const completedTitles = entries.filter((e) => e.status === "completed").length;
+  const completedAnime = myAnime.filter(e => e.status === "completed").length;
+  const completedManga = myManga.filter(e => e.status === "completed").length;
   const totalTitles    = entries.length;
   const plannedTitles  = entries.filter((e) => e.status === "planned").length;
   const hasAnime       = myAnime.length > 0;
@@ -169,7 +171,7 @@ export function computeStats(entries, posts, friendships = [], events = [], prof
   const currentLevel = extra.currentLevel || 1;
 
   return {
-    totalEpisodes, totalChapters, totalMovies, completedTitles, totalTitles,
+    totalEpisodes, totalChapters, totalMovies, completedTitles, completedAnime, completedManga, totalTitles,
     plannedTitles, updatedStatuses, hasAnime, hasManga, hasMovie, hasLiveaction,
     categoryCount, uniqueGenres, sameWorkBothTypes, completedLongAnime, completedLongManga,
     totalPosts, theoryPosts, reviewPosts, likesGiven, likesReceived, maxLikesOnPost,
@@ -188,11 +190,15 @@ export function getUnlockedAchievements(stats) {
   return ACHIEVEMENTS.filter((a) => a.condition(stats));
 }
 
+// LEGACY/DERIVED XP CALCULATOR — used for baseline migration and validation only.
+// After baseline migration, ranking authority is SUM(XpEvent.xp_amount) via getTotalXpFromEvents.
+// Do NOT use computeTotalXp as the ranking authority after migration.
 export function computeTotalXp(stats) {
   let xp = 0;
   xp += stats.totalEpisodes * XP_REWARDS.episode_watched;
   xp += stats.totalChapters * XP_REWARDS.chapter_read;
-  xp += stats.completedTitles * (XP_REWARDS.anime_completed + XP_REWARDS.manga_completed) / 2;
+  xp += (stats.completedAnime || 0) * XP_REWARDS.anime_completed;
+  xp += (stats.completedManga || 0) * XP_REWARDS.manga_completed;
   xp += stats.totalPosts * XP_REWARDS.post_created;
   xp += stats.totalTitles * XP_REWARDS.anime_added;
   const unlocked = ACHIEVEMENTS.filter((a) => a.condition(stats));
