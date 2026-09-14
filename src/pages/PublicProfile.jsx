@@ -11,6 +11,7 @@ import LevelBadge from "@/components/profile/LevelBadge";
 import XpProgressBar from "@/components/profile/XpProgressBar";
 import { computeStats, computeTotalXp, getXpProgress, getRankForLevel, getUnlockedAchievements } from "@/lib/xpSystem";
 import { getMyFriends } from "@/lib/social";
+import FriendshipButton from "@/components/profile/FriendshipButton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import WorkLink from "@/components/media/WorkLink";
@@ -165,6 +166,15 @@ export default function PublicProfile() {
             </div>
 
             <div className="flex items-center gap-2 pt-2 flex-wrap">
+              {!isOwnProfile && currentUser && (
+                <FriendshipButton
+                  currentUser={currentUser}
+                  targetEmail={userEmail}
+                  targetName={displayName}
+                  targetProfile={profile}
+                  friendships={friendships}
+                />
+              )}
               <Button size="sm" variant="outline" onClick={handleShareProfile} className="h-8 text-xs gap-1.5">
                 <Share2 className="w-3.5 h-3.5" /> Compartilhar perfil
               </Button>
