@@ -152,6 +152,15 @@
   100% { left: 100%; }
 }
 
+/* Ticker fade — featured news strip rotation */
+@keyframes tickerFadeIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.ticker-fade-in {
+  animation: tickerFadeIn 300ms ease-out;
+}
+
 /* Hero crossfade — login background images */
 @keyframes heroFadeIn {
   from { opacity: 0; }
