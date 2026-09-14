@@ -29,90 +29,110 @@ export default function PublicProfileHero({
   const BadgeIcon = selectedAchievement ? getAchievementIcon(selectedAchievement.icon) : null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border overflow-hidden">
-      {/* Banner — shared component */}
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
+      {/* Banner */}
       <ProfileBanner bannerUrl={profile?.banner_url} bannerCrop={profile?.banner_crop} />
 
-      <div className="px-5 sm:px-6 pb-5">
-        {/* Avatar + Identity */}
-        <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
-          {/* Avatar — overlapping banner, no level badge, achievement badge bottom-right */}
-          <div className="flex justify-center sm:justify-start shrink-0 -mt-10 sm:-mt-12 relative z-10">
-            <div className="w-20 h-20 rounded-full border-4 border-card bg-secondary overflow-hidden relative">
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" style={getAvatarCropStyle(profile?.avatar_crop)} />
-                : <span className={`w-full h-full flex items-center justify-center font-bold text-2xl font-space ${rank.color}`}>{(displayName)[0].toUpperCase()}</span>
-              }
-              {BadgeIcon && (
-                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-card flex items-center justify-center bg-secondary z-10" title={selectedAchievement.label}>
-                  <BadgeIcon className={`w-3.5 h-3.5 ${getAchievementColor(selectedBadgeId)}`} />
-                </div>
+      <div className="px-6 pb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
+          {/* Avatar */}
+          <div className="relative shrink-0">
+            <div className="w-24 h-24 rounded-full border-4 border-card flex items-center justify-center relative overflow-hidden bg-secondary">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt={displayName}
+                  className="w-full h-full object-cover"
+                  style={getAvatarCropStyle(profile?.avatar_crop)}
+                />
+              ) : (
+                <span className={`font-bold text-3xl font-space ${rank.color}`}>
+                  {(displayName || "A")[0].toUpperCase()}
+                </span>
               )}
             </div>
+
+            {/* Achievement badge bottom-right (read-only) */}
+            {BadgeIcon && (
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-card flex items-center justify-center bg-secondary z-10" title={selectedAchievement.label}>
+                <BadgeIcon className={`w-3.5 h-3.5 ${getAchievementColor(selectedBadgeId)}`} />
+              </div>
+            )}
           </div>
 
-          {/* Identity */}
-          <div className="flex-1 min-w-0 text-center sm:text-left sm:pt-8">
-            <h1 className="font-space font-bold text-xl text-foreground">{displayName}</h1>
+          {/* Name / rank / bio / links */}
+          <div className="flex-1 pt-2 min-w-0">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-0.5">
+              <h1 className="font-space font-bold text-xl text-foreground leading-tight">
+                {displayName}
+              </h1>
+              <span className={`text-sm font-semibold ${rank.color}`}>{rank.title}</span>
+            </div>
+
             {profile?.username && (
-              <p className="text-sm text-primary/80 font-medium">@{profile.username}</p>
+              <p className="text-sm text-muted-foreground font-medium mb-1">
+                <span className="text-primary/70">@</span>{profile.username}
+              </p>
             )}
-            <p className={`text-sm font-semibold ${rank.color} mt-0.5`}>{rank.title}</p>
+
             {profile?.bio && (
-              <p className="text-sm text-foreground/70 leading-relaxed mt-2 max-w-md mx-auto sm:mx-0">{profile.bio}</p>
+              <p className="text-sm text-foreground/70 mt-1 leading-relaxed">{profile.bio}</p>
             )}
+
+            {/* Social links */}
             {profile?.links && Object.values(profile.links).some(Boolean) && (
-              <div className="flex items-center gap-3 mt-2 flex-wrap justify-center sm:justify-start">
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
                 {profile.links.twitter && (
-                  <a href={`https://x.com/${profile.links.twitter.replace("@","")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                  <a href={`https://x.com/${profile.links.twitter.replace("@","")}`} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
                     <Twitter className="w-3 h-3" /> {profile.links.twitter}
                   </a>
                 )}
                 {profile.links.instagram && (
-                  <a href={`https://instagram.com/${profile.links.instagram.replace("@","")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                  <a href={`https://instagram.com/${profile.links.instagram.replace("@","")}`} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
                     <Instagram className="w-3 h-3" /> {profile.links.instagram}
                   </a>
                 )}
                 {profile.links.website && (
-                  <a href={profile.links.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                  <a href={profile.links.website} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
                     <Globe className="w-3 h-3" /> Site
                   </a>
                 )}
               </div>
             )}
           </div>
+
+          {/* Actions — inline, right-aligned (same as profile próprio) */}
+          <div className="flex items-center gap-2">
+            {!isOwnProfile && currentUser && (
+              <FriendshipButton
+                currentUser={currentUser}
+                targetEmail={targetEmail}
+                targetName={displayName}
+                targetProfile={profile}
+                friendships={friendships}
+              />
+            )}
+            {isFriend && (
+              <Button size="sm" variant="outline" onClick={() => setShowChat(true)} className="h-8 text-xs gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5" /> Mensagem
+              </Button>
+            )}
+            {!isOwnProfile && currentUser && (
+              <Button size="sm" variant="ghost" onClick={onReport}
+                className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive">
+                <Flag className="w-3.5 h-3.5" /> Reportar
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Actions — below banner, not overlapping */}
-        <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end mt-4">
-          {!isOwnProfile && currentUser && (
-            <FriendshipButton
-              currentUser={currentUser}
-              targetEmail={targetEmail}
-              targetName={displayName}
-              targetProfile={profile}
-              friendships={friendships}
-            />
-          )}
-          {isFriend && (
-            <Button size="sm" variant="outline" onClick={() => setShowChat(true)} className="h-8 text-xs gap-1.5">
-              <MessageCircle className="w-3.5 h-3.5" /> Mensagem
-            </Button>
-          )}
-          {!isOwnProfile && currentUser && (
-            <Button size="sm" variant="ghost" onClick={onReport}
-              className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive">
-              <Flag className="w-3.5 h-3.5" /> Reportar
-            </Button>
-          )}
-        </div>
-
-        {/* Progress — full width */}
-        <div className="mt-5 pt-5 border-t border-border">
+        {/* XP Bar */}
+        <div className="mt-5 pt-4 border-t border-border">
           <XpProgressBar totalXp={totalXp} />
         </div>
 
-        {/* Favorites — shared component */}
+        {/* Favorites */}
         <ProfileFavorites profile={profile} />
       </div>
 
