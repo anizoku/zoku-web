@@ -27,12 +27,12 @@
     "xp_amount": {
       "type": "number",
       "default": 0,
-      "description": "Quantidade de XP concedida. Resolvido centralmente por grantXpEvent \u2014 componentes n\u00e3o devem definir este valor."
+      "description": "Quantidade de XP concedida. Resolvido centralmente pelo backend grantXp \u2014 componentes n\u00e3o devem definir este valor."
     },
     "event_date": {
       "type": "string",
       "format": "date-time",
-      "description": "Timestamp do evento (para ranking mensal/semanal)"
+      "description": "Timestamp do evento (definido pelo backend, n\u00e3o pelo cliente)"
     },
     "source_type": {
       "type": "string",
@@ -44,7 +44,7 @@
     },
     "idempotency_key": {
       "type": "string",
-      "description": "Chave de idempot\u00eancia \u00fanica por usu\u00e1rio+a\u00e7\u00e3o. Garante que a mesma a\u00e7\u00e3o n\u00e3o conceda XP duas vezes. No Supabase: UNIQUE(user_id, idempotency_key)."
+      "description": "Chave de idempot\u00eancia \u00fanica por usu\u00e1rio+a\u00e7\u00e3o. Constru\u00edda pelo backend grantXp. Garante que a mesma a\u00e7\u00e3o n\u00e3o conceda XP duas vezes. Target Supabase: UNIQUE(user_id, idempotency_key)."
     }
   },
   "required": [
@@ -53,14 +53,20 @@
   ],
   "rls": {
     "create": {
-      "data.user_email": "{{user.email}}"
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "read": {},
     "update": {
-      "data.user_email": "{{user.email}}"
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
-      "data.user_email": "{{user.email}}"
+      "user_condition": {
+        "role": "admin"
+      }
     }
   }
 }
