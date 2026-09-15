@@ -90,36 +90,16 @@ export function getPeriodXpFromEvents(events, sinceDate) {
     .reduce((sum, ev) => sum + (ev.xp_amount || 0), 0);
 }
 
-// ── Idempotent UserAchievement + achievement XP ──────────────
-// Step 1: Create UserAchievement if it doesn't exist (frontend, RLS allows).
-// Step 2: Call backend for XP (backend validates UserAchievement exists,
-//         handles idempotency, calculates xp_amount).
+// ── Idempotent achievement unlock + XP ──────────────────────
+// Backend validates condition server-side, creates UserAchievement,
+// and grants XP. Client NO LONGER creates UserAchievement — RLS
+// blocks client create/update/delete (admin-only).
+// userEmail is accepted for backward compat but ignored (backend uses auth.me()).
 export async function grantAchievement({ userEmail, achievementId }) {
-  if (!userEmail || !achievementId) return { status: "INVALID" };
-
-  // Create UserAchievement if not exists
+  if (!achievementId) return { status: "INVALID" };
   try {
-    const existing = await base44.entities.UserAchievement.filter({
-      user_email: userEmail,
-      achievement_key: achievementId,
-    });
-    if (!existing || existing.length === 0) {
-      await base44.entities.UserAchievement.create({
-        user_email: userEmail,
-        achievement_key: achievementId,
-        unlocked_at: new Date().toISOString(),
-      });
-    }
-  } catch {
-    // Continue — backend will validate UserAchievement exists
-  }
-
-  // Grant XP via backend
-  try {
-    const response = await base44.functions.invoke("grantXp", {
-      event_type: "achievement_unlocked",
-      source_type: "achievement",
-      source_id: achievementId,
+    const response = await base44.functions.invoke("unlockAchievement", {
+      achievement_id: achievementId,
     });
     const result = response.data || response;
     return { status: result.status, xpAmount: result.xp_amount || 0 };

@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AnimatePresence, motion } from "framer-motion";
 import ProgressInput from "@/components/media/ProgressInput";
 import { XP_REWARDS } from "@/lib/xpSystem";
-import { grantXpEvent, grantEpisodeRange } from "@/lib/xpEvents";
-import { validateProgress, computeXpDelta, shouldAutoComplete } from "@/lib/progressValidation";
+import { grantXpEvent } from "@/lib/xpEvents";
+import { updateProgress } from "@/lib/progressApi";
+import { validateProgress } from "@/lib/progressValidation";
 import { findEntryForRelease, buildReleaseLabel, buildReleaseSubtitle, getReleaseStatusLabel } from "@/lib/releaseTracking";
 
 const CATEGORY_CONFIG = {
@@ -94,6 +95,7 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
   const queryClient = useQueryClient();
   const [toast, setToast] = useState(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [isProgressPending, setIsProgressPending] = useState(false);
 
   // Resolve the user's entry for this specific release (release_id → season_mal_id fallback)
   const entry = user ? findEntryForRelease(entries, release, user.email) : null;
@@ -135,7 +137,7 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
     onError: () => showToast("Erro ao salvar. Tente novamente.", XCircle, "bg-card border-destructive/30 text-destructive"),
   });
 
-  const isMutating = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const isMutating = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending || isProgressPending;
 
   // XP granting + streak update now handled by grantXpEvent from @/lib/xpEvents.
 
@@ -165,20 +167,23 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
     };
 
     if (status === "completed") {
-      const xpPerUnit = XP_REWARDS[cfg.xpKey];
-      const xpEarned = totalForEntry > 0 ? totalForEntry * xpPerUnit : 0;
-      const wType = release.category === "manga" ? "manga" : "anime";
-      const bonusXp = wType === "manga" ? XP_REWARDS.manga_completed : XP_REWARDS.anime_completed;
-      const totalXp = xpEarned + bonusXp;
-      entryData.status = "completed";
-      entryData.current_episode = release.category !== "manga" ? totalForEntry : 0;
-      entryData.current_chapter = release.category === "manga" ? totalForEntry : 0;
+      // Create as planned — backend completes atomically via updateProgress
+      entryData.status = "planned";
+      entryData.current_episode = 0;
+      entryData.current_chapter = 0;
       createMutation.mutate(entryData, {
-        onSuccess: (created) => {
+        onSuccess: async (created) => {
           grantXpEvent({ eventType: "anime_added", sourceType: "anime_entry", sourceId: created.id }).catch(() => {});
-          grantEpisodeRange({ entryId: created.id, fromNum: 0, toNum: totalForEntry, eventType: cfg.xpKey }).catch(() => {});
-          grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: created.id }).catch(() => {});
-          showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+          setIsProgressPending(true);
+          const result = await updateProgress({ entryId: created.id, action: "complete" });
+          setIsProgressPending(false);
+          queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+          onMutate?.();
+          if (result.total_xp_granted > 0) {
+            showToast(`✓ Concluído! +${result.total_xp_granted} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+          } else {
+            showToast(`✓ Concluído!`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+          }
         },
       });
       return;
@@ -191,29 +196,19 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
     });
   }
 
-  function handleStatusChange(newStatus) {
+  async function handleStatusChange(newStatus) {
     if (!entry || isMutating) return;
     if (newStatus === "completed") {
-      const resolvedTotal = Math.max(entry[cfg.totalKey] || 0, releaseTotal || 0, isMovie ? 1 : 0);
-      const prev = entry[cfg.progressKey] || 0;
-      const missing = resolvedTotal > 0 ? Math.max(0, resolvedTotal - prev) : 0;
-      const xpPerUnit = XP_REWARDS[cfg.xpKey];
-      const xpEarned = missing > 0 ? missing * xpPerUnit : 0;
-      const wType = release.category === "manga" ? "manga" : "anime";
-      const bonusXp = wType === "manga" ? XP_REWARDS.manga_completed : XP_REWARDS.anime_completed;
-      const totalXp = xpEarned + bonusXp;
-      const updates = {
-        status: "completed",
-        [cfg.progressKey]: resolvedTotal,
-        [cfg.totalKey]: resolvedTotal,
-      };
-      updateMutation.mutate({ id: entry.id, data: updates }, {
-        onSuccess: () => {
-          grantEpisodeRange({ entryId: entry.id, fromNum: prev, toNum: resolvedTotal, eventType: cfg.xpKey }).catch(() => {});
-          grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id }).catch(() => {});
-          showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
-        },
-      });
+      setIsProgressPending(true);
+      const result = await updateProgress({ entryId: entry.id, action: "complete" });
+      setIsProgressPending(false);
+      queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+      onMutate?.();
+      if (result.total_xp_granted > 0) {
+        showToast(`✓ Concluído! +${result.total_xp_granted} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+      } else {
+        showToast(`✓ Concluído!`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+      }
     } else {
       updateMutation.mutate({ id: entry.id, data: { status: newStatus } }, {
         onSuccess: () => showToast(`Status: ${STATUS_LABELS[newStatus]}`, CheckCircle2, "bg-card border-primary/30 text-primary"),
@@ -221,44 +216,35 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
     }
   }
 
-  function handleIncrement() {
+  async function handleIncrement() {
     if (!entry || isMutating) return;
     const effectiveTotal = Math.max(entry[cfg.totalKey] || 0, releaseTotal);
     const current = entry[cfg.progressKey] || 0;
     if (effectiveTotal > 0 && current >= effectiveTotal) return;
-    const v = validateProgress(current + 1, effectiveTotal > 0 ? effectiveTotal : null);
-    if (!v.valid) return;
-    const newVal = v.value;
-    const updates = { [cfg.progressKey]: newVal };
-    const willComplete = shouldAutoComplete(newVal, effectiveTotal, isAiring);
-    if (willComplete) updates.status = "completed";
-    const xpDelta = computeXpDelta(current, newVal, XP_REWARDS[cfg.xpKey]);
-    const wType = release.category === "manga" ? "manga" : "anime";
-    const epKey = cfg.xpKey === "chapter_read" ? "chapter" : "episode";
-    updateMutation.mutate({ id: entry.id, data: updates }, {
-      onSuccess: () => {
-        grantXpEvent({ eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: entry.id, unitNumber: newVal }).catch(() => {});
-        if (willComplete) grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id }).catch(() => {});
-        showToast(`${cfg.unit} ${newVal}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
-      },
-    });
+    setIsProgressPending(true);
+    const result = await updateProgress({ entryId: entry.id, action: "increment" });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+    onMutate?.();
+    if (result.total_xp_granted > 0) {
+      showToast(`${cfg.unit} ${result.progress}! +${result.total_xp_granted} XP`, Zap, "bg-card border-primary/30 text-primary");
+    } else {
+      showToast(`${cfg.unit} ${result.progress}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    }
   }
 
-  function handleDecrement() {
+  async function handleDecrement() {
     if (!entry || isMutating) return;
     const current = entry[cfg.progressKey] || 0;
     if (current <= 0) return;
-    const effectiveTotal = Math.max(entry[cfg.totalKey] || 0, releaseTotal);
-    const v = validateProgress(current - 1, effectiveTotal > 0 ? effectiveTotal : null);
-    if (!v.valid) return;
-    const updates = { [cfg.progressKey]: v.value };
-    if (entry.status === "completed" && effectiveTotal > 0 && v.value < effectiveTotal) {
-      updates.status = "watching";
-    }
-    updateMutation.mutate({ id: entry.id, data: updates });
+    setIsProgressPending(true);
+    await updateProgress({ entryId: entry.id, action: "decrement" });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+    onMutate?.();
   }
 
-  function handleJumpTo(newVal) {
+  async function handleJumpTo(newVal) {
     if (!entry || isMutating) return;
     const prev = entry[cfg.progressKey] || 0;
     const effectiveTotal = Math.max(entry[cfg.totalKey] || 0, releaseTotal);
@@ -266,22 +252,16 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
     if (!v.valid) return;
     const clamped = v.value;
     if (clamped === prev) return;
-    const updates = { [cfg.progressKey]: clamped };
-    const willComplete = shouldAutoComplete(clamped, effectiveTotal, isAiring);
-    if (willComplete) updates.status = "completed";
-    const xpDelta = computeXpDelta(prev, clamped, XP_REWARDS[cfg.xpKey]);
-    const wType = release.category === "manga" ? "manga" : "anime";
-    updateMutation.mutate({ id: entry.id, data: updates }, {
-      onSuccess: () => {
-        if (xpDelta > 0) {
-          grantEpisodeRange({ entryId: entry.id, fromNum: prev, toNum: clamped, eventType: cfg.xpKey }).catch(() => {});
-          showToast(`Progresso → ${cfg.unit} ${clamped}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
-        } else {
-          showToast(`Progresso atualizado para ${cfg.unit} ${clamped}`, CheckCircle2, "bg-card border-primary/30 text-primary");
-        }
-        if (willComplete) grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id }).catch(() => {});
-      },
-    });
+    setIsProgressPending(true);
+    const result = await updateProgress({ entryId: entry.id, action: "set_progress", value: clamped });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+    onMutate?.();
+    if (result.total_xp_granted > 0) {
+      showToast(`Progresso → ${cfg.unit} ${result.progress}! +${result.total_xp_granted} XP`, Zap, "bg-card border-primary/30 text-primary");
+    } else {
+      showToast(`Progresso atualizado para ${cfg.unit} ${result.progress}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    }
   }
 
   const current = entry ? (entry[cfg.progressKey] || 0) : 0;

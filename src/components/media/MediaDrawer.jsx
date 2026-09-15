@@ -10,6 +10,7 @@ import { Plus, Minus, Star, Zap, CheckCircle2, BookOpen, Tv, Film, ListPlus, Loa
 import ProgressInput from "@/components/media/ProgressInput";
 import { motion, AnimatePresence } from "framer-motion";
 import { XP_REWARDS } from "@/lib/xpSystem";
+import { updateProgress } from "@/lib/progressApi";
 
 const statusLabels = {
   watching: "Assistindo",
@@ -46,6 +47,7 @@ function Toast({ message, icon: ToastIcon, color }) {
 export default function MediaDrawer({ media, type, open, onClose }) {
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState(null);
+  const [isProgressPending, setIsProgressPending] = useState(false);
   const queryClient = useQueryClient();
 
   const isAnime = type === "anime";
@@ -89,12 +91,47 @@ export default function MediaDrawer({ media, type, open, onClose }) {
     setTimeout(() => setToast(null), 3000);
   }
 
-  function handleAddToList(status = "planned") {
+  async function handleAddToList(status = "planned") {
     if (!user || !media) return;
-    // Upsert: if already exists, just update status instead of creating a new entry
     if (myEntry) {
-      updateMutation.mutate({ id: myEntry.id, data: { status } });
-      showToast(`Status: ${statusLabels[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      if (status === "completed") {
+        setIsProgressPending(true);
+        const result = await updateProgress({ entryId: myEntry.id, action: "complete" });
+        setIsProgressPending(false);
+        queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+        if (result.total_xp_granted > 0) {
+          showToast(`✓ Concluído! +${result.total_xp_granted} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+        } else {
+          showToast(`✓ Concluído!`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+        }
+      } else {
+        updateMutation.mutate({ id: myEntry.id, data: { status } });
+        showToast(`Status: ${statusLabels[status]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      }
+      return;
+    }
+    if (status === "completed") {
+      createMutation.mutate({
+        title: media.title,
+        type: isMovie ? "anime" : type,
+        status: "planned",
+        total_episodes: isAnime ? (media.totalEpisodes || 0) : isMovie ? 1 : 0,
+        total_chapters: isManga ? (media.totalChapters || 0) : 0,
+        current_episode: 0,
+        current_chapter: 0,
+      }, {
+        onSuccess: async (created) => {
+          setIsProgressPending(true);
+          const result = await updateProgress({ entryId: created.id, action: "complete" });
+          setIsProgressPending(false);
+          queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+          if (result.total_xp_granted > 0) {
+            showToast(`✓ Concluído! +${result.total_xp_granted} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+          } else {
+            showToast(`✓ Concluído!`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+          }
+        },
+      });
       return;
     }
     createMutation.mutate({
@@ -108,49 +145,59 @@ export default function MediaDrawer({ media, type, open, onClose }) {
     });
   }
 
-  function handleStatusChange(newStatus) {
+  async function handleStatusChange(newStatus) {
     if (!myEntry) return;
-    updateMutation.mutate({ id: myEntry.id, data: { status: newStatus } });
-    showToast(`Status: ${statusLabels[newStatus]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    if (newStatus === "completed") {
+      setIsProgressPending(true);
+      const result = await updateProgress({ entryId: myEntry.id, action: "complete" });
+      setIsProgressPending(false);
+      queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+      if (result.total_xp_granted > 0) {
+        showToast(`✓ Concluído! +${result.total_xp_granted} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+      } else {
+        showToast(`✓ Concluído!`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
+      }
+    } else {
+      updateMutation.mutate({ id: myEntry.id, data: { status: newStatus } });
+      showToast(`Status: ${statusLabels[newStatus]}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+    }
   }
 
-  function handleIncrement() {
+  async function handleIncrement() {
     if (!myEntry) return;
-    const field = isManga ? "current_chapter" : "current_episode";
-    const total = isManga ? (myEntry.total_chapters || 0) : (myEntry.total_episodes || 0);
-    const current = isManga ? (myEntry.current_chapter || 0) : (myEntry.current_episode || 0);
-    const newVal = current + 1;
-    const updates = { [field]: newVal };
-    if (total > 0 && newVal >= total) updates.status = "completed";
-    updateMutation.mutate({ id: myEntry.id, data: updates });
-    const label = isManga ? `Cap. ${newVal} lido!` : `Ep. ${newVal} assistido!`;
-    const xp = isManga ? XP_REWARDS.chapter_read : XP_REWARDS.episode_watched;
-    showToast(`${label} +${xp} XP`, Zap, "bg-card border-primary/30 text-primary");
+    setIsProgressPending(true);
+    const result = await updateProgress({ entryId: myEntry.id, action: "increment" });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
+    if (result.total_xp_granted > 0) {
+      const label = isManga ? `Cap. ${result.progress} lido!` : `Ep. ${result.progress} assistido!`;
+      showToast(`${label} +${result.total_xp_granted} XP`, Zap, "bg-card border-primary/30 text-primary");
+    }
   }
 
-  function handleDecrement() {
+  async function handleDecrement() {
     if (!myEntry) return;
-    const field = isManga ? "current_chapter" : "current_episode";
     const current = isManga ? (myEntry.current_chapter || 0) : (myEntry.current_episode || 0);
     if (current <= 0) return;
-    updateMutation.mutate({ id: myEntry.id, data: { [field]: current - 1 } });
+    setIsProgressPending(true);
+    await updateProgress({ entryId: myEntry.id, action: "decrement" });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
   }
 
-  function handleJumpTo(newVal) {
+  async function handleJumpTo(newVal) {
     if (!myEntry) return;
-    const field = isManga ? "current_chapter" : "current_episode";
     const prev = isManga ? (myEntry.current_chapter || 0) : (myEntry.current_episode || 0);
-    const totalVal = isManga ? (myEntry.total_chapters || 0) : (myEntry.total_episodes || 0);
-    const updates = { [field]: newVal };
-    if (totalVal > 0 && newVal >= totalVal) updates.status = "completed";
-    updateMutation.mutate({ id: myEntry.id, data: updates });
-    const diff = Math.max(0, newVal - prev);
-    const xp = isManga ? XP_REWARDS.chapter_read : XP_REWARDS.episode_watched;
+    if (newVal === prev) return;
+    setIsProgressPending(true);
+    const result = await updateProgress({ entryId: myEntry.id, action: "set_progress", value: newVal });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
     const unit = isManga ? "Cap." : "Ep.";
-    if (diff > 0) {
-      showToast(`Progresso → ${unit} ${newVal}! +${diff * xp} XP`, Zap, "bg-card border-primary/30 text-primary");
+    if (result.total_xp_granted > 0) {
+      showToast(`Progresso → ${unit} ${result.progress}! +${result.total_xp_granted} XP`, Zap, "bg-card border-primary/30 text-primary");
     } else {
-      showToast(`Progresso atualizado para ${unit} ${newVal}`, CheckCircle2, "bg-card border-primary/30 text-primary");
+      showToast(`Progresso atualizado para ${unit} ${result.progress}`, CheckCircle2, "bg-card border-primary/30 text-primary");
     }
   }
 
@@ -159,7 +206,7 @@ export default function MediaDrawer({ media, type, open, onClose }) {
     ? (isManga ? myEntry.total_chapters || 0 : myEntry.total_episodes || 0)
     : (isManga ? media?.totalChapters || 0 : isAnime ? media?.totalEpisodes || 0 : isMovie ? 1 : 0);
   const progress = total > 0 ? Math.min((current / total) * 100, 100) : 0;
-  const isMutating = createMutation.isPending || updateMutation.isPending;
+  const isMutating = createMutation.isPending || updateMutation.isPending || isProgressPending;
 
   // Display values
   const displayStatus = isMovie

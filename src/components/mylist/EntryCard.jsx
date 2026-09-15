@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Tv, BookOpen, Film, Minus, Plus, Zap, Star, MoreVertical, Trash2, ImageOff } from "lucide-react";
+import { updateProgress } from "@/lib/progressApi";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -12,7 +14,7 @@ import ProgressInput from "@/components/media/ProgressInput";
 import WorkLink from "@/components/media/WorkLink";
 import { XP_REWARDS } from "@/lib/xpSystem";
 import { CATALOG } from "@/lib/catalog";
-import { validateProgress, shouldAutoComplete } from "@/lib/progressValidation";
+import { validateProgress } from "@/lib/progressValidation";
 import { useTMDBPoster } from "@/components/catalog/useTMDBPoster";
 import { useCardDisplayData } from "@/hooks/useCardOverrides";
 import { useOverrideMap } from "@/context/CardOverridesContext";
@@ -174,7 +176,9 @@ function CoverThumb({ entry, mediaType }) {
 export default function EntryCard({ entry, onUpdate, onRemove }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [isProgressPending, setIsProgressPending] = useState(false);
   const { catalog } = useCatalog();
+  const queryClient = useQueryClient();
 
   const mediaType = getMediaTypeFromEntry(entry);
   const isAnime = mediaType === "anime" || mediaType === "liveaction";
@@ -225,44 +229,33 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
       : (catalogItem?.animeStatus === "Em exibição" || catalogItem?.is_currently_airing)
   );
 
-  function increment() {
-    if (isMovie) return;
-    const field = isAnime ? "current_episode" : "current_chapter";
+  async function increment() {
+    if (isMovie || isProgressPending) return;
     const v = validateProgress(current + 1, total > 0 ? total : null);
     if (!v.valid) return;
-    const newVal = v.value;
-    const updates = { [field]: newVal };
-    if (shouldAutoComplete(newVal, total, isAiring)) updates.status = "completed";
-    // Se o total do catálogo é maior que o salvo, atualizar silenciosamente
-    if (total > entryTotal && entryTotal >= 0) {
-      const totalField = isAnime ? "total_episodes" : "total_chapters";
-      updates[totalField] = total;
-    }
-    onUpdate(entry.id, updates);
+    setIsProgressPending(true);
+    await updateProgress({ entryId: entry.id, action: "increment" });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
   }
 
-  function decrement() {
-    if (current <= 0 || isMovie) return;
-    const field = isAnime ? "current_episode" : "current_chapter";
-    const v = validateProgress(current - 1, total > 0 ? total : null);
-    if (!v.valid) return;
-    const updates = { [field]: v.value };
-    // Reduzir progresso de entrada concluída: manter coerência
-    if (entry.status === "completed" && total > 0 && v.value < total) {
-      updates.status = "watching";
-    }
-    onUpdate(entry.id, updates);
+  async function decrement() {
+    if (current <= 0 || isMovie || isProgressPending) return;
+    setIsProgressPending(true);
+    await updateProgress({ entryId: entry.id, action: "decrement" });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
   }
 
-  function jumpTo(newVal) {
-    if (isMovie) return;
+  async function jumpTo(newVal) {
+    if (isMovie || isProgressPending) return;
     const v = validateProgress(newVal, total > 0 ? total : null);
     if (!v.valid) return;
     const clamped = v.value;
-    const field = isAnime ? "current_episode" : "current_chapter";
-    const updates = { [field]: clamped };
-    if (shouldAutoComplete(clamped, total, isAiring)) updates.status = "completed";
-    onUpdate(entry.id, updates);
+    setIsProgressPending(true);
+    await updateProgress({ entryId: entry.id, action: "set_progress", value: clamped });
+    setIsProgressPending(false);
+    queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
   }
 
   // Only show release status badge if it differs from user status (avoid duplicate "Concluído")
@@ -283,17 +276,12 @@ export default function EntryCard({ entry, onUpdate, onRemove }) {
         onOpenChange={setStatusDialogOpen}
         currentStatus={entry.status}
         mediaType={mediaType}
-        onConfirm={(s) => {
+        onConfirm={async (s) => {
           if (s === "completed") {
-            const field = isAnime ? "current_episode" : "current_chapter";
-            const totalField = isAnime ? "total_episodes" : "total_chapters";
-            // total já reflete release-specific (releaseTotal) ou fallback legado
-            if (total > 0) {
-              onUpdate(entry.id, { status: "completed", [field]: total, [totalField]: total });
-            } else {
-              // Sem total conhecido, apenas muda status
-              onUpdate(entry.id, { status: "completed" });
-            }
+            setIsProgressPending(true);
+            await updateProgress({ entryId: entry.id, action: "complete" });
+            setIsProgressPending(false);
+            queryClient.invalidateQueries({ queryKey: ["anime-entries"] });
           } else {
             onUpdate(entry.id, { status: s });
           }
