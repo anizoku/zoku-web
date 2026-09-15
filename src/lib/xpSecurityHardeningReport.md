@@ -18,7 +18,10 @@ Three backend functions form the authoritative layer:
 ## Canonical Properties
 
 ```
-ACHIEVEMENT_AUTHORITY = BACKEND
+GRANT_XP_PROGRESS_EVENTS = DISABLED
+GRANT_XP_ACHIEVEMENT_EVENTS = DISABLED
+PROGRESS_AUTHORITY = updateProgress
+ACHIEVEMENT_AUTHORITY = unlockAchievement
 CLIENT_USERACHIEVEMENT_CREATE = FALSE
 PROGRESS_XP_AUTHORITY = BACKEND
 PROGRESS_AND_XP_ATOMICITY_BASE44 = BEST_EFFORT
@@ -28,19 +31,50 @@ DIRECT_PROGRESS_WRITE_BASE44 = RESIDUAL_RISK (no field-level RLS in Base44)
 SUPABASE_PROGRESS_TARGET = RPC
 ```
 
+### Event Type Authorities
+
+| Event Type | Authority | Status |
+|---|---|---|
+| `episode_watched` | updateProgress (internal) | DISABLED in grantXp |
+| `chapter_read` | updateProgress (internal) | DISABLED in grantXp |
+| `episode_range` | updateProgress (internal) | DISABLED in grantXp |
+| `chapter_range` | updateProgress (internal) | DISABLED in grantXp |
+| `work_completed` | updateProgress (internal) | DISABLED in grantXp |
+| `achievement_unlocked` | unlockAchievement (internal) | DISABLED in grantXp |
+| `post_created` | grantXp | ACTIVE |
+| `anime_added` | grantXp | ACTIVE |
+| `level_up` | grantXp | ACTIVE |
+| `legacy_migration` | grantXp (admin-only) | ACTIVE |
+
+### Unsupported Achievements (Functional Debt)
+
+```
+UNSUPPORTED_ACHIEVEMENTS_CURRENTLY:
+- five_genres (uniqueGenres not computable without catalog)
+- first_comment (totalComments not fetched in backend)
+- streak_weeks_4 (activeWeeks not tracked)
+- same_day_complete (not computable without timestamps)
+```
+
+These 4 achievements cannot be unlocked via the backend. Existing client-side unlocks are preserved (ALREADY_GRANTED). This does NOT block P0 security closure.
+
 ## Architecture
 
 ### Backend Functions
 
 #### 1. `base44/functions/grantXp/entry.ts`
-Sole authority for direct XP granting. Handles: `episode_watched`, `chapter_read`, `episode_range`, `chapter_range`, `post_created`, `anime_added`, `work_completed`, `achievement_unlocked` (backward compat), `level_up`, `legacy_migration`.
+Sole authority for DIRECT XP granting. Handles ONLY: `post_created`, `anime_added`, `level_up`, `legacy_migration` (admin-only).
+
+**DISABLED event types** (rejected with `INVALID_EVENT_TYPE`):
+`episode_watched`, `chapter_read`, `episode_range`, `chapter_range`, `work_completed`, `achievement_unlocked`.
+
+These are handled exclusively by `updateProgress` (progress) and `unlockAchievement` (achievements). grantXp no longer has handlers or whitelist entries for them — no dead code remains.
 
 Key security properties:
 - `user.email` from `base44.auth.me()` — never from client payload
-- `xp_amount` calculated server-side from `XP_REWARDS` / `ACHIEVEMENT_XP`
+- `xp_amount` calculated server-side from `XP_REWARDS`
 - `idempotency_key` built server-side
 - Source ownership validated for every event type
-- Canonical total from `WorkRelease` (authority) with entry fallback
 - Streak updated only when a new event is GRANTED
 - `asServiceRole` bypasses RLS for XpEvent creation
 
@@ -168,7 +202,7 @@ Thin wrappers:
 #### `src/lib/xpEvents.js`
 - `grantAchievement()` → now calls `unlockAchievement` backend (no longer creates `UserAchievement` client-side)
 - `grantXpEvent()` → unchanged (thin wrapper for `grantXp`)
-- `grantEpisodeRange()` → unchanged (thin wrapper for `grantXp` with range events)
+- `grantEpisodeRange()` → **REMOVED** (dead code — progress XP now handled by `updateProgress`)
 
 #### `src/components/obra/ReleaseBlock.jsx`
 - `handleIncrement` → `updateProgress({ action: "increment" })`
@@ -200,16 +234,16 @@ Same changes as ReleaseBlock.
 
 ## Idempotency Key Schemes (Server-Built)
 
-| Event | Key Pattern |
-|---|---|
-| Episode watched | `episode:{entryId}:{unitNumber}` |
-| Chapter read | `chapter:{entryId}:{unitNumber}` |
-| Work completed | `completion:{entryId}` |
-| Anime added | `entry:{entryId}:created` |
-| Post created | `post:{postId}:create` |
-| Achievement unlocked | `achievement:{achievementId}` |
-| Level up | `levelup:{userEmail}:{level}` |
-| Legacy migration | `legacy-xp-baseline-v1:{userEmail}` |
+| Event | Authority | Key Pattern |
+|---|---|---|
+| Episode watched | updateProgress (internal) | `episode:{entryId}:{unitNumber}` |
+| Chapter read | updateProgress (internal) | `chapter:{entryId}:{unitNumber}` |
+| Work completed | updateProgress (internal) | `completion:{entryId}` |
+| Anime added | grantXp | `entry:{entryId}:created` |
+| Post created | grantXp | `post:{postId}:create` |
+| Achievement unlocked | unlockAchievement (internal) | `achievement:{achievementId}` |
+| Level up | grantXp | `levelup:{userEmail}:{level}` |
+| Legacy migration | grantXp (admin) | `legacy-xp-baseline-v1:{userEmail}` |
 
 ## Response Statuses
 
@@ -353,8 +387,9 @@ CREATE POLICY "no_direct_progress_write" ON anime_entries
 
 ## Files Altered
 - `base44/entities/UserAchievement.jsonc` — RLS locked to admin-only create/update/delete
-- `base44/functions/grantXp/entry.ts` — refactored to use shared `xpConstants.ts`
-- `src/lib/xpEvents.js` — `grantAchievement` now calls `unlockAchievement` backend
+- `base44/functions/grantXp/entry.ts` — progress/achievement event types REMOVED; only post_created, anime_added, level_up, legacy_migration remain; all dead handler code removed
+- `base44/functions/unlockAchievement/entry.ts` — Friendship filter fixed: `addressee_email` → `receiver_email`
+- `src/lib/xpEvents.js` — `grantAchievement` calls `unlockAchievement` backend; `grantEpisodeRange` REMOVED (dead code)
 - `src/components/obra/ReleaseBlock.jsx` — all progress flows via `updateProgress`
 - `src/pages/ObraProfile.jsx` — FormatBlock progress flows via `updateProgress`
 - `src/components/mylist/EntryCard.jsx` — progress flows via `updateProgress`

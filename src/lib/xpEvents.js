@@ -54,24 +54,6 @@ export async function grantXpEvent({
   }
 }
 
-// ── Grant XP for an episode/chapter range (jump 5→8 = 6,7,8) ──
-// Backend creates individual events for from+1..to with per-unit idempotency.
-export async function grantEpisodeRange({ entryId, fromNum, toNum, eventType }) {
-  const rangeType = eventType === "chapter_read" ? "chapter_range" : "episode_range";
-  try {
-    const response = await base44.functions.invoke("grantXp", {
-      event_type: rangeType,
-      source_type: "anime_entry",
-      source_id: entryId,
-      from: fromNum,
-      to: toNum,
-    });
-    return response.data || response;
-  } catch (e) {
-    return { status: "ERROR", error: e };
-  }
-}
-
 // ── Ledger total from events ────────────────────────────────
 export function getTotalXpFromEvents(events) {
   if (!Array.isArray(events)) return 0;

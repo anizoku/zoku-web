@@ -227,10 +227,10 @@ export default async function (req: Request): Promise<Response> {
     const profiles = await svc.entities.UserProfile.filter({ user_email: user.email });
     const profile = profiles?.[0] || null;
 
-    // Fetch friendships (user is requester or addressee)
+    // Fetch friendships (user is requester or receiver)
     const allFriendships = await svc.entities.Friendship.list("-created_date", 500);
     const friendships = allFriendships.filter(
-      (f: any) => f.requester_email === user.email || f.addressee_email === user.email
+      (f: any) => f.requester_email === user.email || f.receiver_email === user.email
     );
 
     // Fetch events
