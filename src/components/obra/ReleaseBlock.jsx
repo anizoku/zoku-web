@@ -175,9 +175,9 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
       entryData.current_chapter = release.category === "manga" ? totalForEntry : 0;
       createMutation.mutate(entryData, {
         onSuccess: (created) => {
-          grantXpEvent({ userEmail: user.email, eventType: "anime_added", sourceType: "anime_entry", sourceId: created.id, idempotencyKey: `entry:${created.id}:created` }).catch(() => {});
-          grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: created.id, workType: wType, idempotencyKey: `completion:${created.id}` }).catch(() => {});
-          if (xpEarned > 0) grantXpEvent({ userEmail: user.email, eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: created.id, count: totalForEntry, idempotencyKey: `episodes-bulk:${created.id}:add-completed` }).catch(() => {});
+          grantXpEvent({ eventType: "anime_added", sourceType: "anime_entry", sourceId: created.id }).catch(() => {});
+          grantEpisodeRange({ entryId: created.id, fromNum: 0, toNum: totalForEntry, eventType: cfg.xpKey }).catch(() => {});
+          grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: created.id }).catch(() => {});
           showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
         },
       });
@@ -186,7 +186,7 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
 
     createMutation.mutate(entryData, {
       onSuccess: (created) => {
-        grantXpEvent({ userEmail: user.email, eventType: "anime_added", sourceType: "anime_entry", sourceId: created.id, idempotencyKey: `entry:${created.id}:created` }).catch(() => {});
+        grantXpEvent({ eventType: "anime_added", sourceType: "anime_entry", sourceId: created.id }).catch(() => {});
       },
     });
   }
@@ -209,8 +209,8 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
       };
       updateMutation.mutate({ id: entry.id, data: updates }, {
         onSuccess: () => {
-          grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id, workType: wType, idempotencyKey: `completion:${entry.id}` }).catch(() => {});
-          if (xpEarned > 0) grantXpEvent({ userEmail: user.email, eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: entry.id, count: missing, idempotencyKey: `episodes-bulk:${entry.id}:status-completed` }).catch(() => {});
+          grantEpisodeRange({ entryId: entry.id, fromNum: prev, toNum: resolvedTotal, eventType: cfg.xpKey }).catch(() => {});
+          grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id }).catch(() => {});
           showToast(`✓ Concluído! +${totalXp} XP`, CheckCircle2, "bg-card border-chart-4/40 text-chart-4");
         },
       });
@@ -237,8 +237,8 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
     const epKey = cfg.xpKey === "chapter_read" ? "chapter" : "episode";
     updateMutation.mutate({ id: entry.id, data: updates }, {
       onSuccess: () => {
-        grantXpEvent({ userEmail: user.email, eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: entry.id, idempotencyKey: `${epKey}:${entry.id}:${newVal}` }).catch(() => {});
-        if (willComplete) grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id, workType: wType, idempotencyKey: `completion:${entry.id}` }).catch(() => {});
+        grantXpEvent({ eventType: cfg.xpKey, sourceType: "anime_entry", sourceId: entry.id, unitNumber: newVal }).catch(() => {});
+        if (willComplete) grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id }).catch(() => {});
         showToast(`${cfg.unit} ${newVal}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
       },
     });
@@ -274,12 +274,12 @@ export default function ReleaseBlock({ release, media, entries, user, onMutate }
     updateMutation.mutate({ id: entry.id, data: updates }, {
       onSuccess: () => {
         if (xpDelta > 0) {
-          grantEpisodeRange({ userEmail: user.email, entryId: entry.id, fromNum: prev, toNum: clamped, eventType: cfg.xpKey }).catch(() => {});
+          grantEpisodeRange({ entryId: entry.id, fromNum: prev, toNum: clamped, eventType: cfg.xpKey }).catch(() => {});
           showToast(`Progresso → ${cfg.unit} ${clamped}! +${xpDelta} XP`, Zap, "bg-card border-primary/30 text-primary");
         } else {
           showToast(`Progresso atualizado para ${cfg.unit} ${clamped}`, CheckCircle2, "bg-card border-primary/30 text-primary");
         }
-        if (willComplete) grantXpEvent({ userEmail: user.email, eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id, workType: wType, idempotencyKey: `completion:${entry.id}` }).catch(() => {});
+        if (willComplete) grantXpEvent({ eventType: "work_completed", sourceType: "anime_entry", sourceId: entry.id }).catch(() => {});
       },
     });
   }

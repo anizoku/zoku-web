@@ -1,148 +1,75 @@
 // ============================================================
-// XP EVENT LEDGER — Canonical XP granting helper
+// XP EVENT LEDGER — Thin client for backend grantXp
 // ============================================================
-// All XP granting MUST go through grantXpEvent().
-// Components never decide xp_amount — the helper resolves it
-// from XP_REWARDS (or ACHIEVEMENTS for achievement_unlocked).
+// All XP granting goes through the backend function grantXp.
+// This module is a thin wrapper that invokes the backend and
+// normalizes the response. The client NEVER:
+//   - Creates XpEvent directly
+//   - Defines xp_amount
+//   - Builds idempotency_key
+//   - Sends userEmail (backend uses auth.me())
 //
-// Idempotency: each action has a unique idempotency_key.
-// Before creating, the helper checks if an event with the same
-// user_email + idempotency_key already exists.
-// If it does: ALREADY_GRANTED (no duplicate).
-//
-// Base44 limitation: this check-then-create is NOT atomic
-// (unlike Postgres UNIQUE constraint). Race conditions between
-// double-clicks can still duplicate. Supabase target: UNIQUE
-// constraint on (user_id, idempotency_key) for atomic safety.
+// Read-only helpers (getTotalXpFromEvents, getPeriodXpFromEvents,
+// checkXpConsistency, previewLegacyBaseline) remain client-side
+// since they only READ the ledger.
 // ============================================================
 
 import { base44 } from "@/api/base44Client";
-import { XP_REWARDS, computeStats, computeTotalXp } from "./xpSystem";
-import { ACHIEVEMENTS } from "./achievements";
+import { computeStats, computeTotalXp } from "./xpSystem";
 
-// ── XP amount resolution (internal — components never call this) ──
-function resolveXpAmount(eventType, options = {}) {
-  if (eventType === "level_up") return 0;
-  if (eventType === "legacy_migration") return options.xpAmount || 0;
-  if (eventType === "achievement_unlocked") {
-    const ach = ACHIEVEMENTS.find((a) => a.id === options.achievementId);
-    return ach?.xp || 0;
-  }
-  if (eventType === "work_completed") {
-    return options.workType === "manga"
-      ? XP_REWARDS.manga_completed
-      : XP_REWARDS.anime_completed;
-  }
-  if (eventType === "episode_watched") {
-    return XP_REWARDS.episode_watched * (options.count || 1);
-  }
-  if (eventType === "chapter_read") {
-    return XP_REWARDS.chapter_read * (options.count || 1);
-  }
-  if (eventType === "post_created") return XP_REWARDS.post_created;
-  if (eventType === "anime_added") return XP_REWARDS.anime_added;
-  return 0;
-}
-
-// ── Streak update (side effect of XP-granting actions) ──────
-async function updateStreak(userEmail) {
-  if (!userEmail) return;
-  const today = new Date().toISOString().slice(0, 10);
-  try {
-    const profiles = await base44.entities.UserProfile.filter({ user_email: userEmail });
-    const profile = profiles?.[0];
-    if (!profile) return;
-    const lastActivity = profile.last_activity_date;
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    let newStreak = profile.current_streak || 0;
-    if (lastActivity === today) {
-      // already updated today
-    } else if (lastActivity === yesterday) {
-      newStreak += 1;
-    } else {
-      newStreak = 1;
-    }
-    await base44.entities.UserProfile.update(profile.id, {
-      last_activity_date: today,
-      current_streak: newStreak,
-    });
-  } catch {}
-}
-
-// ── Core: grantXpEvent ──────────────────────────────────────
-// Returns { status: "GRANTED" | "ALREADY_GRANTED" | "INVALID" | "ERROR", xpAmount }
+// ── Core: grantXpEvent (thin client → backend grantXp) ──────
+// Returns { status: "GRANTED" | "ALREADY_GRANTED" | "SOURCE_NOT_OWNED" | ... , xpAmount }
+//
+// Accepted params:
+//   eventType, sourceType, sourceId, achievementId, unitNumber
+// Ignored (backward compat): userEmail, idempotencyKey, workType, count, xpAmount
 export async function grantXpEvent({
-  userEmail,
   eventType,
   sourceType,
   sourceId,
-  idempotencyKey,
-  workType,        // "anime" | "manga" — for work_completed
-  achievementId,   // for achievement_unlocked
-  count,           // for bulk episode_watched / chapter_read
-  xpAmount,        // ONLY for legacy_migration
+  achievementId,
+  unitNumber,
+  // eslint-disable-next-line no-unused-vars
+  userEmail, idempotencyKey, workType, count, xpAmount,
 }) {
-  if (!userEmail || !eventType || !idempotencyKey) {
+  const finalSourceId = sourceId || achievementId;
+  if (!eventType || !finalSourceId) {
     return { status: "INVALID", xpAmount: 0 };
   }
-
-  // Idempotency check
   try {
-    const existing = await base44.entities.XpEvent.filter({
-      user_email: userEmail,
-      idempotency_key: idempotencyKey,
-    });
-    if (existing && existing.length > 0) {
-      return { status: "ALREADY_GRANTED", xpAmount: existing[0].xp_amount || 0 };
-    }
-  } catch {
-    // If filter fails, proceed (best-effort idempotency)
-  }
-
-  const resolvedXp = resolveXpAmount(eventType, { workType, achievementId, count, xpAmount });
-
-  try {
-    await base44.entities.XpEvent.create({
-      user_email: userEmail,
+    const response = await base44.functions.invoke("grantXp", {
       event_type: eventType,
-      xp_amount: resolvedXp,
-      event_date: new Date().toISOString(),
-      source_type: sourceType || null,
-      source_id: sourceId || null,
-      idempotency_key: idempotencyKey,
-      achievement_id: achievementId || null,
+      source_type: sourceType,
+      source_id: finalSourceId,
+      unit_number: unitNumber,
     });
+    const result = response.data || response;
+    return {
+      status: result.status,
+      xpAmount: result.xp_amount || 0,
+      idempotencyKey: result.idempotency_key,
+    };
   } catch (e) {
     return { status: "ERROR", xpAmount: 0, error: e };
   }
-
-  // Streak side effect (fire-and-forget)
-  updateStreak(userEmail).catch(() => {});
-
-  return { status: "GRANTED", xpAmount: resolvedXp };
 }
 
 // ── Grant XP for an episode/chapter range (jump 5→8 = 6,7,8) ──
-export async function grantEpisodeRange({
-  userEmail,
-  entryId,
-  fromNum,
-  toNum,
-  eventType, // "episode_watched" or "chapter_read"
-}) {
-  const prefix = eventType === "chapter_read" ? "chapter" : "episode";
-  const results = [];
-  for (let n = fromNum + 1; n <= toNum; n++) {
-    const r = await grantXpEvent({
-      userEmail,
-      eventType,
-      sourceType: "anime_entry",
-      sourceId: entryId,
-      idempotencyKey: `${prefix}:${entryId}:${n}`,
+// Backend creates individual events for from+1..to with per-unit idempotency.
+export async function grantEpisodeRange({ entryId, fromNum, toNum, eventType }) {
+  const rangeType = eventType === "chapter_read" ? "chapter_range" : "episode_range";
+  try {
+    const response = await base44.functions.invoke("grantXp", {
+      event_type: rangeType,
+      source_type: "anime_entry",
+      source_id: entryId,
+      from: fromNum,
+      to: toNum,
     });
-    results.push({ num: n, ...r });
+    return response.data || response;
+  } catch (e) {
+    return { status: "ERROR", error: e };
   }
-  return results;
 }
 
 // ── Ledger total from events ────────────────────────────────
@@ -164,45 +91,44 @@ export function getPeriodXpFromEvents(events, sinceDate) {
 }
 
 // ── Idempotent UserAchievement + achievement XP ──────────────
+// Step 1: Create UserAchievement if it doesn't exist (frontend, RLS allows).
+// Step 2: Call backend for XP (backend validates UserAchievement exists,
+//         handles idempotency, calculates xp_amount).
 export async function grantAchievement({ userEmail, achievementId }) {
   if (!userEmail || !achievementId) return { status: "INVALID" };
 
-  // Check if UserAchievement already exists
+  // Create UserAchievement if not exists
   try {
     const existing = await base44.entities.UserAchievement.filter({
       user_email: userEmail,
       achievement_key: achievementId,
     });
-    if (existing && existing.length > 0) {
-      return { status: "ALREADY_GRANTED" };
+    if (!existing || existing.length === 0) {
+      await base44.entities.UserAchievement.create({
+        user_email: userEmail,
+        achievement_key: achievementId,
+        unlocked_at: new Date().toISOString(),
+      });
     }
-  } catch {}
+  } catch {
+    // Continue — backend will validate UserAchievement exists
+  }
 
-  // Create UserAchievement
+  // Grant XP via backend
   try {
-    await base44.entities.UserAchievement.create({
-      user_email: userEmail,
-      achievement_key: achievementId,
-      unlocked_at: new Date().toISOString(),
+    const response = await base44.functions.invoke("grantXp", {
+      event_type: "achievement_unlocked",
+      source_type: "achievement",
+      source_id: achievementId,
     });
+    const result = response.data || response;
+    return { status: result.status, xpAmount: result.xp_amount || 0 };
   } catch (e) {
     return { status: "ERROR", error: e };
   }
-
-  // Grant achievement XP via ledger
-  const xpResult = await grantXpEvent({
-    userEmail,
-    eventType: "achievement_unlocked",
-    sourceType: "achievement",
-    sourceId: achievementId,
-    achievementId,
-    idempotencyKey: `achievement:${achievementId}`,
-  });
-
-  return { status: "GRANTED", ...xpResult };
 }
 
-// ── Consistency check: derived vs ledger ───────────────────
+// ── Consistency check: derived vs ledger (read-only) ───────
 export async function checkXpConsistency(userEmail) {
   const entries = await base44.entities.AnimeEntry.filter({ created_by: userEmail });
   const posts = await base44.entities.Post.filter({ created_by: userEmail });
@@ -219,10 +145,7 @@ export async function checkXpConsistency(userEmail) {
   return { email: userEmail, derivedXp, ledgerXp, status, diff: ledgerXp - derivedXp };
 }
 
-// ── Legacy baseline migration: preview ─────────────────────
-// For each user: derivedXp = computeTotalXp(stats), ledgerXp = SUM(XpEvent).
-// If derivedXp > ledgerXp: baselineNeeded = derivedXp - ledgerXp.
-// Does NOT write — just reports.
+// ── Legacy baseline migration: preview (read-only, admin) ─────
 export async function previewLegacyBaseline() {
   const users = await base44.entities.User.list("-created_date", 500);
   const allEntries = await base44.entities.AnimeEntry.list("-updated_date", 5000);
@@ -252,32 +175,13 @@ export async function previewLegacyBaseline() {
   return results;
 }
 
-// ── Legacy baseline migration: execute ─────────────────────
-// Creates one legacy_migration event per user with the difference.
-// Idempotency: legacy-xp-baseline-v1:{user_email} (one-time per user).
+// ── Legacy baseline migration: execute (DISABLED) ─────────────
+// This function is disabled for security. Legacy baseline migration
+// must be performed via the backend grantXp function with
+// event_type=legacy_migration (admin-only). The backend validates
+// admin role and handles idempotency server-side.
 export async function executeLegacyBaseline() {
-  const preview = await previewLegacyBaseline();
-  const results = [];
-  for (const user of preview) {
-    if (user.baselineNeeded > 0 && !user.alreadyMigrated) {
-      const r = await grantXpEvent({
-        userEmail: user.email,
-        eventType: "legacy_migration",
-        idempotencyKey: `legacy-xp-baseline-v1:${user.email}`,
-        xpAmount: user.baselineNeeded,
-      });
-      results.push({
-        email: user.email,
-        baselineNeeded: user.baselineNeeded,
-        ...r,
-      });
-    } else {
-      results.push({
-        email: user.email,
-        baselineNeeded: 0,
-        status: user.alreadyMigrated ? "ALREADY_MIGRATED" : "NO_BASELINE_NEEDED",
-      });
-    }
-  }
-  return results;
+  throw new Error(
+    "executeLegacyBaseline is disabled. Use the backend grantXp function with event_type=legacy_migration (admin-only)."
+  );
 }
