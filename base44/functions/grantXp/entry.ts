@@ -1,114 +1,30 @@
 // ============================================================
-// grantXp — SOLE AUTHORITY for XP granting (P0 Security Hardening)
+// grantXp — Sole authority for direct XP granting
 // ============================================================
-// The client NEVER creates XpEvent directly. All XP granting
-// goes through this backend function, which:
-//   1. Authenticates via base44.auth.me() (never trusts client userEmail)
-//   2. Validates event_type against a whitelist
-//   3. Validates source ownership (entry/post belongs to user)
-//   4. Calculates xp_amount server-side (client never sends it)
-//   5. Builds idempotency_key server-side (client never sends it)
-//   6. Checks idempotency (best-effort — no UNIQUE constraint in Base44)
-//   7. Creates XpEvent with service role (bypasses RLS)
-//   8. Updates streak ONLY when a new event is GRANTED
-//   9. Returns a structured result
+// Handles: episode_watched, chapter_read, episode_range, chapter_range,
+// post_created, anime_added, work_completed, achievement_unlocked,
+// level_up, legacy_migration.
 //
-// TARGET: Supabase RPC grant_xp with UNIQUE(user_id, idempotency_key)
+// NOTE: Progress-related XP (episode_watched, chapter_read, episode_range,
+// chapter_range, work_completed) is now handled by updateProgress.
+// This function still handles these for backward compatibility, but
+// the frontend no longer calls grantXp for progress — it calls updateProgress.
+//
+// achievement_unlocked is now handled by unlockAchievement, which validates
+// the condition server-side before creating UserAchievement + granting XP.
+// This function still handles achievement_unlocked for backward compatibility.
 // ============================================================
 
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
-
-// ── Server-side XP authority (must match src/lib/xpSystem.js for display) ──
-const XP_REWARDS = {
-  episode_watched: 10,
-  chapter_read: 7,
-  anime_completed: 150,
-  manga_completed: 100,
-  post_created: 20,
-  anime_added: 15,
-};
-
-// ── Achievement XP map (must match src/lib/achievements.js) ──
-// Backend is authoritative; frontend copy is display-only.
-const ACHIEVEMENT_XP: Record<string, number> = {
-  first_episode: 50, ep_10: 80, ep_50: 150, ep_100: 250, ep_500: 500, ep_1000: 1000,
-  first_chapter: 40, ch_20: 80, ch_100: 200, ch_500: 450, ch_1000: 900,
-  first_movie: 60, movie_10: 120, movie_25: 250, movie_50: 500,
-  first_add: 20, list_5: 40, list_10: 80, list_25: 150, list_50: 300, list_100: 500,
-  first_complete: 100, complete_5: 200, complete_10: 300, complete_25: 500, four_categories: 120, planned_10: 80,
-  streak_3: 100, streak_7: 250, streak_30: 600, login_3: 60, login_7: 150, login_30: 400, streak_weeks_4: 300,
-  first_friend: 50, friends_5: 100, friends_10: 200, friends_25: 400, first_post: 30,
-  post_liked_5: 80, post_liked_10: 150, post_10: 120, first_comment: 25, comment_received: 50,
-  first_community: 40, watch_together_first: 60, watch_together_done: 100, friend_request_sent: 20,
-  post_community_10: 150, founded_community: 100, community_10m: 250, first_event: 60, create_event: 80, communities_5: 150,
-  both_types: 60, multimedia: 120, five_genres: 200, movie_and_live: 80, same_work_types: 150, long_anime: 300, long_manga: 300,
-  profile_complete: 80, has_avatar: 40, has_banner: 40, has_badge: 30, level_5: 100, level_10: 200, level_25: 500, level_50: 1000,
-  founder: 500, same_day_complete: 200, complete_100: 2000, max_level: 5000, otaku_supreme: 2000,
-};
+import {
+  XP_REWARDS, ACHIEVEMENT_XP, updateStreak, findExisting, createEvent, getCanonicalTotal,
+} from "../../shared/xpConstants.ts";
 
 const VALID_EVENT_TYPES = new Set([
   "episode_watched", "chapter_read", "episode_range", "chapter_range",
   "post_created", "anime_added", "work_completed", "achievement_unlocked",
   "level_up", "legacy_migration",
 ]);
-
-// ── Streak update (only on GRANTED — never on ALREADY_GRANTED) ──
-async function updateStreak(svc: any, userEmail: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  const profiles = await svc.entities.UserProfile.filter({ user_email: userEmail });
-  const profile = profiles?.[0];
-  if (!profile) return;
-  const lastActivity = profile.last_activity_date;
-  if (lastActivity === today) return; // already updated today
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  let newStreak = profile.current_streak || 0;
-  if (lastActivity === yesterday) newStreak += 1;
-  else newStreak = 1;
-  await svc.entities.UserProfile.update(profile.id, {
-    last_activity_date: today,
-    current_streak: newStreak,
-  });
-}
-
-// ── Idempotency check (best-effort — race condition possible) ──
-async function findExisting(svc: any, userEmail: string, key: string) {
-  const existing = await svc.entities.XpEvent.filter({
-    user_email: userEmail,
-    idempotency_key: key,
-  });
-  return existing?.[0] || null;
-}
-
-// ── Create event (service role bypasses RLS) ──
-async function createEvent(
-  svc: any, userEmail: string, eventType: string, xpAmount: number,
-  sourceType: string | null, sourceId: string | null, key: string, achievementId: string | null
-) {
-  await svc.entities.XpEvent.create({
-    user_email: userEmail,
-    event_type: eventType,
-    xp_amount: xpAmount,
-    event_date: new Date().toISOString(),
-    source_type: sourceType || null,
-    source_id: sourceId || null,
-    idempotency_key: key,
-    achievement_id: achievementId || null,
-  });
-}
-
-// ── Canonical total from WorkRelease (authority) or entry (fallback) ──
-async function getCanonicalTotal(svc: any, entry: any, isManga: boolean): Promise<number> {
-  if (entry.release_id) {
-    try {
-      const release = await svc.entities.WorkRelease.get(entry.release_id);
-      if (release) {
-        const total = isManga ? (release.chapter_count || 0) : (release.episode_count || 0);
-        if (total > 0) return total;
-      }
-    } catch {}
-  }
-  return isManga ? (entry.total_chapters || 0) : (entry.total_episodes || 0);
-}
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -319,7 +235,7 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ status: "GRANTED", xp_amount: XP_REWARDS.post_created, idempotency_key: key });
     }
 
-    // ── achievement_unlocked ──
+    // ── achievement_unlocked (backward compat — use unlockAchievement for new unlocks) ──
     if (event_type === "achievement_unlocked") {
       const achievementId = source_id;
       if (!achievementId) return Response.json({ status: "INVALID_SOURCE" }, { status: 400 });
@@ -327,7 +243,7 @@ export default async function (req: Request): Promise<Response> {
       const xpAmount = ACHIEVEMENT_XP[achievementId];
       if (xpAmount == null) return Response.json({ status: "INVALID_ACHIEVEMENT" }, { status: 400 });
 
-      // Validate UserAchievement exists for this user
+      // Validate UserAchievement exists
       const userAch = await svc.entities.UserAchievement.filter({
         user_email: user.email,
         achievement_key: achievementId,
