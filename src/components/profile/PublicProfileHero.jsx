@@ -34,7 +34,7 @@ export default function PublicProfileHero({
       <ProfileBanner bannerUrl={profile?.banner_url} bannerCrop={profile?.banner_crop} />
 
       <div className="px-6 pb-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
+        <div className="flex flex-col sm:flex-row items-start gap-4 -mt-12">
           {/* Avatar */}
           <div className="relative shrink-0">
             <div className="w-24 h-24 rounded-full border-4 border-card flex items-center justify-center relative overflow-hidden bg-secondary">
@@ -52,14 +52,14 @@ export default function PublicProfileHero({
 
             {/* Achievement badge bottom-right (read-only) */}
             {BadgeIcon && (
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-card flex items-center justify-center bg-secondary z-10" title={selectedAchievement.label}>
-                <BadgeIcon className={`w-3.5 h-3.5 ${getAchievementColor(selectedBadgeId)}`} />
+              <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full border-2 border-card flex items-center justify-center bg-secondary z-20 shadow-lg" title={selectedAchievement.label}>
+                <BadgeIcon className={`w-4 h-4 ${getAchievementColor(selectedBadgeId)}`} />
               </div>
             )}
           </div>
 
-          {/* Name / rank / bio / links */}
-          <div className="flex-1 pt-2 min-w-0">
+          {/* Name / rank / bio / links — pushed below banner overlap on desktop */}
+          <div className="flex-1 pt-2 sm:pt-12 min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-0.5">
               <h1 className="font-space font-bold text-xl text-foreground leading-tight">
                 {displayName}
@@ -103,7 +103,7 @@ export default function PublicProfileHero({
           </div>
 
           {/* Actions — inline, right-aligned (same as profile próprio) */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:pt-12">
             {!isOwnProfile && currentUser && (
               <FriendshipButton
                 currentUser={currentUser}
