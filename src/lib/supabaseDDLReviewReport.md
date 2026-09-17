@@ -1,5 +1,7 @@
 # Supabase DDL Review Report
 
+> **Revisão posterior (2026-09-15):** este relatório descreve o DDL legado e seu GO não se aplica ao arquivo atual. Veja [a auditoria arquitetural da versão corrigida](../../supabase/validation/0001_architecture_review.md), cujo parecer é **NO-GO para aplicar agora**. O conteúdo histórico abaixo foi preservado.
+
 **Data:** 2026-09-07
 **Fase:** 1 — Geração e validação do schema SQL
 **Status:** DDL gerado, NÃO executado. Aguardando revisão manual.
@@ -23,8 +25,8 @@ O schema está completo, validado contra os schemas Base44, e segue todas as res
 | Arquivo | Descrição | Linhas (estimado) |
 |---------|-----------|-------------------|
 | `supabase/migrations/0001_initial_schema.sql` | DDL completo (tabelas, FKs, índices, RLS, triggers) | ~700 |
-| `supabase/migrations/0001_validation_queries.sql` | Queries de verificação pós-aplicação | ~250 |
-| `supabase/migrations/0001_rollback.sql` | Rollback seguro em ordem reversa | ~150 |
+| `supabase/validation/0001_validation_queries.sql` | Queries de verificação pós-aplicação | ~250 |
+| `supabase/rollback/0001_rollback.sql` | Rollback seguro em ordem reversa | ~150 |
 | `src/lib/supabaseDDLReviewReport.md` | Este relatório | — |
 
 ---
