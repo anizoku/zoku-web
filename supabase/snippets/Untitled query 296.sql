@@ -1,3 +1,22 @@
-update public.profiles
-set avatar_url = '00000000-0000-0000-0000-000000000000/avatar.webp'
-where id = 'b02671a9-d7d2-4c7e-a12a-3f2a52c4dfd9';
+begin;
+
+select set_config(
+  'request.jwt.claim.sub',
+  (
+    select id::text
+    from auth.users
+    order by created_at desc
+    limit 1
+  ),
+  true
+);
+
+set local role authenticated;
+
+select public.complete_profile_setup(
+  'RaphaelTest',
+  'Raphael',
+  'pt'
+);
+
+rollback;
