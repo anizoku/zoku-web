@@ -1,11 +1,3 @@
-with test as (
-  select
-    'u_' || substring(replace(gen_random_uuid()::text, '-', '') from 1 for 22) as username
-)
-select
-  username,
-  char_length(username) as length,
-  username ~ '^[A-Za-z0-9](?:[A-Za-z0-9_]*[A-Za-z0-9])?$' as format_ok,
-  username not like '%__%' as no_double_underscore,
-  lower(username) not like '%admin%' as reserved_ok
-from test;
+update public.profiles
+set avatar_url = '00000000-0000-0000-0000-000000000000/avatar.webp'
+where id = 'b02671a9-d7d2-4c7e-a12a-3f2a52c4dfd9';
