@@ -1,3 +1,15 @@
+begin;
+
+
+-- Inválido: zoom abaixo de 1
 update public.profiles
-set banner_url = '00000000-0000-0000-0000-000000000000/banner.jpg'
-where id = 'dada4c79-0f90-461f-981a-9a7297f8747a';
+set avatar_crop = '{
+  "version": 2,
+  "zoom": 0.5,
+  "offsetXPct": 0,
+  "offsetYPct": 0,
+  "imageUrl": "ea72e1ad-68d0-43ff-9344-489a573bc9c9/avatar.jpg"
+}'::jsonb
+where id = 'ea72e1ad-68d0-43ff-9344-489a573bc9c9';
+
+rollback;
