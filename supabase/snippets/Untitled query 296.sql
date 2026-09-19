@@ -19,4 +19,8 @@ select public.complete_profile_setup(
   'pt'
 );
 
+select public.update_profile(
+  '{"role":"admin"}'::jsonb
+);
+
 rollback;
