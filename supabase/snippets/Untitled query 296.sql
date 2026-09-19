@@ -1,15 +1,8 @@
-begin;
-
-
--- Inválido: zoom abaixo de 1
-update public.profiles
-set avatar_crop = '{
-  "version": 2,
-  "zoom": 0.5,
-  "offsetXPct": 0,
-  "offsetYPct": 0,
-  "imageUrl": "ea72e1ad-68d0-43ff-9344-489a573bc9c9/avatar.jpg"
-}'::jsonb
-where id = 'ea72e1ad-68d0-43ff-9344-489a573bc9c9';
-
-rollback;
+select
+  grantee,
+  privilege_type
+from information_schema.role_table_grants
+where table_schema = 'public'
+  and table_name = 'profiles'
+  and grantee in ('anon', 'authenticated')
+order by grantee, privilege_type;
