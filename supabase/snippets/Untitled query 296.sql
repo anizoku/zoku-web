@@ -1,26 +1,3 @@
-begin;
-
-select set_config(
-  'request.jwt.claim.sub',
-  (
-    select id::text
-    from auth.users
-    order by created_at desc
-    limit 1
-  ),
-  true
-);
-
-set local role authenticated;
-
-select public.complete_profile_setup(
-  'RaphaelTest',
-  'Raphael',
-  'pt'
-);
-
-select public.update_profile(
-  '{"role":"admin"}'::jsonb
-);
-
-rollback;
+update public.profiles
+set banner_url = '00000000-0000-0000-0000-000000000000/banner.jpg'
+where id = 'dada4c79-0f90-461f-981a-9a7297f8747a';
