@@ -1,5 +1,9 @@
 # Auditoria de perfil — checkpoint interrompido
 
+> Checkpoint histórico, superado pela autorização do usuário para decidir a arquitetura.
+> A decisão adotada foi mídia privada com leitura autorizada pela visibilidade do perfil.
+> Consulte `profile_backend_report.md` para o contrato e os resultados atuais.
+
 Data: 2026-09-19. Escopo: perfil/backend Supabase; sem avanço para social.
 
 ## Estado e evidências

@@ -1613,9 +1613,9 @@ Return: {status}
 | `base44.auth.resetPasswordRequest(email)` | `supabase.auth.resetPasswordForEmail(email)` |
 | `base44.auth.resetPassword({resetToken, newPassword})` | `supabase.auth.updateUser({password})` (após redirect) |
 | `base44.auth.logout()` | `supabase.auth.signOut()` |
-| `base44.auth.me()` | `supabase.auth.getUser()` + `supabase.from('profiles').select().eq('id', user.id).single()` |
+| `base44.auth.me()` | `supabase.auth.getUser()` + `supabase.rpc('get_my_profile')` (contrato de perfil endurecido em 20260920010000) |
 | `base44.auth.isAuthenticated()` | `supabase.auth.getSession()` → not null |
-| `base44.auth.updateMe(data)` | `supabase.from('profiles').update(data).eq('id', user.id)` |
+| `base44.auth.updateMe(data)` | `supabase.rpc('update_profile', { p_updates: data })`; mídia via set/remove_avatar e set/remove_banner |
 
 ### Componentes de Auth
 

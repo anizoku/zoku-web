@@ -1327,7 +1327,7 @@ getWorkRelease(svc, entry): Promise<WorkRelease|null>   // airing check
 | `base44.auth.loginViaEmailPassword()` | `supabase.auth.signInWithPassword()` |
 | `base44.auth.register()` | `supabase.auth.signUp()` |
 | `base44.auth.logout()` | `supabase.auth.signOut()` |
-| `base44.auth.updateMe()` | `supabase.from('profiles').update().eq('id', user.id)` |
+| `base44.auth.updateMe()` | `supabase.rpc('update_profile', { p_updates })`; mídia via RPCs próprios (contrato 20260920010000/20260920011000) |
 | `base44.integrations.Core.UploadFile()` | `supabase.storage.from('bucket').upload()` |
 | `base44.integrations.Core.InvokeLLM()` | External API call (OpenAI/Anthropic) |
 | `base44.integrations.Core.SendEmail()` | External (Resend/Postmark) |
