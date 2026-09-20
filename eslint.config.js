@@ -6,6 +6,21 @@ import pluginUnusedImports from "eslint-plugin-unused-imports";
 
 export default [
   {
+    files: ["src/api/supabaseClient.js", "src/lib/supabaseAuthStore.js", "src/lib/SupabaseAuthContext.jsx", "src/lib/supabaseAuthNavigation.js", "src/lib/supabaseProfileService.js", "src/components/supabase/**/*.{js,jsx}", "src/main.jsx", "src/App.jsx", "src/SupabaseApp.jsx", "tests/supabase-*.{js,jsx}", "vite.config.js", "vitest.config.js"],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+      parserOptions: { ecmaVersion: 2022, sourceType: "module", ecmaFeatures: { jsx: true } },
+    },
+    plugins: { react: pluginReact, "react-hooks": pluginReactHooks },
+    rules: {
+      ...pluginJs.configs.recommended.rules,
+      "react/jsx-uses-vars": "error",
+      "react/jsx-uses-react": "error",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+    },
+  },
+  {
     files: [
       "src/components/**/*.{js,mjs,cjs,jsx}",
       "src/pages/**/*.{js,mjs,cjs,jsx}",

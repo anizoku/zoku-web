@@ -1,0 +1,118 @@
+src\components\admin\AdminEditCardModal.jsx:41:      const user = await base44.auth.me();
+src\components\admin\AdminEditCardModal.jsx:218:      const user = await base44.auth.me();
+src\components\admin\AppearanceManager.jsx:105:      const me = await base44.auth.me();
+src\App.jsx:6:import { AuthProvider, useAuth } from '@/lib/AuthContext';
+src\App.jsx:60:  const { isAuthenticated, isLoadingAuth } = useAuth();
+src\App.jsx:67:    base44.auth.me().then(async (u) => {
+src\App.jsx:70:        const profiles = await base44.entities.UserProfile.filter({ user_email: u.email });
+src\App.jsx:74:          await base44.entities.UserProfile.update(p.id, { profile_setup_completed: true });
+src\App.jsx:101:    const savedReturnTo = sessionStorage.getItem('auth_returnTo');
+src\App.jsx:103:      sessionStorage.removeItem('auth_returnTo');
+src\hooks\useGlobalSearch.js:117:      // Users (async) — uses UserProfile which is publicly readable by all users
+src\hooks\useGlobalSearch.js:120:        const allProfiles = await base44.entities.UserProfile.list("-created_date", 200);
+src\components\UserNotRegisteredError.jsx:2:import { useAuth } from '@/lib/AuthContext';
+src\components\UserNotRegisteredError.jsx:8:  const { logout } = useAuth();
+src\lib\AuthContext.jsx:96:      const currentUser = await base44.auth.me();
+src\lib\AuthContext.jsx:123:      base44.auth.logout(redirectUrl || window.location.href);
+src\lib\AuthContext.jsx:126:      base44.auth.logout();
+src\lib\AuthContext.jsx:132:    base44.auth.redirectToLogin(window.location.href);
+src\lib\AuthContext.jsx:137:    return await base44.auth.loginViaEmailPassword(email, password);
+src\lib\AuthContext.jsx:141:    return await base44.auth.register({ email, password });
+src\lib\AuthContext.jsx:145:    return await base44.auth.verifyOtp({ email, otpCode });
+src\lib\AuthContext.jsx:149:    return await base44.auth.loginWithProvider('google');
+src\lib\AuthContext.jsx:153:    return await base44.auth.loginWithProvider('apple');
+src\lib\AuthContext.jsx:157:    return await base44.auth.resetPasswordRequest(email);
+src\lib\AuthContext.jsx:161:    return await base44.auth.resetPassword({ resetToken, newPassword });
+src\lib\AuthContext.jsx:165:    return await base44.auth.updateMe(data);
+src\lib\AuthContext.jsx:198:export const useAuth = () => {
+src\lib\AuthContext.jsx:201:    throw new Error('useAuth must be used within an AuthProvider');
+src\components\admin\SuggestionsPanel.jsx:184:    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+src\components\admin\CategoryManager.jsx:27:    base44.auth.me().then(setUser).catch(() => {});
+src\lib\PageNotFound.jsx:14:                const user = await base44.auth.me();
+src\hooks\useAchievementSound.js:26:    queryFn: () => base44.entities.UserProfile.filter({ user_email: userEmail }),
+src\components\ProtectedRoute.jsx:2:import { useAuth } from '@/lib/AuthContext';
+src\components\ProtectedRoute.jsx:12:  const { isAuthenticated, isLoadingAuth, authError } = useAuth();
+src\lib\authUtils.js:32:    sessionStorage.setItem("auth_returnTo", returnTo);
+src\lib\authUtils.js:40:  const saved = sessionStorage.getItem("auth_returnTo");
+src\lib\authUtils.js:42:    sessionStorage.removeItem("auth_returnTo");
+src\lib\pushNotifications.js:11:    const profiles = await base44.entities.UserProfile.filter({ user_email: userEmail });
+src\pages\CommunityPage.jsx:42:      const profile = await base44.entities.UserProfile.filter({ user_email: user.email }).catch(() => []);
+src\pages\CommunityPage.jsx:234:    queryFn: () => base44.entities.UserProfile.filter({ user_email: creatorEmail }),
+src\pages\CommunityPage.jsx:267:  useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
+src\components\catalog\SuggestWorkModal.jsx:91:    const me = await base44.auth.me();
+src\pages\Films.jsx:35:    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+src\pages\Events.jsx:16:  useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
+src\pages\Friends.jsx:27:    base44.auth.me().then(setUser).catch(() => {});
+src\pages\Friends.jsx:31:  const { data: profiles } = useQuery({ queryKey: ["user-profiles"], queryFn: () => base44.entities.UserProfile.list("-created_date", 200), initialData: [] });
+src\pages\Communities.jsx:170:  useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
+src\pages\Home.jsx:24:    base44.auth.me().then(setUser).catch(() => {});
+src\pages\AuthPage.jsx:3:import { useAuth } from "@/lib/AuthContext";
+src\pages\AuthPage.jsx:16:  const { isAuthenticated, isLoadingAuth } = useAuth();
+src\pages\Animes.jsx:42:    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+src\components\chat\FloatingChat.jsx:25:  useEffect(() => { base44.auth.me().then(setCurrentUser).catch(() => {}); }, []);
+src\components\chat\FloatingChat.jsx:45:    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+src\components\chat\MobileChatDrawer.jsx:20:  useEffect(() => { base44.auth.me().then(setCurrentUser).catch(() => {}); }, []);
+src\components\chat\MobileChatDrawer.jsx:39:    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+src\components\auth\ForgotForm.jsx:5:import { useAuth } from "@/lib/AuthContext";
+src\components\auth\ForgotForm.jsx:9:  const { requestPasswordReset } = useAuth();
+src\components\feed\PostComments.jsx:73:      const me = await base44.auth.me();
+src\components\feed\PostComments.jsx:192:    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+src\components\feed\PostComments.jsx:202:      const me = await base44.auth.me();
+src\components\feed\PostCard.jsx:43:    queryFn: () => base44.entities.UserProfile.filter({ user_email: post.created_by }),
+src\components\profile\FriendsSection.jsx:107:    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+src\components\feed\MentionTextarea.jsx:6:// profiles: UserProfile[] (already loaded by parent).
+src\components\auth\LoginForm.jsx:7:import { useAuth } from "@/lib/AuthContext";
+src\components\auth\LoginForm.jsx:12:  const { signInWithEmail, signInWithGoogle, signInWithApple } = useAuth();
+src\components\feed\MentionText.jsx:4:// profiles: UserProfile[] to resolve username -> email.
+src\components\profile\FriendManagement.jsx:23:    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+src\components\profile\FriendManagement.jsx:26:  // Use UserProfile (publicly readable) instead of User.list() which is admin-only
+src\components\auth\SignupForm.jsx:7:import { useAuth } from "@/lib/AuthContext";
+src\components\auth\SignupForm.jsx:12:  const { signUpWithEmail, verifyEmailOtp, updateMe, signInWithGoogle, signInWithApple } = useAuth();
+src\components\profile\EditProfileDialog.jsx:106:    queryFn: () => base44.entities.UserProfile.list("-created_date", 100),
+src\components\profile\EditProfileDialog.jsx:153:        ? base44.entities.UserProfile.update(myProfile.id, data)
+src\components\profile\EditProfileDialog.jsx:154:        : base44.entities.UserProfile.create(data);
+src\components\community\MembersSection.jsx:65:      const all = await base44.entities.UserProfile.list("-created_date", 200);
+src\components\media\MediaDrawer.jsx:58:    base44.auth.me().then(setUser).catch(() => {});
+src\components\news\NewsEditor.jsx:70:    base44.auth.me().then(setCurrentUser).catch(() => {});
+src\components\layout\UserMenuButton.jsx:13:import { useAuth } from "@/lib/AuthContext";
+src\components\layout\UserMenuButton.jsx:16:  const { user, isAdmin } = useAuth();
+src\components\layout\UserMenuButton.jsx:20:    queryFn: () => base44.entities.UserProfile.list("-created_date", 100),
+src\components\layout\UserMenuButton.jsx:93:          onClick={() => base44.auth.logout()}
+src\components\layout\TopBar.jsx:14:    base44.auth.me().then(u => setUserEmail(u.email)).catch(() => {});
+src\components\layout\Sidebar.jsx:34:    base44.auth.me().then(setUser).catch(() => {});
+src\components\layout\Sidebar.jsx:41:    base44.entities.UserProfile
+src\components\layout\AppLayout.jsx:10:import { useAuth } from "@/lib/AuthContext";
+src\components\layout\AppLayout.jsx:17:  const { user: currentUser } = useAuth();
+src\components\RequireAdmin.jsx:2:import { useAuth } from '@/lib/AuthContext';
+src\components\RequireAdmin.jsx:18:  const { user, isLoadingAuth, authChecked } = useAuth();
+src\components\pwa\PushPermissionPrompt.jsx:39:        const profiles = await base44.entities.UserProfile.filter({ user_email: user.email });
+src\components\pwa\PushPermissionPrompt.jsx:41:          await base44.entities.UserProfile.update(profiles[0].id, {
+src\components\social\CreateEventDialog.jsx:97:  // Busca de usuários — reutiliza o mesmo padrão de UserProfile da FriendManagement
+src\components\social\CreateEventDialog.jsx:100:    queryFn: () => base44.entities.UserProfile.list("-created_date", 200),
+src\pages\MyList.jsx:243:    base44.auth.me().then(setUser).catch(() => {});
+src\pages\Mangas.jsx:42:    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+src\pages\NewsDetail.jsx:67:        const list = await base44.entities.UserProfile.filter({ user_email: author.email }, "-created_date", 1);
+src\pages\News.jsx:17:    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+src\pages\OAuthConsent.jsx:48:        // Gate on the server's auth result, NOT base44.auth.isAuthenticated():
+src\pages\ObraProfile.jsx:566:    base44.auth.me().then(setUser).catch(() => {});
+src\pages\Profile.jsx:45:  useEffect(() => { base44.auth.me().then(setUser).catch(() => {}); }, []);
+src\pages\Profile.jsx:49:  const { data: profiles } = useQuery({ queryKey: ["user-profiles"], queryFn: () => base44.entities.UserProfile.list("-created_date", 100), initialData: [] });
+src\pages\Profile.jsx:118:      return base44.entities.UserProfile.update(myProfile.id, { selected_badge_id: badgeId || "" });
+src\pages\ProfileSetup.jsx:49:    base44.auth.me().then(u => {
+src\pages\ProfileSetup.jsx:69:        const profiles = await base44.entities.UserProfile.filter({ username: username.toLowerCase() });
+src\pages\ProfileSetup.jsx:121:      const existing = await base44.entities.UserProfile.filter({ user_email: user.email });
+src\pages\ProfileSetup.jsx:137:        await base44.entities.UserProfile.update(existing[0].id, profileData);
+src\pages\ProfileSetup.jsx:139:        await base44.entities.UserProfile.create(profileData);
+src\pages\ProfileSetup.jsx:143:      await base44.auth.updateMe({ profile_setup_completed: true });
+src\pages\ProfileSetup.jsx:145:      const savedReturnTo = sessionStorage.getItem("auth_returnTo");
+src\pages\ProfileSetup.jsx:147:        sessionStorage.removeItem("auth_returnTo");
+src\pages\PublicProfile.jsx:34:  useEffect(() => { base44.auth.me().then(setCurrentUser).catch(() => {}); }, []);
+src\pages\PublicProfile.jsx:37:  const { data: profiles } = useQuery({ queryKey: ["user-profiles"], queryFn: () => base44.entities.UserProfile.list("-created_date", 200), initialData: [] });
+src\pages\Recommendations.jsx:28:    base44.auth.me().then((u) => {
+src\pages\Ranking.jsx:85:  useEffect(() => { base44.auth.me().then(setCurrentUser).catch(() => {}); }, []);
+src\pages\Ranking.jsx:88:  const { data: profiles = [] }  = useQuery({ queryKey: ["all-profiles"],  queryFn: () => base44.entities.UserProfile.list("-created_date", 200)      });
+src\pages\Series.jsx:35:    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+src\pages\ResetPasswordPage.jsx:6:import { useAuth } from "@/lib/AuthContext";
+src\pages\ResetPasswordPage.jsx:16:  const { resetPassword } = useAuth();
+src\pages\Works.jsx:87:    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+src\pages\Trending.jsx:29:    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});

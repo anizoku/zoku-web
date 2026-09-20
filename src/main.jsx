@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
+import { SupabaseAuthProvider } from '@/lib/SupabaseAuthContext'
 import '@/index.css'
 
 // Service Worker — apenas em produção (build otimizado pelo Vite)
@@ -25,5 +26,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <App />
+  <SupabaseAuthProvider>
+    <App />
+  </SupabaseAuthProvider>
 )
