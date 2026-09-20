@@ -18,14 +18,5 @@ export function getBannerCropStyle(crop) {
 }
 
 export function getAvatarCropStyle(crop) {
-  if (!crop) return {};
-  if (crop.version === 2) {
-    const zoom = Math.max(1, crop.zoom || 1);
-    return {
-      transform: `scale(${zoom}) translate(${crop.offsetXPct || 0}%, ${crop.offsetYPct || 0}%)`,
-      transformOrigin: "center center",
-    };
-  }
-  // Legacy: fallback to object-cover
-  return {};
+  return getBannerCropStyle(crop);
 }
