@@ -71,6 +71,50 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
     setImgNatural({ w: e.target.naturalWidth, h: e.target.naturalHeight });
   }
 
+// Image rendered size
+const renderedW = imgNatural.w * scale;
+const renderedH = imgNatural.h * scale;
+
+const clamp = (value, min, max) =>
+  Math.min(max, Math.max(min, value));
+
+const maxOffsetX = Math.max(0, (renderedW - cropW) / 2);
+const maxOffsetY = Math.max(0, (renderedH - cropH) / 2);
+
+function clampOffset(x, y) {
+  return {
+    x: clamp(x, -maxOffsetX, maxOffsetX),
+    y: clamp(y, -maxOffsetY, maxOffsetY),
+  };
+}
+
+function changeScale(delta) {
+  const baseScale = fitScale(imgNatural.w, imgNatural.h);
+
+  setScale((currentScale) => {
+    const minScale = baseScale;
+    const maxScale = baseScale * 10;
+
+    const nextScale = Math.min(
+      maxScale,
+      Math.max(minScale, +(currentScale + delta).toFixed(3))
+    );
+
+    const nextRenderedW = imgNatural.w * nextScale;
+    const nextRenderedH = imgNatural.h * nextScale;
+
+    const nextMaxOffsetX = Math.max(0, (nextRenderedW - cropW) / 2);
+    const nextMaxOffsetY = Math.max(0, (nextRenderedH - cropH) / 2);
+
+    setOffset((currentOffset) => ({
+      x: clamp(currentOffset.x, -nextMaxOffsetX, nextMaxOffsetX),
+      y: clamp(currentOffset.y, -nextMaxOffsetY, nextMaxOffsetY),
+    }));
+
+    return nextScale;
+  });
+}
+
   // Drag — mouse
   const onMouseDown = (e) => {
     e.preventDefault();
@@ -79,8 +123,12 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
   };
   const onMouseMove = useCallback((e) => {
     if (!dragging || !dragStart.current) return;
-    setOffset({ x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y });
-  }, [dragging]);
+  
+    const nextX = e.clientX - dragStart.current.x;
+    const nextY = e.clientY - dragStart.current.y;
+  
+    setOffset(clampOffset(nextX, nextY));
+  }, [dragging, maxOffsetX, maxOffsetY]);
   const stopDrag = () => setDragging(false);
 
   // Drag — touch
@@ -91,9 +139,13 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
   };
   const onTouchMove = useCallback((e) => {
     if (!dragging || !dragStart.current) return;
+  
     const t = e.touches[0];
-    setOffset({ x: t.clientX - dragStart.current.x, y: t.clientY - dragStart.current.y });
-  }, [dragging]);
+    const nextX = t.clientX - dragStart.current.x;
+    const nextY = t.clientY - dragStart.current.y;
+  
+    setOffset(clampOffset(nextX, nextY));
+  }, [dragging, maxOffsetX, maxOffsetY]);
 
   function handleReset() {
     setScale(fitScale(imgNatural.w, imgNatural.h));
@@ -108,10 +160,6 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
     onConfirm({ version: 2, zoom: Math.max(1, zoom), offsetXPct, offsetYPct, imageUrl });
     onClose();
   }
-
-  // Image rendered size
-  const renderedW = imgNatural.w * scale;
-  const renderedH = imgNatural.h * scale;
 
   // Image position: centered in canvas + user offset
   const imgLeft = (canvasW - renderedW) / 2 + offset.x;
@@ -240,12 +288,12 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
         {/* Zoom controls */}
         <div className="flex items-center justify-center gap-3 mt-1">
           <Button variant="outline" size="icon" className="h-7 w-7"
-            onClick={() => setScale(s => Math.max(0.2, +(s - 0.1).toFixed(2)))}>
+            onClick={() => changeScale(-0.1)}>
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
           <span className="text-xs text-muted-foreground w-12 text-center">{Math.round(scale * 100)}%</span>
           <Button variant="outline" size="icon" className="h-7 w-7"
-            onClick={() => setScale(s => Math.min(5, +(s + 0.1).toFixed(2)))}>
+            onClick={() => changeScale(0.1)}>
             <ZoomIn className="w-3.5 h-3.5" />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7 ml-1" title="Resetar" onClick={handleReset}>

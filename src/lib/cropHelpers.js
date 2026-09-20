@@ -9,7 +9,7 @@ export function getBannerCropStyle(crop) {
   if (crop.version === 2) {
     const zoom = Math.max(1, crop.zoom || 1);
     return {
-      transform: `scale(${zoom}) translate(${crop.offsetXPct || 0}%, ${crop.offsetYPct || 0}%)`,
+      transform: `translate(${crop.offsetXPct || 0}%, ${crop.offsetYPct || 0}%) scale(${zoom})`,
       transformOrigin: "center center",
     };
   }
