@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSupabaseAuth } from '../../lib/SupabaseAuthContext';
-import { getAvatarCropStyle } from '../../lib/cropHelpers';
+import { getAvatarCropStyle, getBannerCropStyle } from '../../lib/cropHelpers';
 
 export function useProfileMedia(profile) {
   const { profileService, user } = useSupabaseAuth();
@@ -32,7 +32,9 @@ export function useProfileMedia(profile) {
   return { ...(state.identity === identity ? state : {}), retry: () => setRetry((value) => value + 1) };
 }
 
-export function ProfileImage({ src, crop, alt, className, fallback }) {
+export function ProfileImage({ src, crop, alt, className, fallback, kind = 'avatar' }) {
   const [failed, setFailed] = useState(null);
-  return src && src !== failed ? <img src={src} alt={alt} className={className} style={getAvatarCropStyle(crop)} onError={() => setFailed(src)} /> : fallback;
+  // Keep the saved v2 schema; dispatch to the appropriate presentational helper.
+  const style = kind === 'banner' ? getBannerCropStyle(crop) : getAvatarCropStyle(crop);
+  return src && src !== failed ? <img src={src} alt={alt} className={className} style={style} onError={() => setFailed(src)} /> : fallback;
 }

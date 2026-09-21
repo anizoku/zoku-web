@@ -16,21 +16,21 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const [canvasW, setCanvasW] = useState(480);
   const dragStart = useRef(null);
-  const wrapperRef = useRef(null);
+  const [wrapper, setWrapper] = useState(null);
 
   // Recalculate canvas width from wrapper
   useEffect(() => {
-    if (!open) return;
+    // Dialog content mounts in a portal after its parent effect. Observe the
+    // mounted node so first-open mobile crops do not keep the 480px fallback.
+    if (!open || !wrapper) return;
     const measure = () => {
-      if (wrapperRef.current) {
-        setCanvasW(wrapperRef.current.offsetWidth);
-      }
+      if (wrapper.offsetWidth) setCanvasW(wrapper.offsetWidth);
     };
     measure();
     const ro = new ResizeObserver(measure);
-    if (wrapperRef.current) ro.observe(wrapperRef.current);
+    ro.observe(wrapper);
     return () => ro.disconnect();
-  }, [open]);
+  }, [open, wrapper]);
 
   // Crop area dimensions
   const cropW = isCircle ? CIRCLE_SIZE : canvasW;
@@ -38,11 +38,11 @@ export default function CropImageModal({ open, onClose, imageUrl, shape = "banne
 
   // Canvas total height: crop + vertical padding
   const padV = isCircle ? 40 : 24;
-  const padH = isCircle ? 40 : 0;
   const canvasH = cropH + padV * 2;
 
   // Where the crop window sits inside canvas
-  const cropLeft = padH;
+  // Match the centered image origin for both shapes without changing crop data.
+  const cropLeft = isCircle ? (canvasW - cropW) / 2 : 0;
   const cropTop = padV;
 
   // Compute scale to fill the crop area with the image
@@ -183,7 +183,7 @@ function changeScale(delta) {
         </p>
 
         {/* Measure wrapper — full width */}
-        <div ref={wrapperRef} className="w-full">
+        <div ref={setWrapper} className="w-full min-w-0">
           {/* Editor canvas */}
           <div
             className="relative overflow-hidden rounded-lg bg-black/70 select-none cursor-grab active:cursor-grabbing mx-auto"
