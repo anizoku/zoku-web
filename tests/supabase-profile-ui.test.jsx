@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { SupabaseRoutes } from '../src/SupabaseApp';
@@ -22,7 +22,7 @@ function mount({ path = '/profile', authenticated = true, publicData, avatar = n
     upload: vi.fn(async () => ok({})),
     createSignedUrl: vi.fn(async (path) => ok({ signedUrl: `https://storage.test/signed/${path}?token=test` })),
   };
-  const query = { select: vi.fn(() => query), eq: vi.fn(() => query), maybeSingle: vi.fn(async () => ok(publicData === undefined ? { ...profile, id: other, display_name: 'Outro perfil' } : publicData)) };
+  const query = { select: vi.fn(() => query), eq: vi.fn(() => query), order: vi.fn(async () => ok([])), maybeSingle: vi.fn(async () => ok(publicData === undefined ? { ...profile, id: other, display_name: 'Outro perfil' } : publicData)) };
   const client = {
     auth: {
       getSession: async () => ok({ session }),
@@ -54,6 +54,55 @@ it('loads own profile from RPC and renders the new navigation without listing us
   expect(screen.getByRole('navigation', { name: 'Menu principal' })).toBeTruthy();
   expect(client.rpc).toHaveBeenCalledWith('get_my_profile');
   expect(client.from).not.toHaveBeenCalled();
+});
+
+it('collapses the sidebar while preserving accessible navigation and restores the profile card', async () => {
+  const { user, client } = mount();
+  await screen.findByRole('heading', { name: 'Ana' });
+  await user.click(screen.getByRole('button', { name: 'Recolher menu' }));
+  expect(screen.getByRole('button', { name: 'Expandir menu' }).getAttribute('aria-expanded')).toBe('false');
+  const nav = screen.getByRole('navigation', { name: 'Menu principal' });
+  expect(within(nav).getByRole('link', { name: 'Amigos' }).getAttribute('href')).toBe('/friends');
+  expect(screen.queryByText('XP indisponível')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Expandir menu' }));
+  expect(screen.getByText('XP indisponível')).toBeTruthy();
+  expect(client.from).not.toHaveBeenCalled();
+});
+
+it('keeps search and notifications disabled and opens the existing inbox from mobile navigation', async () => {
+  const { user, client } = mount();
+  await screen.findByRole('heading', { name: 'Ana' });
+  expect(screen.getByRole('textbox', { name: 'Busca disponível em breve' }).disabled).toBe(true);
+  expect(screen.getByRole('button', { name: 'Notificações disponíveis em breve' }).disabled).toBe(true);
+  await user.click(within(screen.getByRole('navigation', { name: 'Menu móvel' })).getByRole('link', { name: 'Chat' }));
+  await screen.findByRole('heading', { name: 'Mensagens' });
+  await waitFor(() => expect(client.from).toHaveBeenCalledWith('friendships'));
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(within(screen.getByRole('navigation', { name: 'Trilha de navegação' })).getByText('Mensagens')).toBeTruthy();
+});
+
+it('opens friends and safe placeholder routes through the restored sidebar', async () => {
+  const { user, client } = mount();
+  await screen.findByRole('heading', { name: 'Ana' });
+  const nav = screen.getByRole('navigation', { name: 'Menu principal' });
+  await user.click(within(nav).getByRole('link', { name: 'Amigos' }));
+  await screen.findByRole('heading', { name: 'Amigos', exact: true });
+  expect(client.from).toHaveBeenCalledWith('friendships');
+  expect(screen.queryByRole('alert')).toBeNull();
+  await user.click(within(nav).getByRole('link', { name: 'Obras' }));
+  await screen.findByRole('heading', { name: 'Esta área estará disponível em breve' });
+});
+
+it('shares signed private avatar media across the shell and clears it after logout', async () => {
+  const { bucket, emit } = mount({ avatar: `${owner}/a.png` });
+  await screen.findByRole('heading', { name: 'Ana' });
+  const avatars = await screen.findAllByAltText('Ana');
+  expect(avatars).toHaveLength(2);
+  for (const image of avatars) expect(image.src).toContain(`https://storage.test/signed/${owner}/a.png`);
+  expect(bucket.createSignedUrl).toHaveBeenCalledWith(`${owner}/a.png`, 60);
+  act(() => emit('SIGNED_OUT', null));
+  await screen.findByRole('heading', { name: 'Entrar' });
+  expect(screen.queryAllByAltText('Ana')).toHaveLength(0);
 });
 
 it('edits profile, clears favorites, normalizes country and refreshes header', async () => {

@@ -11,6 +11,7 @@ const SECTION_MAP = {
   recomendacoes: "Recomendações",
   events: "Eventos",
   friends: "Amigos",
+  messages: "Mensagens",
   "my-list": "Minha Lista",
   profile: "Perfil",
   trending: "Em Alta",

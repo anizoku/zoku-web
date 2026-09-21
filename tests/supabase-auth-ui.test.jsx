@@ -125,7 +125,8 @@ describe('Supabase routes without legacy data', () => {
   it('restores session, logs out, clears private profile and navigates to login', async () => {
     const { user, client, store } = mount({ path: '/', authenticated: true });
     await screen.findByRole('heading', { name: 'Olá, Ana' });
-    await user.click(screen.getByRole('button', { name: 'Sair' }));
+    await user.click(screen.getByRole('button', { name: 'Menu da conta' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Sair' }));
     await screen.findByRole('heading', { name: 'Entrar' });
     expect(store.getSnapshot().profile).toBeNull();
     expect(client.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
