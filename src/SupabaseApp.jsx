@@ -27,6 +27,7 @@ import {
   PublicProfilePage,
 } from './components/supabase/ProfilePage';
 import FriendsPage from './components/supabase/FriendsPage';
+import DirectMessagesPage from './components/supabase/DirectMessagesPage';
 
 function Frame({ title, children }) {
   return (
@@ -1038,6 +1039,13 @@ export function SupabaseRoutes() {
             path="/friends"
             element={
               <FriendsPage />
+            }
+          />
+
+          <Route
+            path="/messages"
+            element={
+              <DirectMessagesPage />
             }
           />
 

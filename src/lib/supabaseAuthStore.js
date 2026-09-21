@@ -1,6 +1,7 @@
 import { emailCallbackUrl } from './supabaseAuthNavigation.js';
 import { createProfileService } from './supabaseProfileService.js';
 import { createFriendService } from './supabaseFriendService.js';
+import { createDirectMessageService } from './supabaseDirectMessageService.js';
 
 // Framework-independent session lifecycle, shared by the React context and tests.
 export function createSupabaseAuthStore(
@@ -133,6 +134,13 @@ export function createSupabaseAuthStore(
     // Always build against the currently authenticated UUID.
     get friendService() {
       return createFriendService(
+        client,
+        state.user?.id
+      );
+    },
+
+    get directMessageService() {
+      return createDirectMessageService(
         client,
         state.user?.id
       );

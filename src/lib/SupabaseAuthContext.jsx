@@ -36,6 +36,7 @@ export function SupabaseAuthProvider({ children, authStore }) {
       profileService: store.profileService,
       mutateProfile: store.mutateProfile,
       friendService: store.friendService,
+      directMessageService: store.directMessageService,
     }}>
       {children}
     </SupabaseAuthContext.Provider>
