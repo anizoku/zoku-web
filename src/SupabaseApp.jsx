@@ -28,6 +28,7 @@ import {
 } from './components/supabase/ProfilePage';
 import FriendsPage from './components/supabase/FriendsPage';
 import DirectMessagesPage from './components/supabase/DirectMessagesPage';
+import SupabaseHomePage from './components/supabase/home/SupabaseHomePage';
 
 function Frame({ title, children }) {
   return (
@@ -844,37 +845,6 @@ function ProfileSetup() {
   );
 }
 
-function AccountHome() {
-  const auth = useSupabaseAuth();
-
-  return (
-    <section className="space-y-5 py-8">
-      <h1 className="font-space text-2xl font-bold">
-        {`Olá, ${
-          auth.profile
-            .display_name ||
-          auth.profile.username
-        }`}
-      </h1>
-
-      <p>
-        Seu acesso está pronto e seu perfil foi concluído.
-      </p>
-
-      <p className="text-muted-foreground">
-        As demais áreas estão sendo atualizadas e estarão disponíveis em breve.
-      </p>
-
-      <Link
-        to="/profile"
-        className="inline-flex rounded-md bg-primary px-4 py-2 text-primary-foreground font-semibold"
-      >
-        Abrir meu perfil
-      </Link>
-    </section>
-  );
-}
-
 function Unavailable() {
   return (
     <section className="space-y-5 py-8">
@@ -1024,7 +994,7 @@ export function SupabaseRoutes() {
           <Route
             path="/"
             element={
-              <AccountHome />
+              <SupabaseHomePage />
             }
           />
 
