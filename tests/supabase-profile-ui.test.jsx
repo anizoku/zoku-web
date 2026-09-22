@@ -7,6 +7,10 @@ import { SupabaseAuthProvider } from '../src/lib/SupabaseAuthContext';
 import { createSupabaseAuthStore } from '../src/lib/supabaseAuthStore';
 
 vi.mock('../src/api/base44Client', () => { throw new Error('Base44 must not load'); });
+vi.mock('../src/api/supabaseClient', () => ({ getSupabaseAuthClient: () => {
+  const channel = { on: () => channel, subscribe: () => channel };
+  return { channel: () => channel, removeChannel: async () => {} };
+} }));
 const owner = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
 const ok = (data) => ({ data, error: null });
@@ -22,7 +26,7 @@ function mount({ path = '/profile', authenticated = true, publicData, avatar = n
     upload: vi.fn(async () => ok({})),
     createSignedUrl: vi.fn(async (path) => ok({ signedUrl: `https://storage.test/signed/${path}?token=test` })),
   };
-  const query = { select: vi.fn(() => query), eq: vi.fn(() => query), order: vi.fn(async () => ok([])), maybeSingle: vi.fn(async () => ok(publicData === undefined ? { ...profile, id: other, display_name: 'Outro perfil' } : publicData)) };
+  const query = { select: vi.fn(() => query), eq: vi.fn(() => query), or: vi.fn(() => query), order: vi.fn(async () => ok([])), maybeSingle: vi.fn(async () => ok(publicData === undefined ? { ...profile, id: other, display_name: 'Outro perfil' } : publicData)) };
   const client = {
     auth: {
       getSession: async () => ok({ session }),
@@ -53,7 +57,7 @@ it('loads own profile from RPC and renders the new navigation without listing us
   expect(screen.getByText('Minha bio')).toBeTruthy();
   expect(screen.getByRole('navigation', { name: 'Menu principal' })).toBeTruthy();
   expect(client.rpc).toHaveBeenCalledWith('get_my_profile');
-  expect(client.from).not.toHaveBeenCalled();
+  expect(client.from.mock.calls.every(([table]) => ['friendships', 'direct_messages'].includes(table))).toBe(true);
 });
 
 it('collapses the sidebar while preserving accessible navigation and restores the profile card', async () => {
@@ -66,19 +70,21 @@ it('collapses the sidebar while preserving accessible navigation and restores th
   expect(screen.queryByText('XP indisponível')).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Expandir menu' }));
   expect(screen.getByText('XP indisponível')).toBeTruthy();
-  expect(client.from).not.toHaveBeenCalled();
+  expect(client.from.mock.calls.every(([table]) => ['friendships', 'direct_messages'].includes(table))).toBe(true);
 });
 
-it('keeps search and notifications disabled and opens the existing inbox from mobile navigation', async () => {
+it('keeps search and notifications disabled and opens the chat drawer from mobile navigation', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   const { user, client } = mount();
   await screen.findByRole('heading', { name: 'Ana' });
   expect(screen.getByRole('textbox', { name: 'Busca disponível em breve' }).disabled).toBe(true);
   expect(screen.getByRole('button', { name: 'Notificações disponíveis em breve' }).disabled).toBe(true);
-  await user.click(within(screen.getByRole('navigation', { name: 'Menu móvel' })).getByRole('link', { name: 'Chat' }));
-  await screen.findByRole('heading', { name: 'Mensagens' });
+  await user.click(within(screen.getByRole('navigation', { name: 'Menu móvel' })).getByRole('button', { name: 'Chat' }));
+  await screen.findByRole('dialog', { name: 'Chat' });
   await waitFor(() => expect(client.from).toHaveBeenCalledWith('friendships'));
   expect(screen.queryByRole('alert')).toBeNull();
-  expect(within(screen.getByRole('navigation', { name: 'Trilha de navegação' })).getByText('Mensagens')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Fechar chat' }));
+  expect(screen.getByRole('heading', { name: 'Ana' })).toBeTruthy();
 });
 
 it('opens friends and safe placeholder routes through the restored sidebar', async () => {

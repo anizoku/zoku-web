@@ -6,6 +6,8 @@ import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import SupabaseSidebar from './SupabaseSidebar';
 import SupabaseTopBar from './SupabaseTopBar';
 import SupabaseMobileNav from './SupabaseMobileNav';
+import SupabaseChatProvider from '../chat/SupabaseChatProvider';
+import SupabaseChatOverlay from '../chat/SupabaseChatOverlay';
 
 export default function SupabaseAppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -14,7 +16,7 @@ export default function SupabaseAppLayout() {
   const { avatar } = useProfileMedia(profile ? { ...profile, banner_url: null } : null);
   const sidebarWidth = sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-56';
 
-  return <div className="flex bg-background text-foreground min-h-screen">
+  return <SupabaseChatProvider><div className="flex bg-background text-foreground min-h-screen">
     <SupabaseSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(value => !value)} avatar={avatar} />
     <div className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ${sidebarWidth}`}>
       <SupabaseTopBar avatar={avatar} />
@@ -25,7 +27,6 @@ export default function SupabaseAppLayout() {
       </main>
     </div>
     <SupabaseMobileNav />
-    {/* Keep messaging on /messages. Legacy chat, push and auto-image-refresh
-        stay unmounted until separate Supabase integrations are ready. */}
-  </div>;
+    <SupabaseChatOverlay />
+  </div></SupabaseChatProvider>;
 }
